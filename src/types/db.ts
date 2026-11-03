@@ -365,6 +365,83 @@ export interface SiteLog {
   created_at: string
 }
 
+// =====================================================================
+// 묶음4b — 부서 전용 화면 (홍보 / 체험 / 교육 진도·자료·납부)
+//   supabase/묶음4b_부서화면_스키마.sql 과 1:1
+// =====================================================================
+
+/** 홍보 활동 (promo_activities) */
+export interface PromoActivity {
+  id: string
+  title: string
+  channel: string | null
+  owner_id: string | null
+  start_date: string | null
+  end_date: string | null
+  status: 'plan' | 'prog' | 'done'
+  link: string | null
+  memo: string | null
+}
+
+/** 체험 종류 (experience_types) */
+export interface ExperienceType {
+  id: string
+  name: string
+  category: string | null
+  target: string | null
+  duration: string | null
+  capacity: number | null
+  place: string | null
+  active: boolean
+  memo: string | null
+}
+
+/** 교육 학생 (edu_students) */
+export interface EduStudent {
+  id: string
+  student_no: string | null
+  name: string
+  year: number | null
+  class_main: string | null
+  class_sub: string | null
+  active: boolean
+}
+
+/** 교육 수업진도 — 학생별 과목 이수 체크 (edu_progress) */
+export interface EduProgress {
+  id: string
+  student_id: string
+  section: '이론' | '실기' | '시험'
+  subject: string
+  done: boolean
+  sort: number
+}
+
+/** 교육 수업자료 — 이수과목별 자료 메타데이터 (edu_materials) */
+export interface EduMaterial {
+  id: string
+  section: string | null
+  subject: string | null
+  title: string
+  note: string | null
+  file_path: string | null
+  file_name: string | null
+  file_size: number | null
+  uploader_id: string | null
+}
+
+/** 교육 납부현황 — 월별 수강료 청구·납부 (edu_payments) */
+export interface EduPayment {
+  id: string
+  student_id: string
+  charge_ym: string
+  charged: number
+  paid: number
+  method: string | null
+  paid_date: string | null
+  memo: string | null
+}
+
 // 일용직 근무기록 (현장 작업자)
 export interface LaborWorker {
   id: string

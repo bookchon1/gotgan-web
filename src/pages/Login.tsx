@@ -5,10 +5,10 @@ import { useAuth } from '../lib/auth'
 import { isConfigured } from '../lib/supabase'
 
 export default function Login() {
-  const { session, signIn, loading } = useAuth()
+  const { session, signInByName, loading } = useAuth()
   const navigate = useNavigate()
   const loc = useLocation()
-  const [email, setEmail] = useState('')
+  const [name, setName] = useState('')
   const [pw, setPw] = useState('')
   const [showPw, setShowPw] = useState(false)
   const [remember, setRemember] = useState(true)
@@ -29,7 +29,7 @@ export default function Login() {
       return
     }
     setBusy(true)
-    const { error } = await signIn(email.trim(), pw)
+    const { error } = await signInByName(name, pw)
     setBusy(false)
     if (error) {
       setErr(loginErrorKo(error))
@@ -101,7 +101,7 @@ export default function Login() {
             <Icon name="lock" size={12} /> 비공개 업무 공간
           </span>
           <h3>다시 오신 것을 환영합니다.</h3>
-          <p className="sub">등록된 이메일과 비밀번호로 로그인해 주세요.</p>
+          <p className="sub">이름과 비밀번호로 로그인해 주세요.</p>
 
           {!isConfigured && (
             <div className="login-alert warn">
@@ -111,16 +111,17 @@ export default function Login() {
           )}
 
           <div className="login-field">
-            <label>이메일</label>
-            <div className={`box${email ? ' focus' : ''}`}>
+            <label>이름</label>
+            <div className={`box${name ? ' focus' : ''}`}>
               <Icon name="users" size={16} />
               <input
-                type="email"
+                type="text"
                 autoComplete="username"
-                placeholder="you@bookchon.kr"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                placeholder="예: 이윤정"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
                 required
+                autoFocus
               />
             </div>
           </div>
@@ -177,7 +178,8 @@ export default function Login() {
           <div className="login-note">
             <Icon name="shield" className="icon ic" />
             <span>
-              계정 역할과 담당 권한에 따라, 구성원은 허용된 업무와 문서만 이용합니다.
+              처음 로그인하시는 경우 비밀번호는 <b>0000</b> 입니다. 로그인 후 바로 새 비밀번호로
+              변경하게 됩니다.
             </span>
           </div>
         </form>

@@ -2,6 +2,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { useAuth } from './lib/auth'
 import Layout from './components/Layout'
 import Login from './pages/Login'
+import ChangePassword from './pages/ChangePassword'
 import Dashboard from './pages/Dashboard'
 import HR from './pages/HR'
 import { Placeholder } from './pages/Placeholder'
@@ -28,10 +29,12 @@ import Activity from './pages/admin/Activity'
 
 /** 로그인 필요 가드 */
 function RequireAuth({ children }: { children: JSX.Element }) {
-  const { loading, session } = useAuth()
+  const { loading, session, me } = useAuth()
   const loc = useLocation()
   if (loading) return <FullScreen>불러오는 중…</FullScreen>
   if (!session) return <Navigate to="/login" state={{ from: loc }} replace />
+  // 최초 로그인(초기비번) → 비밀번호 재설정 전까지 다른 화면 접근 차단
+  if (me?.must_change_pw) return <ChangePassword />
   return children
 }
 

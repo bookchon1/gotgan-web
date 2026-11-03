@@ -19,6 +19,7 @@ export interface CurrentEmployee {
   is_mgmt: boolean
   is_root: boolean
   status: string
+  must_change_pw: boolean
 }
 
 interface AuthState {
@@ -28,6 +29,7 @@ interface AuthState {
   isAdmin: boolean
   isMgmt: boolean
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
+  signInByName: (name: string, password: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
   reloadMe: () => Promise<void>
 }
@@ -49,6 +51,20 @@ async function fetchMe(userId: string): Promise<CurrentEmployee | null> {
       | { label?: string }[]
       | null
     const dept_label = Array.isArray(dep) ? dep[0]?.label : dep?.label
+
+    // must_change_pw 는 마이그레이션 이후에만 존재 → 별도 조회(없으면 false 로 간주해 로그인 막지 않음)
+    let mustChange = false
+    try {
+      const { data: m } = await supabase
+        .from('employees')
+        .select('must_change_pw')
+        .eq('auth_user_id', userId)
+        .maybeSingle()
+      mustChange = Boolean((m as { must_change_pw?: boolean } | null)?.must_change_pw)
+    } catch {
+      mustChange = false
+    }
+
     return {
       id: data.id,
       name: data.name,
@@ -59,6 +75,7 @@ async function fetchMe(userId: string): Promise<CurrentEmployee | null> {
       is_mgmt: Boolean(data.is_mgmt),
       is_root: Boolean(data.is_root),
       status: data.status ?? '재직',
+      must_change_pw: mustChange,
     }
   } catch {
     return null
@@ -107,6 +124,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isMgmt: Boolean(me?.is_mgmt),
     async signIn(email, password) {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
+      return { error: error ? error.message : null }
+    },
+    async signInByName(name, password) {
+      // 이름 → 로그인 이메일 (RPC). 미등록이면 안내.
+      const { data: email, error: rpcErr } = await supabase.rpc('login_email_for_name', {
+        p_name: name.trim(),
+      })
+      if (rpcErr) return { error: rpcErr.message }
+      if (!email) return { error: '등록되지 않은 이름이거나 로그인 계정이 아직 없습니다.' }
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email as string,
+        password,
+      })
       return { error: error ? error.message : null }
     },
     async signOut() {

@@ -85,8 +85,7 @@ export default function HR() {
   const filtered = useMemo(() => {
     const searching = q.trim().length > 0
     return rows.filter((r) => {
-      // 검색어가 없으면 재직자만. 검색 시에는 퇴직·휴직 포함 전체에서 찾는다.
-      if (!searching && r.status !== '재직') return false
+      // 기본값: 전체 상태(재직·휴직·퇴직 모두 표시). 검색 시에도 전체에서 찾는다.
       if (searching) {
         const s = q.trim().toLowerCase()
         // 부서명(주소속 + 겸소속)도 검색 대상에 포함

@@ -266,3 +266,28 @@ export interface Meeting {
   attendees: string | null
   body: string | null
 }
+
+export interface Inventory {
+  id: string
+  code: string | null
+  category: '완제품' | '부자재' | null
+  name: string
+  stock: number
+  min_qty: number
+  unit_price: number
+  incoming: number
+  location: string | null
+  memo: string | null
+  updated_at: string
+}
+
+export interface PurchaseHistory {
+  id: string
+  inventory_id: string | null
+  code: string | null
+  date: string
+  qty: number
+  unit_price: number
+  partner: string | null
+  doc_no: string | null
+}

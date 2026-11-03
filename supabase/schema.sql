@@ -369,6 +369,35 @@ create table if not exists public.meetings (
   created_at  timestamptz not null default now()
 );
 
+-- 상품 재고 (상품실)
+create table if not exists public.inventory (
+  id          uuid primary key default gen_random_uuid(),
+  code        text,
+  category    text check (category in ('완제품','부자재')),
+  name        text not null,
+  stock       int not null default 0,
+  min_qty     int not null default 0,       -- 적정 재고(이하면 부족)
+  unit_price  bigint not null default 0,
+  incoming    int not null default 0,       -- 입고 예정
+  location    text,
+  memo        text,
+  updated_at  timestamptz not null default now()
+);
+
+-- 매입 이력 (입고 시 자동 기록)
+create table if not exists public.purchase_history (
+  id          uuid primary key default gen_random_uuid(),
+  inventory_id uuid references public.inventory(id) on delete cascade,
+  code        text,
+  date        date not null default current_date,
+  qty         int not null,
+  unit_price  bigint not null,
+  partner     text,
+  doc_no      text,
+  created_at  timestamptz not null default now()
+);
+create index if not exists idx_purchase_hist_inv on public.purchase_history(inventory_id, date);
+
 -- 활동 기록 (감사 로그, append-only)
 create table if not exists public.audit_log (
   id          bigint generated always as identity primary key,

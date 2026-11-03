@@ -112,3 +112,23 @@ insert into public.documents (title, category, owner_id, share_scope)
    ('직원 복무규정 2026','규정','이윤정','전사'),
    ('10월 지출결의 모음','회계','이윤정','개인')
   ) as v(title,cat,owner,scope);
+
+-- 상품 재고 데모 (시안 INVENTORY)
+insert into public.inventory (code, category, name, stock, min_qty, unit_price, incoming, location) values
+  ('BK-001','완제품','도록 《북촌의 불교미술》',42,10,18000,0,'수장고 A-1'),
+  ('BK-014','완제품','기념 엽서 세트',6,20,3500,0,'사무실 선반'),
+  ('BK-023','완제품','단청 문양 노트',15,15,6000,0,'수장고 A-2'),
+  ('MT-005','부자재','한지 (전통 보존용)',8,30,12000,0,'자재창고'),
+  ('MT-011','부자재','천연 안료 세트',24,10,45000,0,'자재창고'),
+  ('BK-030','완제품','불화 엽서집',3,12,5000,0,'사무실 선반');
+
+-- 매입 이력 데모
+insert into public.purchase_history (inventory_id, code, date, qty, unit_price, partner, doc_no)
+  select i.id, i.code, cast(d.date as date), d.qty, d.price, d.partner, d.docno
+  from (values
+   ('BK-001','2026-08-15',50,17000,'대한인쇄','제2026-0088호'),
+   ('BK-001','2026-10-02',30,18000,'대한인쇄','제2026-0121호'),
+   ('MT-005','2026-09-10',40,11500,'북촌지류','제2026-0105호'),
+   ('MT-011','2026-07-20',20,44000,'한국미술재료상사','제2026-0071호')
+  ) as d(code,date,qty,price,partner,docno)
+  join public.inventory i on i.code = d.code;

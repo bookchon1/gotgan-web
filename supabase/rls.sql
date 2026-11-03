@@ -346,6 +346,25 @@ do $$ begin
     using (public.app_is_active_employee()) with check (public.app_is_active_employee());
 end $$;
 
+-- 재고 · 매입이력: 재직자 조회, 변경은 관리자
+alter table public.inventory enable row level security;
+alter table public.purchase_history enable row level security;
+do $$ begin
+  drop policy if exists inv_read on public.inventory;
+  create policy inv_read on public.inventory for select to authenticated
+    using (public.app_is_active_employee());
+  drop policy if exists inv_write on public.inventory;
+  create policy inv_write on public.inventory for all to authenticated
+    using (public.app_is_admin()) with check (public.app_is_admin());
+
+  drop policy if exists ph_read on public.purchase_history;
+  create policy ph_read on public.purchase_history for select to authenticated
+    using (public.app_is_active_employee());
+  drop policy if exists ph_write on public.purchase_history;
+  create policy ph_write on public.purchase_history for all to authenticated
+    using (public.app_is_admin()) with check (public.app_is_admin());
+end $$;
+
 -- 활동 기록: 관리자 조회만 (append 는 트리거/RPC)
 do $$ begin
   drop policy if exists au_read on public.audit_log;

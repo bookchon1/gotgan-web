@@ -8,6 +8,7 @@ import { Placeholder } from './pages/Placeholder'
 import Tasks from './pages/Tasks'
 import ArtList from './pages/ops/ArtList'
 import ArtDetail from './pages/ops/ArtDetail'
+import Inventory from './pages/ops/Inventory'
 import Accounting from './pages/accounting/Accounting'
 import Labor from './pages/labor/Labor'
 import Approvals from './pages/Approvals'
@@ -76,7 +77,7 @@ export default function App() {
         <Route path="/ops/art/:id" element={<ArtDetail />} />
         <Route path="/ops/art-field" element={<Placeholder title="현장관리" />} />
         {/* 기타 영역 */}
-        <Route path="/ops/product" element={<Placeholder title="재고현황" />} />
+        <Route path="/ops/product" element={<Inventory />} />
         <Route path="/ops/promotion" element={<Placeholder title="홍보현황" />} />
         <Route path="/ops/experience" element={<Placeholder title="체험현황" />} />
         <Route path="/ops/edu-progress" element={<Placeholder title="수업진도" />} />

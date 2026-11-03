@@ -52,16 +52,78 @@ export default function Approvals() {
   const myId = me?.id
   const pending = all.filter((a) => {
     const lines = linesByAppr[a.id] ?? []
-    // 내 차례 = 내가 승인자이고 아직 대기인 단계
-    return lines.some((l) => l.approver_id === myId && l.decided === '대기') && a.status !== '승인' && a.status !== '반려'
+    // 내 차례 = 내게 아직 대기인 결재선이 있고, 그 앞 단계가 모두 승인됨 (반려/회계접수완료 제외)
+    if (a.status === '반려' || a.status === '회계접수') return false
+    const sorted = lines.slice().sort((x, y) => x.seq - y.seq)
+    const myIdx = sorted.findIndex((l) => l.approver_id === myId && l.decided === '대기')
+    if (myIdx < 0) return false
+    return sorted.slice(0, myIdx).every((l) => l.decided === '승인')
   })
   const drafted = all.filter((a) => a.drafter_id === myId)
-  const done = all.filter((a) => a.status === '승인' || a.status === '회계접수')
+  const done = all.filter((a) => a.status === '회계접수' || (a.status === '승인' && a.kind !== '지출결의서'))
 
   const list = folder === 'pending' ? pending : folder === 'drafted' ? drafted : done
   const title = folder === 'pending' ? '내 결재 대기' : folder === 'drafted' ? '상신한 문서' : '완료 문서'
 
   const loading = apprQ.loading || linesQ.loading
+  const [busy, setBusy] = useState(false)
+
+  const reload = () => {
+    apprQ.reload()
+    linesQ.reload()
+  }
+
+  // 승인/반려 처리
+  async function decide(a: Approval, decision: '승인' | '반려') {
+    const lines = (linesByAppr[a.id] ?? []).slice().sort((x, y) => x.seq - y.seq)
+    const myLine = lines.find((l) => l.approver_id === myId && l.decided === '대기')
+    if (!myLine) return
+    setBusy(true)
+    // 내 단계 처리
+    await supabase
+      .from('approval_lines')
+      .update({ decided: decision, decided_at: new Date().toISOString() })
+      .eq('id', myLine.id)
+
+    if (decision === '반려') {
+      await supabase.from('approvals').update({ status: '반려' }).eq('id', a.id)
+    } else {
+      // 승인: 남은 승인 단계(회계접수 제외)가 있나?
+      const remainApproval = lines.some(
+        (l) => l.id !== myLine.id && l.role === '승인' && l.decided === '대기',
+      )
+      const isAcctStep = myLine.role === '회계접수'
+      let newStatus: Approval['status'] = a.status
+      if (isAcctStep) {
+        newStatus = '회계접수'
+      } else if (!remainApproval) {
+        // 승인 단계 모두 끝 → 회계접수 단계가 있으면 '승인'(회계접수 대기), 없으면 '승인'
+        newStatus = '승인'
+      } else {
+        newStatus = '진행'
+      }
+      await supabase.from('approvals').update({ status: newStatus }).eq('id', a.id)
+
+      // 지출결의서가 최종 승인되면 회계 전표 생성 (회계접수 단계에서)
+      if (isAcctStep && a.kind === '지출결의서' && a.amount) {
+        await supabase.from('acct_tx').insert({
+          date: new Date().toISOString().slice(0, 10),
+          biz_code: a.biz_code ?? '법인',
+          dept_key: a.dept_key,
+          tx_type: '지출',
+          account: a.account,
+          amount: a.amount,
+          memo: a.title ?? a.memo,
+          project_id: a.project_id,
+          budget_item: a.budget_item,
+          src: '결의서',
+          year: new Date().getFullYear(),
+        })
+      }
+    }
+    setBusy(false)
+    reload()
+  }
 
   return (
     <div className="page on">
@@ -100,10 +162,11 @@ export default function Approvals() {
                 <th>종류</th>
                 <th>결재 진행</th>
                 <th style={{ textAlign: 'right' }}>금액</th>
+                {folder === 'pending' && <th style={{ textAlign: 'right' }}>처리</th>}
               </tr>
             </thead>
             <tbody>
-              {loading && <LoadingRow cols={5} />}
+              {loading && <LoadingRow cols={folder === 'pending' ? 6 : 5} />}
               {!loading &&
                 list.map((a) => {
                   const kb = KIND_BADGE[a.kind] ?? KIND_BADGE['일반']
@@ -124,11 +187,31 @@ export default function Approvals() {
                       <td className="tnum" style={{ textAlign: 'right' }}>
                         {a.amount ? eok(a.amount) : '—'}
                       </td>
+                      {folder === 'pending' && (
+                        <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          <button
+                            className="btn pri"
+                            style={{ padding: '5px 11px', fontSize: 11.5 }}
+                            onClick={() => decide(a, '승인')}
+                            disabled={busy}
+                          >
+                            승인
+                          </button>
+                          <button
+                            className="btn sec"
+                            style={{ padding: '5px 11px', fontSize: 11.5, marginLeft: 5 }}
+                            onClick={() => decide(a, '반려')}
+                            disabled={busy}
+                          >
+                            반려
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   )
                 })}
               {!loading && list.length === 0 && (
-                <EmptyRow cols={5} text={folder === 'pending' ? '결재할 문서가 없습니다.' : '문서가 없습니다.'} />
+                <EmptyRow cols={folder === 'pending' ? 6 : 5} text={folder === 'pending' ? '결재할 문서가 없습니다.' : '문서가 없습니다.'} />
               )}
             </tbody>
           </table>

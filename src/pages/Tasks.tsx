@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { PageHead } from '../components/PageHead'
 import { ErrorBanner, LoadingRow, EmptyRow } from '../components/States'
@@ -38,14 +38,55 @@ export default function Tasks() {
     return m
   }, [empQ.data])
 
+  const [busy, setBusy] = useState(false)
+  async function toggleDone(t: WorkTask) {
+    setBusy(true)
+    const next = t.status === 'done' ? 'prog' : 'done'
+    await supabase.from('work_tasks').update({ status: next }).eq('id', t.id)
+    setBusy(false)
+    taskQ.reload()
+  }
+
   const tasks = taskQ.data ?? []
   const nPlan = tasks.filter((t) => t.status === 'plan').length
   const nProg = tasks.filter((t) => t.status === 'prog').length
   const nDone = tasks.filter((t) => t.status === 'done').length
 
+  const [showAdd, setShowAdd] = useState(false)
+  const [form, setForm] = useState({ title: '', owner: '', start: '', due: '', detail: '' })
+  async function addTask() {
+    if (!form.title.trim()) return
+    setBusy(true)
+    const ownerId = (empQ.data ?? []).find((e) => e.name === form.owner)?.id ?? null
+    await supabase.from('work_tasks').insert({
+      area: area!,
+      title: form.title.trim(),
+      dept: a?.label ?? null,
+      detail: form.detail || null,
+      owner_id: ownerId,
+      reg_date: new Date().toISOString().slice(0, 10),
+      start_date: form.start || null,
+      due_date: form.due || null,
+      status: 'plan',
+    })
+    setBusy(false)
+    setShowAdd(false)
+    setForm({ title: '', owner: '', start: '', due: '', detail: '' })
+    taskQ.reload()
+  }
+
   return (
     <div className="page on">
-      <PageHead eyebrow="업무관리" title={label} desc="부서별 업무를 한눈에 확인하세요." />
+      <PageHead
+        eyebrow="업무관리"
+        title={label}
+        desc="부서별 업무를 한눈에 확인하세요."
+        actions={
+          <button className="btn pri" onClick={() => setShowAdd(true)}>
+            + 업무 등록
+          </button>
+        }
+      />
 
       {/* KPI 미니 탭 */}
       <div className="stats" style={{ marginBottom: 14 }}>
@@ -86,7 +127,12 @@ export default function Tasks() {
                   return (
                     <tr key={t.id}>
                       <td>
-                        <button className={`task-check${chk ? ' checked' : ''}`} title={chk ? '완료' : '완료 처리'}>
+                        <button
+                          className={`task-check${chk ? ' checked' : ''}`}
+                          title={chk ? '완료 취소' : '완료 처리'}
+                          onClick={() => toggleDone(t)}
+                          disabled={busy}
+                        >
                           {chk && (
                             <svg className="icon" width="11" height="11" viewBox="0 0 24 24">
                               <path d="M5 12l4 4 10-10" />
@@ -137,6 +183,67 @@ export default function Tasks() {
           </table>
         </div>
       </section>
+
+      {showAdd && (
+        <div className="modal-bg" onClick={() => setShowAdd(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="mh">
+              <div>
+                <div className="eyebrow">업무 등록</div>
+                <h3>{label}</h3>
+              </div>
+              <button className="x" onClick={() => setShowAdd(false)}>
+                ✕
+              </button>
+            </div>
+            <div className="mb">
+              <div className="mfield">
+                <label>업무명</label>
+                <input
+                  className="ctl"
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  placeholder="예: 보존처리 설계도면 작성"
+                  autoFocus
+                />
+              </div>
+              <div className="mfield">
+                <label>담당자</label>
+                <select className="ctl" value={form.owner} onChange={(e) => setForm({ ...form, owner: e.target.value })}>
+                  <option value="">선택</option>
+                  {(empQ.data ?? []).map((e) => (
+                    <option key={e.id} value={e.name}>
+                      {e.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <div className="mfield" style={{ flex: 1 }}>
+                  <label>시작일</label>
+                  <input className="ctl" type="date" value={form.start} onChange={(e) => setForm({ ...form, start: e.target.value })} />
+                </div>
+                <div className="mfield" style={{ flex: 1 }}>
+                  <label>마감일</label>
+                  <input className="ctl" type="date" value={form.due} onChange={(e) => setForm({ ...form, due: e.target.value })} />
+                </div>
+              </div>
+              <div className="mfield">
+                <label>세부분류</label>
+                <input className="ctl" value={form.detail} onChange={(e) => setForm({ ...form, detail: e.target.value })} placeholder="예: 설계 / 조사 / 작업" />
+              </div>
+            </div>
+            <div className="mf">
+              <button className="btn sec" onClick={() => setShowAdd(false)} disabled={busy}>
+                취소
+              </button>
+              <button className="btn pri" onClick={addTask} disabled={busy || !form.title.trim()}>
+                {busy ? '등록 중…' : '등록'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

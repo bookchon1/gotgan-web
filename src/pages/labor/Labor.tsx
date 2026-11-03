@@ -3,6 +3,7 @@ import { PageHead } from '../../components/PageHead'
 import { ErrorBanner, LoadingRow, EmptyRow } from '../../components/States'
 import { supabase } from '../../lib/supabase'
 import { useQuery } from '../../lib/useQuery'
+import { useAuth } from '../../lib/auth'
 import { won, dateOnly, mmdd } from '../../lib/format'
 import type {
   Employee,
@@ -442,16 +443,24 @@ function deptLabel(key: string | null): string {
 }
 
 // ===================== 급여 =====================
+/** 상태 배지 색상 (작성중 → 상신완료 → 지급완료) */
+function payStatusBadge(status: string) {
+  const cls = status === '지급완료' ? 'badge green' : status === '상신완료' ? 'badge gold' : 'badge'
+  return <span className={cls} style={{ fontSize: 10 }}>{status}</span>
+}
+
 function PayView({ empById }: { empById: Record<string, { name: string; dept: string }> }) {
   const [ym, setYm] = useState('2026-10')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
+  const [submitOpen, setSubmitOpen] = useState(false)
 
   const runQ = useQuery<PayrollRun[]>(
     async () => await supabase.from('payroll_runs').select('*').eq('ym', ym),
     [ym],
   )
   const run = runQ.data?.[0]
+  const status = run?.status ?? '작성중'
   const slipsQ = useQuery<Payslip[]>(
     async () =>
       run
@@ -473,6 +482,13 @@ function PayView({ empById }: { empById: Record<string, { name: string; dept: st
   }
 
   async function copyPrev() {
+    // 기존 대장(명세 있음)이면 덮어쓰기 경고
+    if (slips.length > 0) {
+      const ok = window.confirm(
+        `${ym} 급여대장이 이미 ${slips.length}명 작성되어 있습니다.\n전월 복사는 작성중 대장이 비어 있을 때만 가능합니다. 계속하시겠습니까?`,
+      )
+      if (!ok) return
+    }
     setBusy(true)
     setMsg(null)
     const { error } = await supabase.rpc('copy_prev_payroll', { p_target_ym: ym })
@@ -486,6 +502,56 @@ function PayView({ empById }: { empById: Record<string, { name: string; dept: st
     }
   }
 
+  // 전 직원 명세서 발송 — 각 급여 행을 payslips 에 발급(발송)하고 지급완료로.
+  async function sendSlips() {
+    if (!run || slips.length === 0) return
+    const ok = window.confirm(`전 직원 ${slips.length}명에게 ${ym} 급여명세서를 발송하시겠습니까?`)
+    if (!ok) return
+    setBusy(true)
+    setMsg(null)
+    const payDate = `${ym}-25`
+    // 급여 행(지급·공제 6항목·실지급액)을 payslips 로 발급. pay_date 기록 = 발송 처리.
+    // run_id+employee_id 유니크 → upsert 로 기존 행에도 안전하게 반영(유일 생성 경로).
+    const rows = slips.map((s) => ({
+      run_id: run.id,
+      employee_id: s.employee_id,
+      base_pay: s.base_pay,
+      allowances: s.allowances,
+      d_pension: s.d_pension,
+      d_health: s.d_health,
+      d_ltc: s.d_ltc,
+      d_employment: s.d_employment,
+      d_income_tax: s.d_income_tax,
+      d_local_tax: s.d_local_tax,
+      d_other: s.d_other,
+      pay_date: payDate,
+    }))
+    const { error: upErr } = await supabase
+      .from('payslips')
+      .upsert(rows, { onConflict: 'run_id,employee_id' })
+    if (upErr) {
+      setBusy(false)
+      setMsg(upErr.message)
+      return
+    }
+    const { error: stErr } = await supabase
+      .from('payroll_runs')
+      .update({ status: '지급완료', paid_at: new Date().toISOString() })
+      .eq('id', run.id)
+    setBusy(false)
+    if (stErr) {
+      setMsg(stErr.message)
+    } else {
+      setMsg(`전 직원 ${slips.length}명에게 ${ym} 급여명세서를 발송했습니다. (지급일 ${payDate})`)
+      runQ.reload()
+      slipsQ.reload()
+    }
+  }
+
+  const canSubmit = status === '작성중' && slips.length > 0
+  const canSend = (status === '상신완료' || status === '지급완료') && slips.length > 0
+  const showCopy = status === '작성중'
+
   return (
     <section className="panel">
       <ErrorBanner error={runQ.error} table="payroll_runs" />
@@ -494,6 +560,9 @@ function PayView({ empById }: { empById: Record<string, { name: string; dept: st
           <h2>
             급여대장 <span className="count">{slipsQ.loading ? '…' : slips.length}</span>
           </h2>
+          <p>
+            귀속월 {ym} · {payStatusBadge(status)} · 전 직원 급여를 한 표로 관리 · 지출결의서 일괄 상신
+          </p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <select className="sel" value={ym} onChange={(e) => setYm(e.target.value)}>
@@ -501,14 +570,16 @@ function PayView({ empById }: { empById: Record<string, { name: string; dept: st
             <option value="2026-09">2026-09</option>
             <option value="2026-11">2026-11</option>
           </select>
-          <button className="btn sec" onClick={copyPrev} disabled={busy}>
-            {busy ? '복사 중…' : '전월 급여 복사'}
-          </button>
+          {showCopy && (
+            <button className="btn sec" onClick={copyPrev} disabled={busy}>
+              {busy ? '복사 중…' : '전월 급여 복사'}
+            </button>
+          )}
         </div>
       </div>
 
       {msg && (
-        <div className={`login-alert ${msg.includes('복사했') ? 'warn' : 'err'}`} style={{ margin: '0 0 12px' }}>
+        <div className={`login-alert ${msg.includes('복사') || msg.includes('발송') ? 'warn' : 'err'}`} style={{ margin: '0 0 12px' }}>
           {msg}
         </div>
       )}
@@ -575,14 +646,223 @@ function PayView({ empById }: { empById: Record<string, { name: string; dept: st
         </table>
       </div>
 
-      {run && (
+      {slips.length > 0 && (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginTop: 14, flexWrap: 'wrap' }}>
           <div className="sec-mini" style={{ margin: 0 }}>
-            상태: <b>{run.status}</b> · 전 직원 급여를 <b>지출결의서 1건</b>으로 묶어 상신합니다.
+            {status === '상신완료' ? (
+              <>지급총액 <b>₩{won(tNet)}</b> · 지출결의서 상신됨 → <b>회계 › 접수 대기</b> 반영 후 명세서를 발송하세요.</>
+            ) : status === '지급완료' ? (
+              <>지급총액 <b>₩{won(tNet)}</b> · <b style={{ color: 'var(--brand)' }}>회계처리 완료</b> → 각 직원에게 급여명세서를 발송하세요(본인만 열람).</>
+            ) : (
+              <>지급총액 <b>₩{won(tNet)}</b> · 전 직원 급여를 <b>지출결의서 1건</b>으로 묶어 상신합니다.</>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {canSend && (
+              <button className="btn sec" onClick={sendSlips} disabled={busy}>
+                {busy ? '발송 중…' : '전 직원 명세서 발송'}
+              </button>
+            )}
+            <button
+              className="btn pri"
+              disabled={!canSubmit || busy}
+              style={{ opacity: canSubmit ? 1 : 0.45, cursor: canSubmit ? 'pointer' : 'not-allowed' }}
+              onClick={() => setSubmitOpen(true)}
+            >
+              {status === '상신완료' ? '상신 완료 · 회계 승인 대기' : '지출결의서 일괄 상신 →'}
+            </button>
           </div>
         </div>
       )}
+
+      {submitOpen && run && (
+        <PaySubmitModal
+          ym={ym}
+          runId={run.id}
+          count={slips.length}
+          total={tNet}
+          onClose={() => setSubmitOpen(false)}
+          onSubmitted={(m) => {
+            setSubmitOpen(false)
+            setMsg(m)
+            runQ.reload()
+            slipsQ.reload()
+          }}
+        />
+      )}
     </section>
+  )
+}
+
+// ===================== 급여 지출결의서 일괄 상신 모달 =====================
+function PaySubmitModal({
+  ym,
+  runId,
+  count,
+  total,
+  onClose,
+  onSubmitted,
+}: {
+  ym: string
+  runId: string
+  count: number
+  total: number
+  onClose: () => void
+  onSubmitted: (msg: string) => void
+}) {
+  const { me } = useAuth()
+  const [title, setTitle] = useState(`${ym} 급여 지급`)
+  const [account, setAccount] = useState('급여 (판매관리비)')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  // 결재선 안내용 담당자 이름 (기안 이윤정 → 검토 김성헌 → 승인 김도래). 실제 id 는 null 허용.
+  const lineQ = useQuery<Pick<Employee, 'id' | 'name' | 'title'>[]>(
+    async () =>
+      await supabase
+        .from('employees')
+        .select('id,name,title')
+        .in('name', ['이윤정', '김성헌', '김도래'])
+        .eq('status', '재직'),
+    [],
+  )
+  const byName = useMemo(() => {
+    const m: Record<string, { id: string; name: string }> = {}
+    for (const e of lineQ.data ?? []) m[e.name] = { id: e.id, name: e.name }
+    return m
+  }, [lineQ.data])
+
+  async function submit() {
+    setBusy(true)
+    setErr(null)
+    const docNo = `제${new Date().getFullYear()}-${String(Math.floor(Math.random() * 9000) + 1000)}호`
+    // 1) 전자결재 지출결의서 1건 (kind:지출결의서, amount:급여총액, memo:'{월} 급여 N인')
+    const { data: appr, error } = await supabase
+      .from('approvals')
+      .insert({
+        doc_no: docNo,
+        kind: '지출결의서',
+        drafter_id: me?.id ?? null,
+        biz_code: '법인',
+        dept_key: 'management',
+        title: title.trim() || `${ym} 급여 지급`,
+        amount: total,
+        account: account || null,
+        memo: `${ym} 급여 ${count}인`,
+        req_date: new Date().toISOString().slice(0, 10),
+        status: '진행',
+      })
+      .select('id')
+      .single()
+    if (error || !appr) {
+      setBusy(false)
+      setErr(error?.message ?? '생성 실패')
+      return
+    }
+
+    // 2) 결재선: 기안(이윤정/본인, 승인) → 검토(김성헌) → 승인(김도래) → 회계접수. id 는 null 허용.
+    const drafter = byName['이윤정']?.id ?? me?.id ?? null
+    const reviewer = byName['김성헌']?.id ?? null
+    const approver = byName['김도래']?.id ?? null
+    const lns = [
+      { approval_id: appr.id, seq: 1, approver_id: drafter, role: '기안' as const, decided: '승인' },
+      { approval_id: appr.id, seq: 2, approver_id: reviewer, role: '승인' as const, decided: '대기' },
+      { approval_id: appr.id, seq: 3, approver_id: approver, role: '승인' as const, decided: '대기' },
+      { approval_id: appr.id, seq: 4, approver_id: null, role: '회계접수' as const, decided: '대기' },
+    ]
+    await supabase.from('approval_lines').insert(lns)
+
+    // 3) payroll_runs.status = '상신완료'
+    const { error: stErr } = await supabase
+      .from('payroll_runs')
+      .update({ status: '상신완료', submitted_at: new Date().toISOString() })
+      .eq('id', runId)
+    setBusy(false)
+    if (stErr) {
+      setErr(stErr.message)
+      return
+    }
+    onSubmitted(
+      `✓ ${docNo} · ${ym} 급여 지급 지출결의서를 상신했습니다(₩${won(total)}, ${count}인). ` +
+        `→ 전자결재 승인 후 회계 › 접수 대기로 이동합니다.`,
+    )
+  }
+
+  return (
+    <div className="modal-bg" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="mh">
+          <div>
+            <div className="eyebrow">노무 · 급여 지출결의</div>
+            <h3>지출결의서 일괄 상신</h3>
+          </div>
+          <button className="x" onClick={onClose}>
+            ✕
+          </button>
+        </div>
+        <div className="mb">
+          <div className="field-grid" style={{ gridTemplateColumns: 'repeat(2,1fr)', gap: 10 }}>
+            <div className="field">
+              <div className="fl">문서번호</div>
+              <div className="fv">상신 시 자동 발번</div>
+            </div>
+            <div className="field">
+              <div className="fl">귀속월</div>
+              <div className="fv">{ym}</div>
+            </div>
+            <div className="field">
+              <div className="fl">대상 인원</div>
+              <div className="fv tnum">{count}명</div>
+            </div>
+            <div className="field">
+              <div className="fl">지급 총액</div>
+              <div className="fv tnum" style={{ color: 'var(--brand)', fontWeight: 800 }}>
+                ₩{won(total)}
+              </div>
+            </div>
+          </div>
+          <div className="mfield">
+            <label>적요</label>
+            <input className="ctl" value={title} onChange={(e) => setTitle(e.target.value)} />
+          </div>
+          <div className="mfield">
+            <label>계정과목</label>
+            <select className="ctl" value={account} onChange={(e) => setAccount(e.target.value)}>
+              <option value="급여 (판매관리비)">급여 (판매관리비)</option>
+              <option value="임금 (제조원가)">임금 (제조원가)</option>
+            </select>
+          </div>
+          <div className="mfield">
+            <label>결재선</label>
+            <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', alignItems: 'center' }}>
+              <span className="badge">기안 이윤정</span>
+              <span style={{ color: 'var(--muted)' }}>→</span>
+              <span className="badge">검토 김성헌</span>
+              <span style={{ color: 'var(--muted)' }}>→</span>
+              <span className="badge gold">승인 김도래</span>
+              <span style={{ color: 'var(--muted)' }}>→</span>
+              <span className="badge green">회계접수 담당</span>
+            </div>
+          </div>
+          <div className="sec-mini" style={{ margin: '4px 0 0' }}>
+            <b>상신하면 자동으로:</b> ① 전자결재에 지출결의서 1건 등록(급여 명세 첨부) ② 최종 승인 시 <b>회계 › 접수 대기</b>로 이동 ③ 담당자 접수 시 장부에 <b>급여 지출</b>로 반영 — 개별 직원 전표가 아니라 <b>월 급여 1건</b>으로 처리됩니다.
+          </div>
+          {err && (
+            <div className="login-alert err" style={{ margin: '8px 0 0' }}>
+              {err}
+            </div>
+          )}
+        </div>
+        <div className="mf">
+          <button className="btn sec" onClick={onClose} disabled={busy}>
+            닫기
+          </button>
+          <button className="btn pri" onClick={submit} disabled={busy}>
+            {busy ? '상신 중…' : '상신'}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 

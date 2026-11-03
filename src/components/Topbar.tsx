@@ -1,6 +1,4 @@
-import { useLocation } from 'react-router-dom'
 import { Icon } from './Icon'
-import { breadcrumbFor } from '../data/pages'
 import { useAuth } from '../lib/auth'
 
 const WD = ['일', '월', '화', '수', '목', '금', '토']
@@ -11,9 +9,7 @@ function todayLabel(): string {
 }
 
 export default function Topbar({ onToggleSidebar }: { onToggleSidebar: () => void }) {
-  const loc = useLocation()
   const { me } = useAuth()
-  const bc = breadcrumbFor(loc.pathname)
   const avatar = me?.name?.slice(0, 1) ?? '곳'
 
   return (
@@ -21,17 +17,8 @@ export default function Topbar({ onToggleSidebar }: { onToggleSidebar: () => voi
       <button className="hamb" onClick={onToggleSidebar}>
         <Icon name="menu" size={20} />
       </button>
-      <div className="bc">
-        <span className="ws">워크스페이스</span>
-        <span className="sep">›</span>
-        <strong>{bc.main}</strong>
-        {bc.extra && (
-          <>
-            <span className="sep">›</span>
-            <span>{bc.extra}</span>
-          </>
-        )}
-      </div>
+      {/* 상단 브레드크럼 제거: 현재 위치는 왼쪽 메뉴의 선택 표시로 구분(중복 제거) */}
+      <div className="bc" />
       <div className="tr">
         <span className="pl">
           <Icon name="lock" size={12} /> 비공개

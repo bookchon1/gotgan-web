@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { PageHead } from '../../components/PageHead'
 import { ErrorBanner, LoadingRow, EmptyRow } from '../../components/States'
 import { supabase } from '../../lib/supabase'
@@ -13,16 +13,23 @@ import {
   delta,
   type Drill,
   type Delta,
+  type Sums,
 } from './fund'
 import { FundBar, FundDonut } from './FundCharts'
 import { InboxView, CardView, PartnerView } from './AcctTabs'
 
-const YEARS = ['2026', '2025']
-const MONTHS = [
+const NOW = new Date()
+const CUR_YEAR = NOW.getFullYear()
+const CUR_MONTH = String(NOW.getMonth() + 1).padStart(2, '0')
+const YEARS = [String(CUR_YEAR), String(CUR_YEAR - 1)]
+// 월 선택: 연간 + 1~12월
+const MONTHS: readonly (readonly [string, string])[] = [
   ['all', '연간'],
-  ['10', '10월'],
-  ['09', '9월'],
-] as const
+  ...Array.from({ length: 12 }, (_, i) => {
+    const m = String(i + 1).padStart(2, '0')
+    return [m, `${i + 1}월`] as const
+  }),
+]
 
 type Tab = 'fund' | 'inbox' | 'ledger' | 'card' | 'partner'
 
@@ -67,8 +74,8 @@ function Kpi({
 
 export default function Accounting() {
   const [tab, setTab] = useState<Tab>('fund')
-  const [year, setYear] = useState('2026')
-  const [month, setMonth] = useState('all')
+  const [year, setYear] = useState(String(CUR_YEAR))
+  const [month, setMonth] = useState(CUR_MONTH) // 시안처럼 당월 기본
   const [drill, setDrill] = useState<Drill>({ level: 'company' })
 
   const txQ = useQuery<AcctTx[]>(
@@ -91,6 +98,21 @@ export default function Accounting() {
     for (const p of projQ.data ?? []) m[p.id] = p.name
     return m
   }, [projQ.data])
+
+  // 데이터 로드 후 1회: 당월에 전표가 없으면 '당해연도 전표가 있는 가장 최근 월'로 맞춤
+  const snapped = useRef(false)
+  useEffect(() => {
+    if (snapped.current || allTx.length === 0) return
+    snapped.current = true
+    const curYearMonths = allTx
+      .filter((t) => t.date.slice(0, 4) === String(CUR_YEAR))
+      .map((t) => t.date.slice(5, 7))
+    if (curYearMonths.length === 0) return
+    if (!curYearMonths.includes(CUR_MONTH)) {
+      const sorted = curYearMonths.sort()
+      setMonth(sorted[sorted.length - 1])
+    }
+  }, [allTx])
 
   const periodText = month === 'all' ? `${year}년 연간` : `${year}년 ${parseInt(month, 10)}월`
 
@@ -178,6 +200,36 @@ function FundView({
   // drill 이동
   const go = (d: Drill) => setDrill(d)
 
+  // 엑셀(CSV) 내보내기 — 현재 기간+drill 전표
+  function exportCsv() {
+    const head = ['일자', '사업자', '부서', '구분', '계정', '거래처', '적요', '금액', '출처']
+    const lines = [...scope]
+      .sort((a, b) => (a.date < b.date ? 1 : -1))
+      .map((t) =>
+        [
+          dateOnly(t.date),
+          t.biz_code ?? '',
+          t.dept_key ?? '',
+          t.tx_type,
+          t.account ?? '',
+          t.partner ?? '',
+          (t.memo ?? '').replace(/"/g, '""'),
+          String(Number(t.amount) || 0),
+          t.src ?? '',
+        ]
+          .map((c) => `"${c}"`)
+          .join(','),
+      )
+    const csv = '﻿' + [head.map((h) => `"${h}"`).join(','), ...lines].join('\r\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `자금현황_${year}_${month === 'all' ? '연간' : month + '월'}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <>
       {/* 기간 + breadcrumb */}
@@ -213,7 +265,7 @@ function FundView({
               </>
             )}
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <select className="sel" value={year} onChange={(e) => setYear(e.target.value)}>
               {YEARS.map((y) => (
                 <option key={y} value={y}>
@@ -228,6 +280,9 @@ function FundView({
                 </option>
               ))}
             </select>
+            <button className="btn sec" onClick={exportCsv} disabled={scope.length === 0}>
+              엑셀 내보내기
+            </button>
           </div>
         </div>
 
@@ -240,18 +295,38 @@ function FundView({
         </div>
       </section>
 
-      {/* 차트 */}
+      {/* 누계 · 전년 대비 비교 밴드 */}
+      <FundCompare curY={curY} month={month} monthMax={monthMax} cur={ytdCur} prev={ytdPrev} />
+
+      {/* 차트 (대표용): 월별 수지 막대 + 수입/지출 도넛 */}
       <div className="fund-charts">
         <section className="panel">
+          <div className="panel-h" style={{ marginBottom: 6 }}>
+            <div>
+              <h2 style={{ fontSize: 16 }}>월별 수지 추이</h2>
+            </div>
+          </div>
           <FundBar rows={allTx} year={year} drill={drill} />
         </section>
         <section className="panel">
+          <div className="panel-h" style={{ marginBottom: 6 }}>
+            <div>
+              <h2 style={{ fontSize: 16 }}>수입 · 지출</h2>
+              <p>이 기간 구성</p>
+            </div>
+          </div>
           <FundDonut s={s} />
         </section>
       </div>
 
       {/* drill 테이블 */}
       <section className="panel">
+        <div className="panel-h">
+          <div>
+            <h2>{fundTableTitle(drill, projName)}</h2>
+            <p>행을 누르면 그 아래로 들어갑니다.</p>
+          </div>
+        </div>
         <FundTable
           allTx={allTx}
           loading={loading}
@@ -265,6 +340,99 @@ function FundView({
         />
       </section>
     </>
+  )
+}
+
+// 드릴 레벨별 표 제목 (시안: 사업자별 손익 / …부서별 손익 / …전표)
+function fundTableTitle(d: Drill, projName: Record<string, string>): string {
+  if (d.level === 'company') return '사업자별 손익'
+  if (d.level === 'biz') return `${bizLabel(d.biz!)} · 부서별 손익`
+  if (d.level === 'dept') return `${bizLabel(d.biz!)} · ${d.dept} · 전표`
+  return `${projName[d.project!] ?? '사업'} · 손익`
+}
+
+// ===== 누계·전년 대비 비교 밴드 (시안 renderFundCompare) =====
+function FundCompare({
+  curY,
+  month,
+  monthMax,
+  cur,
+  prev,
+}: {
+  curY: number
+  month: string
+  monthMax: number
+  cur: Sums
+  prev: Sums
+}) {
+  const periodTxt = month === 'all' ? `${curY}년 연간` : `${curY}년 1~${monthMax}월 누계`
+  const prevTxt = month === 'all' ? `${curY - 1}년 연간` : `${curY - 1}년 1~${monthMax}월`
+  return (
+    <section className="panel" style={{ marginTop: 14 }}>
+      <div className="cmp-head">
+        <h2 style={{ fontSize: 15, margin: 0 }}>누계 · 전년 대비</h2>
+        <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+          <b style={{ color: 'var(--brand-ink)' }}>{periodTxt}</b> vs {prevTxt}
+        </span>
+      </div>
+      <div className="cmp-grid">
+        <CmpItem lbl="수입" cur={cur.income} prev={prev.income} color="var(--ok)" />
+        <CmpItem lbl="지출" cur={cur.expense} prev={prev.expense} color="var(--expense)" />
+        <CmpItem
+          lbl="순이익"
+          cur={cur.profit}
+          prev={prev.profit}
+          color={cur.profit >= 0 ? 'var(--brand)' : 'var(--expense)'}
+          signed
+        />
+      </div>
+    </section>
+  )
+}
+
+function CmpItem({
+  lbl,
+  cur,
+  prev,
+  color,
+  signed,
+}: {
+  lbl: string
+  cur: number
+  prev: number
+  color: string
+  signed?: boolean
+}) {
+  const mx = Math.max(1, Math.abs(cur), Math.abs(prev))
+  const cw = Math.round((Math.abs(cur) / mx) * 100)
+  const pw = Math.round((Math.abs(prev) / mx) * 100)
+  const sign = (v: number) => (signed && v >= 0 ? '+' : '')
+  return (
+    <div className="cmp-item">
+      <div className="cmp-lbl">
+        {lbl} <DeltaBadge d={delta(cur, prev)} />
+      </div>
+      <div className="cmp-row">
+        <span className="cmp-tag cur">당기</span>
+        <div className="cmp-track">
+          <div className="cmp-fill" style={{ width: `${cw}%`, background: color }} />
+        </div>
+        <b className="tnum" style={{ color }}>
+          {sign(cur)}
+          {eok(cur)}
+        </b>
+      </div>
+      <div className="cmp-row">
+        <span className="cmp-tag prev">전년</span>
+        <div className="cmp-track">
+          <div className="cmp-fill" style={{ width: `${pw}%`, background: 'var(--line-2)' }} />
+        </div>
+        <b className="tnum" style={{ color: 'var(--muted)' }}>
+          {sign(prev)}
+          {eok(prev)}
+        </b>
+      </div>
+    </div>
   )
 }
 

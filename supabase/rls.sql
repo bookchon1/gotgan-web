@@ -98,11 +98,28 @@ returns boolean language sql stable security definer set search_path = public as
     where a.id = p_appr and a.drafter_id = public.app_me()
   )
 $$;
+-- 이 문서가 나에게 '선택 공유'로 지정됐는가 (document_shares ↔ documents 재귀 방지용)
+create or replace function public.app_doc_shared_to_me(p_doc uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists(
+    select 1 from public.document_shares s
+    where s.document_id = p_doc and s.employee_id = public.app_me()
+  )
+$$;
+-- 이 문서의 소유자가 나인가 (document_shares 정책에서 documents 역참조 방지용)
+create or replace function public.app_owns_doc(p_doc uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists(
+    select 1 from public.documents d
+    where d.id = p_doc and d.owner_id = public.app_me()
+  )
+$$;
 
 grant execute on function
   public.app_me(), public.app_is_admin(), public.app_has_grant(text),
   public.app_is_active_employee(), public.app_is_payroll_mgr(), public.app_is_accounting_mgr(),
-  public.app_is_approver_of(uuid), public.app_is_drafter_of(uuid)
+  public.app_is_approver_of(uuid), public.app_is_drafter_of(uuid),
+  public.app_doc_shared_to_me(uuid), public.app_owns_doc(uuid)
   to authenticated;
 
 -- ---------------------------------------------------------------------
@@ -223,10 +240,17 @@ do $$ begin
   drop policy if exists ps_read on public.payslips;
   create policy ps_read on public.payslips for select to authenticated
     using (employee_id = public.app_me() or public.app_is_payroll_mgr());
-  -- payroll_runs: 급여담당만 조회(직원은 명세로 접근). 쓰기 없음.
+  -- payroll_runs: 급여담당 전체 + 본인 급여명세가 속한 귀속월(ym)은 직원 본인도 조회.
+  --   (수신 문서함에서 본인 명세서의 월을 표기하기 위함. net_pay 등 타인 정보는 payslips RLS 가 차단)
   drop policy if exists pr_read on public.payroll_runs;
   create policy pr_read on public.payroll_runs for select to authenticated
-    using (public.app_is_payroll_mgr());
+    using (
+      public.app_is_payroll_mgr()
+      or exists(
+        select 1 from public.payslips p
+        where p.run_id = payroll_runs.id and p.employee_id = public.app_me()
+      )
+    );
 end $$;
 
 -- 연차: 본인 것 + 급여담당 전체
@@ -305,9 +329,7 @@ do $$ begin
       public.app_is_admin()
       or share_scope = '전사'
       or owner_id = public.app_me()
-      or (share_scope = '선택' and exists(
-            select 1 from public.document_shares s
-            where s.document_id = documents.id and s.employee_id = public.app_me()))
+      or (share_scope = '선택' and public.app_doc_shared_to_me(id))
     );
   drop policy if exists doc_write on public.documents;
   create policy doc_write on public.documents for all to authenticated
@@ -318,13 +340,11 @@ do $$ begin
   create policy ds_all on public.document_shares for all to authenticated
     using (
       public.app_is_admin()
-      or exists(select 1 from public.documents d
-                where d.id = document_shares.document_id and d.owner_id = public.app_me())
+      or public.app_owns_doc(document_id)
     )
     with check (
       public.app_is_admin()
-      or exists(select 1 from public.documents d
-                where d.id = document_shares.document_id and d.owner_id = public.app_me())
+      or public.app_owns_doc(document_id)
     );
 end $$;
 

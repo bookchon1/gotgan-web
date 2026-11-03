@@ -291,3 +291,23 @@ export interface PurchaseHistory {
   partner: string | null
   doc_no: string | null
 }
+
+// 일용직 근무기록 (현장 작업자)
+export interface LaborWorker {
+  id: string
+  name: string
+  day_rate: number
+  phone: string | null
+  active: boolean
+}
+export interface LaborAttendance {
+  id: string
+  worker_id: string
+  work_date: string
+  check_in: string | null // 'HH:MM:SS'
+  check_out: string | null
+  next_day: boolean
+  break_min: number
+  project_id: string | null
+  place: string | null
+}

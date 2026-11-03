@@ -4,9 +4,9 @@ import { Icon } from '../components/Icon'
 import { ErrorBanner, LoadingRow, EmptyRow } from '../components/States'
 import { supabase } from '../lib/supabase'
 import { useQuery } from '../lib/useQuery'
-import { eok } from '../lib/format'
+import { eok, won } from '../lib/format'
 import { useAuth } from '../lib/auth'
-import type { Approval, ApprovalLine, Employee } from '../types/db'
+import type { Approval, ApprovalLine, Employee, Payslip, PayrollRun } from '../types/db'
 import { ApprovalDraftModal } from './ApprovalDraftModal'
 
 const KIND_BADGE: Record<string, { cls: string; label: string }> = {
@@ -16,7 +16,7 @@ const KIND_BADGE: Record<string, { cls: string; label: string }> = {
   일반: { cls: 'badge', label: '일반' },
 }
 
-type Folder = 'pending' | 'drafted' | 'done'
+type Folder = 'pending' | 'received' | 'drafted' | 'done'
 
 export default function Approvals() {
   const { me } = useAuth()
@@ -34,6 +34,27 @@ export default function Approvals() {
     async () => await supabase.from('employees').select('id,name'),
     [],
   )
+  // 수신 문서함: 나에게 수신된 급여명세서 (본인 것만 — RLS 로 보장)
+  const mySlipsQ = useQuery<Payslip[]>(
+    async () =>
+      me?.id
+        ? await supabase.from('payslips').select('*').eq('employee_id', me.id)
+        : { data: [], error: null },
+    [me?.id],
+  )
+  const runsQ = useQuery<PayrollRun[]>(
+    async () => await supabase.from('payroll_runs').select('*'),
+    [],
+  )
+  const runYm = useMemo(
+    () => Object.fromEntries((runsQ.data ?? []).map((r) => [r.id, r.ym])),
+    [runsQ.data],
+  )
+  const mySlips = useMemo(() => {
+    const s = [...(mySlipsQ.data ?? [])]
+    s.sort((a, b) => (runYm[b.run_id] ?? '').localeCompare(runYm[a.run_id] ?? ''))
+    return s
+  }, [mySlipsQ.data, runYm])
 
   const empName = useMemo(() => {
     const m: Record<string, string> = {}
@@ -64,7 +85,14 @@ export default function Approvals() {
   const done = all.filter((a) => a.status === '회계접수' || (a.status === '승인' && a.kind !== '지출결의서'))
 
   const list = folder === 'pending' ? pending : folder === 'drafted' ? drafted : done
-  const title = folder === 'pending' ? '내 결재 대기' : folder === 'drafted' ? '상신한 문서' : '완료 문서'
+  const title =
+    folder === 'pending'
+      ? '내 결재 대기'
+      : folder === 'received'
+        ? '수신 문서함'
+        : folder === 'drafted'
+          ? '상신한 문서'
+          : '완료 문서'
 
   const loading = apprQ.loading || linesQ.loading
   const [busy, setBusy] = useState(false)
@@ -142,10 +170,20 @@ export default function Approvals() {
 
       <div className="folders">
         <Fold k="pending" cur={folder} set={setFolder} icon="doc" title="내 결재 대기" n={pending.length} />
+        <Fold k="received" cur={folder} set={setFolder} icon="approval" title="수신 문서함" n={mySlips.length} />
         <Fold k="drafted" cur={folder} set={setFolder} icon="clock" title="상신한 문서" n={drafted.length} />
         <Fold k="done" cur={folder} set={setFolder} icon="check" title="완료 문서" n={done.length} />
       </div>
 
+      {folder === 'received' ? (
+        <ReceivedBox
+          slips={mySlips}
+          runYm={runYm}
+          loading={mySlipsQ.loading || runsQ.loading}
+          error={mySlipsQ.error}
+          meName={me?.name ?? ''}
+        />
+      ) : (
       <section className="panel">
         <ErrorBanner error={apprQ.error} table="approvals" />
         <div className="panel-h">
@@ -219,6 +257,7 @@ export default function Approvals() {
           </table>
         </div>
       </section>
+      )}
 
       {draftOpen && (
         <ApprovalDraftModal
@@ -293,4 +332,202 @@ function ApprFlow({ lines }: { lines: ApprovalLine[] }) {
 function isCurrent(lines: ApprovalLine[], i: number): boolean {
   if (lines[i].decided !== '대기') return false
   return lines.slice(0, i).every((l) => l.decided === '승인')
+}
+
+// ===================== 수신 문서함 (급여명세서) =====================
+function ReceivedBox({
+  slips,
+  runYm,
+  loading,
+  error,
+  meName,
+}: {
+  slips: Payslip[]
+  runYm: Record<string, string>
+  loading: boolean
+  error: string | null
+  meName: string
+}) {
+  const [view, setView] = useState<Payslip | null>(null)
+  return (
+    <section className="panel">
+      <ErrorBanner error={error} table="payslips" />
+      <div className="panel-h">
+        <div>
+          <h2>
+            수신 문서함 <span className="count">{loading ? '…' : slips.length}</span>
+          </h2>
+          <p>
+            결재 대상은 아니지만 나에게 전달된 문서입니다. <b>각자 본인에게 수신된 문서만 표시됩니다.</b>
+          </p>
+        </div>
+      </div>
+      <div className="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>문서</th>
+              <th>종류</th>
+              <th>귀속월</th>
+              <th style={{ textAlign: 'right' }}>실지급액</th>
+              <th style={{ textAlign: 'right' }}>열람</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading && <LoadingRow cols={5} />}
+            {!loading &&
+              slips.map((s) => {
+                const ym = runYm[s.run_id] ?? ''
+                return (
+                  <tr key={s.id} style={{ cursor: 'pointer' }} onClick={() => setView(s)}>
+                    <td>
+                      <div className="t-title">{ym} 급여명세서</div>
+                      <div className="t-sub">본인만 열람 가능</div>
+                    </td>
+                    <td>
+                      <span className="badge gold">급여명세서</span>
+                    </td>
+                    <td className="tnum" style={{ color: 'var(--muted)' }}>
+                      {ym}
+                    </td>
+                    <td className="tnum" style={{ textAlign: 'right', fontWeight: 700 }}>
+                      {won(s.net_pay)}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button
+                        className="btn sec"
+                        style={{ padding: '6px 13px' }}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setView(s)
+                        }}
+                      >
+                        열람
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
+            {!loading && slips.length === 0 && !error && (
+              <EmptyRow cols={5} text="수신된 문서가 없습니다." />
+            )}
+          </tbody>
+        </table>
+      </div>
+      <div className="table-foot">
+        <span>급여명세서는 노무 담당자가 각 직원에게 수신 처리하며, 받는 사람만 목록에 보이고 열람할 수 있습니다.</span>
+      </div>
+
+      {view && <PayslipModal slip={view} ym={runYm[view.run_id] ?? ''} name={meName} onClose={() => setView(null)} />}
+    </section>
+  )
+}
+
+function PayslipModal({
+  slip,
+  ym,
+  name,
+  onClose,
+}: {
+  slip: Payslip
+  ym: string
+  name: string
+  onClose: () => void
+}) {
+  const gross = (Number(slip.base_pay) || 0) + (Number(slip.allowances) || 0)
+  const dedRows: [string, number][] = [
+    ['국민연금', slip.d_pension],
+    ['건강보험', slip.d_health],
+    ['장기요양', slip.d_ltc],
+    ['고용보험', slip.d_employment],
+    ['소득세', slip.d_income_tax],
+    ['지방소득세', slip.d_local_tax],
+    ['기타공제', slip.d_other],
+  ]
+  return (
+    <div className="modal-bg" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 440 }}>
+        <div className="mh">
+          <div>
+            <div className="eyebrow">급여명세서</div>
+            <h3>
+              {ym} · {name}
+            </h3>
+          </div>
+          <button className="x" onClick={onClose}>
+            ✕
+          </button>
+        </div>
+        <div className="mb">
+          <div className="bud-h">
+            <div className="t">지급</div>
+          </div>
+          <PayRow label="기본급" value={slip.base_pay} />
+          <PayRow label="수당" value={slip.allowances} />
+          <PayRow label="지급 합계" value={gross} strong />
+
+          <div className="bud-h" style={{ marginTop: 12 }}>
+            <div className="t">공제</div>
+          </div>
+          {dedRows.map(([k, v]) => (
+            <PayRow key={k} label={k} value={v} expense />
+          ))}
+          <PayRow label="공제 합계" value={slip.deductions} strong expense />
+
+          <div
+            style={{
+              marginTop: 14,
+              padding: '12px 14px',
+              borderRadius: 10,
+              background: 'var(--brand-soft)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}
+          >
+            <b style={{ fontSize: 13 }}>실지급액</b>
+            <b className="tnum" style={{ fontSize: 18, color: 'var(--brand)' }}>
+              {won(slip.net_pay)}원
+            </b>
+          </div>
+        </div>
+        <div className="mf">
+          <button className="btn pri" onClick={onClose}>
+            확인
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function PayRow({
+  label,
+  value,
+  strong,
+  expense,
+}: {
+  label: string
+  value: number
+  strong?: boolean
+  expense?: boolean
+}) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        padding: '6px 2px',
+        fontSize: 13,
+        fontWeight: strong ? 800 : 500,
+        borderTop: strong ? '1px solid var(--line-2)' : undefined,
+      }}
+    >
+      <span style={{ color: strong ? 'var(--ink)' : 'var(--muted)' }}>{label}</span>
+      <span className="tnum" style={{ color: expense ? 'var(--expense)' : 'var(--ink)' }}>
+        {expense && value ? '−' : ''}
+        {won(value)}
+      </span>
+    </div>
+  )
 }

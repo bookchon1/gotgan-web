@@ -4,7 +4,17 @@ import { PageHead } from '../../components/PageHead'
 import { ErrorBanner, LoadingRow, EmptyRow } from '../../components/States'
 import { supabase } from '../../lib/supabase'
 import { useQuery } from '../../lib/useQuery'
+import ArtSchedule from './ArtSchedule'
 import type { ArtProject, BudgetReceipt, ArtStatus } from '../../types/db'
+
+// 진행상태 정렬 우선순위 (시안: 진행 먼저, 완료·보류 뒤로)
+const ST_ORDER: Record<string, number> = {
+  진행: 0,
+  '공고/입찰': 1,
+  예정: 2,
+  완료: 3,
+  '탈락/보류': 4,
+}
 
 const CUR_YEAR = 2026
 
@@ -86,9 +96,7 @@ export default function ArtList() {
         .from('art_projects')
         .select(
           'id,name,client,biz_code,proj_type,kind,status,progress,now_text,est_amount,owner_id,contract_base,due_date,done_date,year',
-        )
-        .order('year', { ascending: false })
-        .order('due_date', { ascending: true }),
+        ),
     [],
   )
   const receipts = useQuery<Pick<BudgetReceipt, 'project_id' | 'amount'>[]>(
@@ -104,7 +112,21 @@ export default function ArtList() {
   }, [receipts.data])
 
   const all = projects.data ?? []
-  const list = all.filter((p) => showDone || isCurrent(p))
+  const list = useMemo(
+    () =>
+      all
+        .filter((p) => showDone || isCurrent(p))
+        .sort((a, b) => {
+          const oa = ST_ORDER[a.status] ?? 2
+          const ob = ST_ORDER[b.status] ?? 2
+          if (oa !== ob) return oa - ob
+          // 같은 상태면 준공 임박(마감 가까운) 순
+          const ad = (a.due_date || '9999').slice(0, 10)
+          const bd = (b.due_date || '9999').slice(0, 10)
+          return ad < bd ? -1 : ad > bd ? 1 : 0
+        }),
+    [all, showDone],
+  )
   const hiddenDone = all.filter((p) => !isCurrent(p)).length
 
   let tCon = 0,
@@ -132,6 +154,9 @@ export default function ArtList() {
         }
       />
 
+      {/* 업무 일정 (주간·월간·분기) — 공정·미술업무 자동 집계 */}
+      <ArtSchedule />
+
       <section className="panel">
         <div className="panel-h">
           <div>
@@ -147,14 +172,14 @@ export default function ArtList() {
           <table>
             <thead>
               <tr>
-                <th>사업명</th>
+                <th>사업명 / 발주기관</th>
                 <th>유형</th>
-                <th>상태</th>
+                <th>진행상태</th>
                 <th>진행률</th>
                 <th style={{ textAlign: 'right' }}>계약금</th>
                 <th style={{ textAlign: 'right' }}>수금</th>
-                <th style={{ textAlign: 'right' }}>미수금</th>
-                <th style={{ textAlign: 'center' }}>준공</th>
+                <th style={{ textAlign: 'right' }}>잔금</th>
+                <th style={{ textAlign: 'center' }}>D-day</th>
               </tr>
             </thead>
             <tbody>
@@ -248,6 +273,10 @@ export default function ArtList() {
               </tfoot>
             )}
           </table>
+        </div>
+        <div className="table-foot">
+          <span>수금 = 대금 수령 합계 · 잔금 = 계약금 − 수금 (예산현황 연동) · D-day = 준공 예정일 기준</span>
+          <span>행을 클릭하면 사업 상세로 이동합니다.</span>
         </div>
       </section>
     </div>

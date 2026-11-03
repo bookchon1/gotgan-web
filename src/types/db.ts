@@ -335,6 +335,36 @@ export interface PurchaseHistory {
   doc_no: string | null
 }
 
+// 현장관리 (묶음4a) — 작업자 명부 + 일일기록
+export interface SiteWorker {
+  id: string
+  name: string
+  daily_wage: number
+  active: boolean
+  memo: string | null
+}
+/** 일일기록 crew 배열 원소 — 그날 투입된 작업자 스냅샷(일당 포함) */
+export interface SiteCrewMember {
+  worker_id: string | null
+  name: string
+  wage: number
+}
+export interface SiteLog {
+  id: string
+  project_id: string | null
+  project_name: string | null
+  log_date: string
+  work_text: string
+  crew: SiteCrewMember[]
+  meal_cost: number
+  labor_cost: number
+  settle_status: '미정산' | '회계처리대기' | '정산완료'
+  locked: boolean
+  approval_id: string | null
+  created_by: string | null
+  created_at: string
+}
+
 // 일용직 근무기록 (현장 작업자)
 export interface LaborWorker {
   id: string

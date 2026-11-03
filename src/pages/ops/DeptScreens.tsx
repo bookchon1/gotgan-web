@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase'
 import { useQuery } from '../../lib/useQuery'
 import { mmdd } from '../../lib/format'
 import type { WorkTask, Employee } from '../../types/db'
+import SiteManagement from './SiteManagement'
 
 const ST_CHIP: Record<string, [string, string]> = {
   plan: ['c-plan', '예정'],
@@ -100,15 +101,7 @@ function DeptStatus({
 }
 
 export function ArtField() {
-  return (
-    <DeptStatus
-      area="art"
-      eyebrow="미술 · 현장"
-      title="현장관리"
-      desc="현장 작업·일용직 근무·일일 기록을 관리합니다."
-      detailHeader="현장 작업"
-    />
-  )
+  return <SiteManagement />
 }
 export function Promotion() {
   return (

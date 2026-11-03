@@ -10,6 +10,8 @@ import ArtList from './pages/ops/ArtList'
 import ArtDetail from './pages/ops/ArtDetail'
 import Accounting from './pages/accounting/Accounting'
 import Labor from './pages/labor/Labor'
+import Approvals from './pages/Approvals'
+import Calendar from './pages/Calendar'
 
 /** 로그인 필요 가드 */
 function RequireAuth({ children }: { children: JSX.Element }) {
@@ -104,9 +106,9 @@ export default function App() {
         />
 
         {/* 공통 */}
-        <Route path="/approvals" element={<Placeholder title="전자결재" />} />
+        <Route path="/approvals" element={<Approvals />} />
         <Route path="/documents" element={<Placeholder title="문서보관" />} />
-        <Route path="/calendar" element={<Placeholder title="일정표" />} />
+        <Route path="/calendar" element={<Calendar />} />
 
         {/* 관리자 */}
         <Route

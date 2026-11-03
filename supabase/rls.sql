@@ -81,9 +81,28 @@ returns boolean language sql stable security definer set search_path = public as
   )
 $$;
 
+-- 전자결재 교차참조용 (approvals ↔ approval_lines 무한재귀 방지)
+-- 내가 이 결재의 결재선에 포함돼 있는가
+create or replace function public.app_is_approver_of(p_appr uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists(
+    select 1 from public.approval_lines l
+    where l.approval_id = p_appr and l.approver_id = public.app_me()
+  )
+$$;
+-- 이 결재의 기안자가 나인가
+create or replace function public.app_is_drafter_of(p_appr uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists(
+    select 1 from public.approvals a
+    where a.id = p_appr and a.drafter_id = public.app_me()
+  )
+$$;
+
 grant execute on function
   public.app_me(), public.app_is_admin(), public.app_has_grant(text),
-  public.app_is_active_employee(), public.app_is_payroll_mgr(), public.app_is_accounting_mgr()
+  public.app_is_active_employee(), public.app_is_payroll_mgr(), public.app_is_accounting_mgr(),
+  public.app_is_approver_of(uuid), public.app_is_drafter_of(uuid)
   to authenticated;
 
 -- ---------------------------------------------------------------------
@@ -251,8 +270,7 @@ do $$ begin
     using (
       public.app_is_admin()
       or drafter_id = public.app_me()
-      or exists(select 1 from public.approval_lines l
-                where l.approval_id = approvals.id and l.approver_id = public.app_me())
+      or public.app_is_approver_of(approvals.id)
     );
   drop policy if exists ap_ins on public.approvals;
   create policy ap_ins on public.approvals for insert to authenticated
@@ -262,8 +280,7 @@ do $$ begin
     using (
       public.app_is_admin()
       or drafter_id = public.app_me()
-      or exists(select 1 from public.approval_lines l
-                where l.approval_id = approvals.id and l.approver_id = public.app_me())
+      or public.app_is_approver_of(approvals.id)
     )
     with check (true);
 
@@ -275,8 +292,7 @@ do $$ begin
     using (
       public.app_is_admin()
       or approver_id = public.app_me()
-      or exists(select 1 from public.approvals a
-                where a.id = approval_lines.approval_id and a.drafter_id = public.app_me())
+      or public.app_is_drafter_of(approval_lines.approval_id)
     )
     with check (true);
 end $$;

@@ -4,18 +4,21 @@ import { Icon } from './Icon'
 import { AREAS } from '../data/areas'
 import { useAuth } from '../lib/auth'
 
-/** 업무관리 서브메뉴(영역별) — 아코디언 */
+/** 업무관리 서브메뉴(영역별) — 아코디언 (한 번에 하나만 열림, 시안과 동일) */
 function TaskSubnav({ isAdmin }: { isAdmin: boolean }) {
-  // 영역별 펼침 상태 (기본 미술만 펼침)
-  const [open, setOpen] = useState<Record<string, boolean>>({ art: true })
-  const toggle = (id: string) => setOpen((o) => ({ ...o, [id]: !o[id] }))
+  // 현재 펼쳐진 영역 id (하나만). 기본 미술.
+  const [openArea, setOpenArea] = useState<string | null>('art')
+  // 같은 영역 클릭 → 닫기, 다른 영역 클릭 → 그 영역만 열고 나머지는 닫기
+  const toggle = (id: string) => setOpenArea((cur) => (cur === id ? null : id))
 
   return (
     <div className="subnav" id="task-sub">
-      {AREAS.map((a) => (
+      {AREAS.map((a) => {
+        const isOpen = openArea === a.id
+        return (
         <div key={a.id}>
           <button
-            className="dept-toggle"
+            className={`dept-toggle${isOpen ? ' on' : ''}`}
             onClick={() => toggle(a.id)}
             id={`dt-${a.id}`}
           >
@@ -23,10 +26,10 @@ function TaskSubnav({ isAdmin }: { isAdmin: boolean }) {
             <span>{a.label}</span>
             <Icon
               name="chevron"
-              className={`icon chev${open[a.id] ? ' open' : ''}`}
+              className={`icon chev${isOpen ? ' open' : ''}`}
             />
           </button>
-          <div className="dept-views" id={`dv-${a.id}`} hidden={!open[a.id]}>
+          <div className="dept-views" id={`dv-${a.id}`} hidden={!isOpen}>
             {a.views.map((v) => {
               const isPersonal = v.k === 'tasks'
               const showLock = !isPersonal && (a.locked || a.adminOnly)
@@ -48,7 +51,8 @@ function TaskSubnav({ isAdmin }: { isAdmin: boolean }) {
             })}
           </div>
         </div>
-      ))}
+        )
+      })}
     </div>
   )
 }

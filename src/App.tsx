@@ -9,6 +9,7 @@ import Tasks from './pages/Tasks'
 import ArtList from './pages/ops/ArtList'
 import ArtDetail from './pages/ops/ArtDetail'
 import Accounting from './pages/accounting/Accounting'
+import Labor from './pages/labor/Labor'
 
 /** 로그인 필요 가드 */
 function RequireAuth({ children }: { children: JSX.Element }) {
@@ -89,7 +90,7 @@ export default function App() {
           path="/labor"
           element={
             <RequireAdmin>
-              <Placeholder title="노무관리" />
+              <Labor />
             </RequireAdmin>
           }
         />

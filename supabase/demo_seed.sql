@@ -73,3 +73,17 @@ insert into public.acct_tx (date, biz_code, dept_key, tx_type, account, amount, 
 insert into public.acct_cards (date, card, bank, shop, amount, account, memo, matched) values
   ('2026-10-11','법인카드','신한','GS칼텍스 종로주유소',72000,'차량유지비','업무용 주유',false),
   ('2026-10-12','법인카드','신한','스타벅스 안국점',38000,'복리후생비','회의 간식',false);
+
+-- 9월 급여대장 + 명세 (전월 복사 데모용). 10월은 '전월 급여 복사' 버튼으로 생성.
+insert into public.payroll_runs (ym, status) values ('2026-09','지급완료');
+insert into public.payslips (run_id, employee_id, base_pay, allowances, d_pension, d_health, d_income_tax)
+  select (select id from public.payroll_runs where ym='2026-09'), e.id,
+     case e.title when '대표' then 5000000 when '실장' then 4200000 when '팀장' then 3800000 else 2800000 end,
+     300000, 160000, 130000, 95000
+  from public.employees e where e.status='재직';
+
+-- 연차 기록 (데모)
+insert into public.leave_records (employee_id, leave_type, status, start_date, end_date, days, granted)
+  select e.id, '연차', '승인', '2026-09-15','2026-09-15', 1, 15 from public.employees e where e.name in ('이윤정','김성헌','나지예');
+insert into public.leave_records (employee_id, leave_type, status, start_date, end_date, days)
+  select e.id, '반차', '승인', '2026-10-10','2026-10-10', 0.5 from public.employees e where e.name='이윤정';

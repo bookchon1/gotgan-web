@@ -184,6 +184,12 @@ export interface Partner {
   biz_no: string | null
   kind: string | null
   memo: string | null
+  person: string | null      // 담당자
+  title: string | null       // 직책
+  phone1: string | null      // 연락처1(대표)
+  phone2: string | null      // 연락처2
+  email: string | null       // 이메일
+  address: string | null     // 주소
 }
 
 export interface PayrollRun {

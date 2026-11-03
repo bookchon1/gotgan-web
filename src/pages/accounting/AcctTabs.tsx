@@ -290,14 +290,19 @@ export function CardView({ onPosted }: { onPosted: () => void }) {
 }
 
 // ===================== 거래처 =====================
+const PARTNER_KINDS = ['발주처', '협력업체', '공급처', '기타']
+
 export function PartnerView() {
   const [q, setQ] = useState('')
   const [open, setOpen] = useState<Partner | null>(null)
+  const [addOpen, setAddOpen] = useState(false)
   const ptnQ = useQuery<Partner[]>(
     async () => await supabase.from('partners').select('*').order('name', { ascending: true }),
     [],
   )
-  const list = (ptnQ.data ?? []).filter((p) => !q || p.name.includes(q))
+  const list = (ptnQ.data ?? []).filter(
+    (p) => !q || p.name.includes(q) || (p.person ?? '').includes(q),
+  )
 
   return (
     <section className="panel">
@@ -306,38 +311,47 @@ export function PartnerView() {
         <h2 style={{ fontSize: 15, fontWeight: 800 }}>
           거래처 <span className="count">{ptnQ.loading ? '…' : list.length}</span>
         </h2>
-        <label className="search r" style={{ marginLeft: 'auto' }}>
-          <svg className="icon" width="16" height="16" viewBox="0 0 24 24">
-            <circle cx="11" cy="11" r="7" />
-            <path d="M21 21l-4-4" />
-          </svg>
-          <input placeholder="거래처명 검색" value={q} onChange={(e) => setQ(e.target.value)} />
-        </label>
+        <div className="r" style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
+          <label className="search">
+            <svg className="icon" width="16" height="16" viewBox="0 0 24 24">
+              <circle cx="11" cy="11" r="7" />
+              <path d="M21 21l-4-4" />
+            </svg>
+            <input placeholder="업체명·담당자 검색" value={q} onChange={(e) => setQ(e.target.value)} />
+          </label>
+          <button className="btn pri" style={{ padding: '7px 13px' }} onClick={() => setAddOpen(true)}>
+            + 업체 등록
+          </button>
+        </div>
       </div>
       <div className="tbl-wrap">
         <table>
           <thead>
             <tr>
               <th>거래처명</th>
+              <th>담당자</th>
+              <th>직책</th>
+              <th>연락처1</th>
+              <th>이메일</th>
               <th>사업자번호</th>
-              <th>구분</th>
-              <th>메모</th>
             </tr>
           </thead>
           <tbody>
-            {ptnQ.loading && <LoadingRow cols={4} />}
+            {ptnQ.loading && <LoadingRow cols={6} />}
             {!ptnQ.loading &&
               list.map((p) => (
                 <tr key={p.id} style={{ cursor: 'pointer' }} onClick={() => setOpen(p)}>
                   <td>
                     <b>{p.name}</b>
                   </td>
+                  <td>{p.person || '—'}</td>
+                  <td className="t-sub">{p.title || '—'}</td>
+                  <td className="tnum">{p.phone1 || '—'}</td>
+                  <td className="t-sub">{p.email || '—'}</td>
                   <td className="tnum">{p.biz_no || '—'}</td>
-                  <td>{p.kind ? <span className="badge">{p.kind}</span> : '—'}</td>
-                  <td className="t-sub">{p.memo || '—'}</td>
                 </tr>
               ))}
-            {!ptnQ.loading && list.length === 0 && <EmptyRow cols={4} text="거래처가 없습니다." />}
+            {!ptnQ.loading && list.length === 0 && <EmptyRow cols={6} text="거래처가 없습니다." />}
           </tbody>
         </table>
       </div>
@@ -355,6 +369,12 @@ export function PartnerView() {
               </button>
             </div>
             <div className="mb">
+              <Row label="담당자" v={open.person} />
+              <Row label="직책" v={open.title} />
+              <Row label="연락처1" v={open.phone1} />
+              <Row label="연락처2" v={open.phone2} />
+              <Row label="이메일" v={open.email} />
+              <Row label="주소" v={open.address} />
               <Row label="사업자번호" v={open.biz_no} />
               <Row label="구분" v={open.kind} />
               <Row label="메모" v={open.memo} />
@@ -367,7 +387,140 @@ export function PartnerView() {
           </div>
         </div>
       )}
+
+      {addOpen && (
+        <PartnerAddModal
+          onClose={() => setAddOpen(false)}
+          onCreated={() => {
+            ptnQ.reload()
+            setAddOpen(false)
+          }}
+        />
+      )}
     </section>
+  )
+}
+
+// 업체 등록 모달
+function PartnerAddModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const [name, setName] = useState('')
+  const [person, setPerson] = useState('')
+  const [title, setTitle] = useState('')
+  const [phone1, setPhone1] = useState('')
+  const [phone2, setPhone2] = useState('')
+  const [email, setEmail] = useState('')
+  const [address, setAddress] = useState('')
+  const [bizNo, setBizNo] = useState('')
+  const [kind, setKind] = useState(PARTNER_KINDS[0])
+  const [memo, setMemo] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  async function save() {
+    if (!name.trim()) {
+      setErr('거래처명을 입력하세요.')
+      return
+    }
+    setBusy(true)
+    setErr(null)
+    const { error } = await supabase.from('partners').insert({
+      name: name.trim(),
+      person: person || null,
+      title: title || null,
+      phone1: phone1 || null,
+      phone2: phone2 || null,
+      email: email || null,
+      address: address || null,
+      biz_no: bizNo || null,
+      kind,
+      memo: memo || null,
+    })
+    setBusy(false)
+    if (error) {
+      setErr(error.message)
+      return
+    }
+    onCreated()
+  }
+
+  return (
+    <div className="modal-bg" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="mh">
+          <div>
+            <div className="eyebrow">업체 등록</div>
+            <h3>거래처 추가</h3>
+          </div>
+          <button className="x" onClick={onClose}>
+            ✕
+          </button>
+        </div>
+        <div className="mb">
+          <div className="mfield">
+            <label>거래처명</label>
+            <input className="ctl" value={name} onChange={(e) => setName(e.target.value)} placeholder="예: 국립경주박물관" autoFocus />
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <div className="mfield" style={{ flex: 1 }}>
+              <label>담당자</label>
+              <input className="ctl" value={person} onChange={(e) => setPerson(e.target.value)} />
+            </div>
+            <div className="mfield" style={{ flex: 1 }}>
+              <label>직책</label>
+              <input className="ctl" value={title} onChange={(e) => setTitle(e.target.value)} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <div className="mfield" style={{ flex: 1 }}>
+              <label>연락처1(대표)</label>
+              <input className="ctl" value={phone1} onChange={(e) => setPhone1(e.target.value)} />
+            </div>
+            <div className="mfield" style={{ flex: 1 }}>
+              <label>연락처2</label>
+              <input className="ctl" value={phone2} onChange={(e) => setPhone2(e.target.value)} />
+            </div>
+          </div>
+          <div className="mfield">
+            <label>이메일</label>
+            <input className="ctl" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </div>
+          <div className="mfield">
+            <label>주소</label>
+            <input className="ctl" value={address} onChange={(e) => setAddress(e.target.value)} />
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <div className="mfield" style={{ flex: 1 }}>
+              <label>사업자번호</label>
+              <input className="ctl" value={bizNo} onChange={(e) => setBizNo(e.target.value)} placeholder="000-00-00000" />
+            </div>
+            <div className="mfield" style={{ width: 140 }}>
+              <label>구분</label>
+              <select className="ctl" value={kind} onChange={(e) => setKind(e.target.value)}>
+                {PARTNER_KINDS.map((k) => (
+                  <option key={k} value={k}>
+                    {k}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="mfield">
+            <label>메모</label>
+            <input className="ctl" value={memo} onChange={(e) => setMemo(e.target.value)} />
+          </div>
+
+          {err && <div className="login-alert err" style={{ margin: 0 }}>{err}</div>}
+        </div>
+        <div className="mf">
+          <button className="btn sec" onClick={onClose} disabled={busy}>
+            취소
+          </button>
+          <button className="btn pri" onClick={save} disabled={busy}>
+            {busy ? '저장 중…' : '등록'}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 

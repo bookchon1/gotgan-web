@@ -3,7 +3,7 @@ import { PageHead } from '../../components/PageHead'
 import { ErrorBanner, LoadingRow, EmptyRow } from '../../components/States'
 import { supabase } from '../../lib/supabase'
 import { useQuery } from '../../lib/useQuery'
-import { eok } from '../../lib/format'
+import { eok, dateOnly } from '../../lib/format'
 import { bizLabel, ACCT_ORG } from '../../data/areas'
 import type { AcctTx, ArtProject } from '../../types/db'
 import {
@@ -327,7 +327,7 @@ function FundTable({
         <td>
           <b>{t.memo}</b>
           <div className="t-sub">
-            {t.date} · {t.account}
+            {dateOnly(t.date)} · {t.account}
             {t.partner ? ` · ${t.partner}` : ''}
             {t.dept_key === 'art' && t.project_id ? (
               <span style={{ color: 'var(--brand-ink)' }}> · {projName[t.project_id] ?? ''}</span>
@@ -466,7 +466,7 @@ function LedgerView({
               list.map((t) => (
                 <tr key={t.id}>
                   <td className="tnum" style={{ color: 'var(--muted)' }}>
-                    {t.date}
+                    {dateOnly(t.date)}
                   </td>
                   <td>
                     <span className="chip inc" style={{ fontSize: 10 }}>

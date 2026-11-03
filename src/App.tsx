@@ -7,6 +7,7 @@ import HR from './pages/HR'
 import { Placeholder } from './pages/Placeholder'
 import Tasks from './pages/Tasks'
 import ArtList from './pages/ops/ArtList'
+import ArtDetail from './pages/ops/ArtDetail'
 import Accounting from './pages/accounting/Accounting'
 
 /** 로그인 필요 가드 */
@@ -65,7 +66,7 @@ export default function App() {
 
         {/* 미술 */}
         <Route path="/ops/art" element={<ArtList />} />
-        <Route path="/ops/art/:id" element={<Placeholder title="사업 상세" />} />
+        <Route path="/ops/art/:id" element={<ArtDetail />} />
         <Route path="/ops/art-field" element={<Placeholder title="현장관리" />} />
         {/* 기타 영역 */}
         <Route path="/ops/product" element={<Placeholder title="재고현황" />} />

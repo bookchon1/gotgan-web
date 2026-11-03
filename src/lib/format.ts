@@ -26,15 +26,24 @@ export function invShort(n: number): string {
   return won(n)
 }
 
+/** 어떤 형태로 와도 YYYY-MM-DD 로 (date 컬럼이 ISO 타임스탬프로 와도 안전) */
+export function dateOnly(d: string | null | undefined): string {
+  if (!d) return ''
+  return d.length >= 10 ? d.slice(0, 10) : d
+}
+
 /** YYYY-MM-DD → MM-DD (공정 기간 표기) */
 export function mmdd(d: string | null): string {
-  return d ? d.slice(5) : ''
+  const s = dateOnly(d)
+  return s ? s.slice(5) : ''
 }
 
 /** 기간(일수) 포함 표기: from~to (N일) */
 export function dateRange(from: string | null, to: string | null): string {
-  if (!from) return ''
-  if (!to || to === from) return mmdd(from)
-  const days = Math.round((+new Date(to) - +new Date(from)) / 86_400_000) + 1
-  return `${mmdd(from)}~${mmdd(to)} (${days}일)`
+  const f = dateOnly(from)
+  const t = dateOnly(to)
+  if (!f) return ''
+  if (!t || t === f) return mmdd(f)
+  const days = Math.round((+new Date(t) - +new Date(f)) / 86_400_000) + 1
+  return `${mmdd(f)}~${mmdd(t)} (${days}일)`
 }

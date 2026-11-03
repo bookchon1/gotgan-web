@@ -889,3 +889,7 @@ td>.hr-in{max-width:160px}
   .hr-head-actions{width:100%}
   .hr-head-actions .hr-search{flex:1;min-width:0}
 }
+
+/* 제목·설명 제거한 슬림 헤더: eyebrow+액션만 한 줄 정렬 */
+.ph.ph-slim{align-items:center}
+.ph.ph-slim .eyebrow{margin-bottom:0}

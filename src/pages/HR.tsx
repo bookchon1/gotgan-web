@@ -50,10 +50,8 @@ export default function HR() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // 검색·필터
+  // 검색 (필터 UI 제거 — 기본: 재직자만, 검색 시 전체 상태에서 검색)
   const [q, setQ] = useState('')
-  const [deptFilter, setDeptFilter] = useState<string>('all')
-  const [statusFilter, setStatusFilter] = useState<string>('재직')
 
   // 상세 모달 대상
   const [openId, setOpenId] = useState<string | null>(null)
@@ -87,9 +85,8 @@ export default function HR() {
   const filtered = useMemo(() => {
     const searching = q.trim().length > 0
     return rows.filter((r) => {
-      // 검색어가 있으면 상태 필터는 무시(전체 상태에서 검색). 없으면 선택한 상태만.
-      if (!searching && statusFilter !== 'all' && r.status !== statusFilter) return false
-      if (deptFilter !== 'all' && (r.dept_key ?? '') !== deptFilter) return false
+      // 검색어가 없으면 재직자만. 검색 시에는 퇴직·휴직 포함 전체에서 찾는다.
+      if (!searching && r.status !== '재직') return false
       if (searching) {
         const s = q.trim().toLowerCase()
         // 부서명(주소속 + 겸소속)도 검색 대상에 포함
@@ -102,7 +99,7 @@ export default function HR() {
       }
       return true
     })
-  }, [rows, q, deptFilter, statusFilter])
+  }, [rows, q])
 
   // 요약 KPI (재직 기준)
   const active = rows.filter((r) => r.status === '재직')
@@ -152,7 +149,7 @@ export default function HR() {
                 onChange={(e) => setQ(e.target.value)}
               />
             </div>
-            <button className="btn pri" onClick={addEmp} disabled={!!error}>
+            <button className="btn txt hr-add-btn" onClick={addEmp} disabled={!!error}>
               + 직원 등록
             </button>
           </div>
@@ -178,34 +175,6 @@ export default function HR() {
             직원 정보를 불러오지 못했습니다: {error}
           </div>
         )}
-
-        {/* 필터 바 (검색창은 상단 헤더로 이동) */}
-        <div className="hr-toolbar">
-          <div className="hr-filters">
-            <select value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)}>
-              <option value="all">전체 부서</option>
-              {DEPT_OPTS.map((d) => (
-                <option key={d[0]} value={d[0]}>
-                  {d[1]}
-                </option>
-              ))}
-            </select>
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-              <option value="재직">재직</option>
-              <option value="휴직">휴직</option>
-              <option value="퇴직">퇴직</option>
-              <option value="all">전체 상태</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="panel-h" style={{ marginTop: 6 }}>
-          <div>
-            <h2>
-              직원 명부 <span className="count">{loading ? '…' : filtered.length}</span>
-            </h2>
-          </div>
-        </div>
 
         <div className="tbl-wrap">
           <table className="hr-table">

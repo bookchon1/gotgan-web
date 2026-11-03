@@ -893,3 +893,8 @@ td>.hr-in{max-width:160px}
 /* 제목·설명 제거한 슬림 헤더: eyebrow+액션만 한 줄 정렬 */
 .ph.ph-slim{align-items:center}
 .ph.ph-slim .eyebrow{margin-bottom:0}
+
+/* 배경·외곽선 없는 텍스트형 직원 등록 버튼 */
+.btn.txt.hr-add-btn{color:var(--brand-ink);font-weight:700;padding:8px 6px;background:none;border:0;cursor:pointer;white-space:nowrap}
+.btn.txt.hr-add-btn:hover{color:var(--brand)}
+.btn.txt.hr-add-btn:disabled{color:var(--muted);cursor:not-allowed}

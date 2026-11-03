@@ -9,6 +9,14 @@ import Tasks from './pages/Tasks'
 import ArtList from './pages/ops/ArtList'
 import ArtDetail from './pages/ops/ArtDetail'
 import Inventory from './pages/ops/Inventory'
+import {
+  ArtField,
+  Promotion,
+  Experience,
+  EduProgress,
+  EduMaterials,
+  EduPayments,
+} from './pages/ops/DeptScreens'
 import Accounting from './pages/accounting/Accounting'
 import Labor from './pages/labor/Labor'
 import Approvals from './pages/Approvals'
@@ -75,14 +83,14 @@ export default function App() {
         {/* 미술 */}
         <Route path="/ops/art" element={<ArtList />} />
         <Route path="/ops/art/:id" element={<ArtDetail />} />
-        <Route path="/ops/art-field" element={<Placeholder title="현장관리" />} />
+        <Route path="/ops/art-field" element={<ArtField />} />
         {/* 기타 영역 */}
         <Route path="/ops/product" element={<Inventory />} />
-        <Route path="/ops/promotion" element={<Placeholder title="홍보현황" />} />
-        <Route path="/ops/experience" element={<Placeholder title="체험현황" />} />
-        <Route path="/ops/edu-progress" element={<Placeholder title="수업진도" />} />
-        <Route path="/ops/edu-materials" element={<Placeholder title="수업자료" />} />
-        <Route path="/ops/edu-payments" element={<Placeholder title="납부현황" />} />
+        <Route path="/ops/promotion" element={<Promotion />} />
+        <Route path="/ops/experience" element={<Experience />} />
+        <Route path="/ops/edu-progress" element={<EduProgress />} />
+        <Route path="/ops/edu-materials" element={<EduMaterials />} />
+        <Route path="/ops/edu-payments" element={<EduPayments />} />
 
         {/* 경영 (관리자) */}
         <Route

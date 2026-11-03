@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useQuery } from '../lib/useQuery'
 import { useAuth } from '../lib/auth'
 import { dateOnly } from '../lib/format'
-import type { GotganEvent, LeaveRecord, Employee } from '../types/db'
+import type { GotganEvent, LeaveRecord, Employee, WorkTask } from '../types/db'
 
 const WD = ['일', '월', '화', '수', '목', '금', '토']
 
@@ -65,6 +65,16 @@ export default function Calendar() {
         .gte('end_date', monthStart),
     [monthStart],
   )
+  // 부서별 업무현황 → 달력에 업무 기간(start~due)을 영역 색상으로 표시
+  const taskQ = useQuery<WorkTask[]>(
+    async () =>
+      await supabase
+        .from('work_tasks')
+        .select('*')
+        .lte('start_date', monthEnd)
+        .gte('due_date', monthStart),
+    [monthStart],
+  )
   const empQ = useQuery<Pick<Employee, 'id' | 'name'>[]>(
     async () => await supabase.from('employees').select('id,name'),
     [],
@@ -82,6 +92,19 @@ export default function Calendar() {
       const d = parseInt(dateOnly(e.date).slice(8, 10), 10)
       ;(m[d] ??= []).push({ id: e.id, area: e.area, title: e.title })
     }
+    // 부서별 업무현황: start_date~due_date 범위를 이번 달 안에서 하루씩 전개(영역 색상)
+    for (const tk of taskQ.data ?? []) {
+      const s = dateOnly(tk.start_date)
+      const e = dateOnly(tk.due_date)
+      if (!s || !e) continue
+      const from = new Date(Math.max(+new Date(s), +new Date(monthStart)))
+      const to = new Date(Math.min(+new Date(e), +new Date(monthEnd)))
+      if (+from > +to) continue
+      for (let t = +from; t <= +to; t += 86_400_000) {
+        const d = new Date(t).getDate()
+        ;(m[d] ??= []).push({ id: `tk-${tk.id}-${d}`, area: tk.area, title: tk.title })
+      }
+    }
     // 승인된 휴가: start~end 범위를 이번 달 안에서 하루씩 전개
     for (const lv of leaveQ.data ?? []) {
       const s = dateOnly(lv.start_date)
@@ -97,19 +120,20 @@ export default function Calendar() {
       }
     }
     return m
-  }, [events, leaveQ.data, empName, monthStart, monthEnd])
+  }, [events, taskQ.data, leaveQ.data, empName, monthStart, monthEnd])
 
   const firstDow = new Date(ym.y, ym.m - 1, 1).getDay()
   const daysInMonth = new Date(ym.y, ym.m, 0).getDate()
   const isThisMonth = ym.y === today.getFullYear() && ym.m === today.getMonth() + 1
   const todayDate = today.getDate()
 
-  // 범례: 이번 달에 등장하는 부서 영역 + 휴가·개인 고정. (중복 제거, 고정 항목은 항상 노출)
+  // 범례: 이번 달에 등장하는 부서 영역(업무현황+이벤트) + 휴가·개인 고정. (중복 제거)
   const legendAreas = useMemo(() => {
     const s = new Set<string>()
     for (const e of events) if (e.area && !LEGEND_FIXED.includes(e.area)) s.add(e.area)
+    for (const tk of taskQ.data ?? []) if (tk.area && !LEGEND_FIXED.includes(tk.area)) s.add(tk.area)
     return [...s, ...LEGEND_FIXED]
-  }, [events])
+  }, [events, taskQ.data])
 
   const toggleFilter = (k: string) => {
     if (k === '') setFilters([])
@@ -137,6 +161,7 @@ export default function Calendar() {
       />
       <section className="panel">
         <ErrorBanner error={evQ.error} table="events" />
+        <ErrorBanner error={taskQ.error} table="work_tasks" />
         <ErrorBanner error={leaveQ.error} table="leave_records" />
         <div className="panel-h" style={{ alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

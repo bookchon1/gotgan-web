@@ -7,6 +7,7 @@ import { useQuery } from '../lib/useQuery'
 import { eok } from '../lib/format'
 import { useAuth } from '../lib/auth'
 import type { Approval, ApprovalLine, Employee } from '../types/db'
+import { ApprovalDraftModal } from './ApprovalDraftModal'
 
 const KIND_BADGE: Record<string, { cls: string; label: string }> = {
   지출결의서: { cls: 'badge gold', label: '지출결의' },
@@ -67,6 +68,7 @@ export default function Approvals() {
 
   const loading = apprQ.loading || linesQ.loading
   const [busy, setBusy] = useState(false)
+  const [draftOpen, setDraftOpen] = useState(false)
 
   const reload = () => {
     apprQ.reload()
@@ -132,7 +134,7 @@ export default function Approvals() {
         title="전자결재"
         desc="기안을 작성하고, 결재선에 따라 승인과 반려를 처리하세요."
         actions={
-          <button className="btn pri">
+          <button className="btn pri" onClick={() => setDraftOpen(true)}>
             <Icon name="approval" className="icon ic" /> 기안 작성
           </button>
         }
@@ -217,6 +219,16 @@ export default function Approvals() {
           </table>
         </div>
       </section>
+
+      {draftOpen && (
+        <ApprovalDraftModal
+          onClose={() => setDraftOpen(false)}
+          onCreated={() => {
+            setDraftOpen(false)
+            reload()
+          }}
+        />
+      )}
     </div>
   )
 }

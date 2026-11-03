@@ -87,3 +87,28 @@ insert into public.leave_records (employee_id, leave_type, status, start_date, e
   select e.id, '연차', '승인', '2026-09-15','2026-09-15', 1, 15 from public.employees e where e.name in ('이윤정','김성헌','나지예');
 insert into public.leave_records (employee_id, leave_type, status, start_date, end_date, days)
   select e.id, '반차', '승인', '2026-10-10','2026-10-10', 0.5 from public.employees e where e.name='이윤정';
+
+-- 업무현황 데모 (영역별)
+insert into public.work_tasks (area, title, dept, detail, owner_id, reg_date, start_date, due_date, status, src)
+  select v.area, v.title, v.dept, v.detail,
+    (select id from public.employees where name=v.owner), v.reg::date, v.start::date, v.due::date, v.status, v.src
+  from (values
+   ('management','10월 급여 대장 검토','경영','노무','이윤정','2026-10-20','2026-10-28','2026-10-29','prog',null),
+   ('management','4대보험 정산 자료 정리','경영','노무','이윤정','2026-10-18','2026-10-25','2026-11-01','plan',null),
+   ('management','3분기 회계 결산','경영','회계','이윤정','2026-10-05','2026-10-10','2026-10-22','done',null),
+   ('art','삼국유사 목판 보존처리 3차','미술','작업','김성헌','2026-10-10','2026-10-14','2026-10-28','prog','사업: 삼국유사 목판'),
+   ('art','문화재 조사보고서 납품','미술','조사','나지예','2026-10-08','2026-10-20','2026-11-08','done','사업: 석조여래좌상'),
+   ('art','보존처리 설계도면 작성','미술','설계','김성헌','2026-10-22','2026-11-01','2026-11-15','plan',null),
+   ('product','기념 엽서 세트 재입고 발주','상품',null,'이규리','2026-10-24','2026-10-26','2026-10-30','prog',null),
+   ('promotion','삼국유사 목판 복원 과정 연재','홍보','채널','김유미','2026-10-01','2026-10-01','2026-10-31','prog','홍보: 인스타그램')
+  ) as v(area,title,dept,detail,owner,reg,start,due,status,src);
+
+-- 문서보관 데모
+insert into public.documents (title, category, owner_id, share_scope)
+  select v.title, v.cat, (select id from public.employees where name=v.owner), v.scope
+  from (values
+   ('2026 보존처리 표준계약서(양식)','계약','이윤정','전사'),
+   ('삼국유사 목판 착수보고서','보고서','김성헌','선택'),
+   ('직원 복무규정 2026','규정','이윤정','전사'),
+   ('10월 지출결의 모음','회계','이윤정','개인')
+  ) as v(title,cat,owner,scope);

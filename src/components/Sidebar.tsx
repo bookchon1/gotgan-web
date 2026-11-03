@@ -1,13 +1,36 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { Icon } from './Icon'
 import { AREAS } from '../data/areas'
 import { useAuth } from '../lib/auth'
 
+/** 현재 경로(pathname)가 어느 부서(area)에 속하는지 역으로 찾는다.
+ *  예) /tasks/art → art, /hr → management, /ops/art → art */
+function areaOfPath(pathname: string): string | null {
+  // 개인 업무현황: /tasks/:area
+  const m = pathname.match(/^\/tasks\/([^/]+)/)
+  if (m) return m[1]
+  // 부서별 기능 화면: /hr, /ops/art 등 → views 의 라우트 키로 매칭
+  for (const a of AREAS) {
+    for (const v of a.views) {
+      if (v.k === 'tasks') continue
+      const to = v.k.startsWith('ops-') ? `/${v.k.replace('ops-', 'ops/')}` : `/${v.k}`
+      if (pathname === to || pathname.startsWith(to + '/')) return a.id
+    }
+  }
+  return null
+}
+
 /** 업무관리 서브메뉴(영역별) — 아코디언 (한 번에 하나만 열림, 시안과 동일) */
 function TaskSubnav({ isAdmin }: { isAdmin: boolean }) {
-  // 현재 펼쳐진 영역 id (하나만). 기본 미술.
-  const [openArea, setOpenArea] = useState<string | null>('art')
+  const loc = useLocation()
+  // 시안과 동일: 펼쳐도 아무 부서도 자동으로 열지 않음. 현재 화면이 속한 부서만 열어둔다.
+  const [openArea, setOpenArea] = useState<string | null>(() => areaOfPath(loc.pathname))
+  // 화면 이동 시: 그 화면이 속한 부서를 자동으로 연다(다른 부서는 닫힘).
+  useEffect(() => {
+    const target = areaOfPath(loc.pathname)
+    if (target) setOpenArea(target)
+  }, [loc.pathname])
   // 같은 영역 클릭 → 닫기, 다른 영역 클릭 → 그 영역만 열고 나머지는 닫기
   const toggle = (id: string) => setOpenArea((cur) => (cur === id ? null : id))
 

@@ -29,6 +29,32 @@ export interface Employee {
   email: string | null
   phone: string | null
   sort: number
+  // --- 상세 인사카드(대기업형) 확장 필드 ---
+  emp_no: string | null           // 사번
+  birth_md: string | null         // 생일(월-일, 예 '03-15') — 생년(연도)은 저장하지 않음
+  gender: string | null           // 성별
+  employment_type: string | null  // 고용형태(정규직/계약직/일용직/파견)
+  position: string | null         // 직책(팀장/실장 등)
+  join_date: string | null        // 입사일(YYYY-MM-DD)
+  leave_date: string | null       // 퇴사일
+  address: string | null          // 주소
+  emergency_name: string | null   // 비상연락처(이름/관계)
+  emergency_phone: string | null  // 비상연락처(번호)
+  education: string | null        // 최종학력
+  career: string | null           // 경력 요약
+  certifications: string | null   // 자격증
+  memo: string | null             // 인사 메모
+}
+
+/** 인사발령 이력 (hr_assignments) */
+export interface HrAssignment {
+  id: string
+  employee_id: string
+  eff_date: string                // 발령일
+  kind: string                    // 입사/승진/부서이동/보직변경/휴직/복직/퇴직 등
+  detail: string | null
+  note: string | null
+  created_at: string
 }
 
 export interface WorkTask {

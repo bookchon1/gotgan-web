@@ -17,7 +17,8 @@ const ST_CHIP: Record<string, [string, string]> = {
 export default function Tasks() {
   const { area } = useParams()
   const a = AREAS.find((x) => x.id === area)
-  const label = a ? `${a.label} 업무현황` : '업무현황'
+  // 시안과 동일: 제목은 기능명만 ("업무현황"). 부서는 경로·사이드바로 구분하므로 부서명을 붙이지 않는다.
+  const label = '업무현황'
 
   const taskQ = useQuery<WorkTask[]>(
     async () =>

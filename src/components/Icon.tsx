@@ -18,6 +18,7 @@ const PATHS: Record<string, string> = {
   menu: 'M3 6h18M3 12h18M3 18h18',
   eye: 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z',
   check: 'M5 12l4 4 10-10',
+  search: 'M21 21l-4.3-4.3M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14z',
 }
 
 interface IconProps {

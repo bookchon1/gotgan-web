@@ -12,6 +12,7 @@ import Accounting from './pages/accounting/Accounting'
 import Labor from './pages/labor/Labor'
 import Approvals from './pages/Approvals'
 import Calendar from './pages/Calendar'
+import Documents from './pages/Documents'
 
 /** 로그인 필요 가드 */
 function RequireAuth({ children }: { children: JSX.Element }) {
@@ -107,7 +108,7 @@ export default function App() {
 
         {/* 공통 */}
         <Route path="/approvals" element={<Approvals />} />
-        <Route path="/documents" element={<Placeholder title="문서보관" />} />
+        <Route path="/documents" element={<Documents />} />
         <Route path="/calendar" element={<Calendar />} />
 
         {/* 관리자 */}

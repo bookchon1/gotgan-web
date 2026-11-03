@@ -25,6 +25,43 @@ export default function Users() {
   const { me } = useAuth()
   const [tab, setTab] = useState<Tab>('all')
   const [q, setQ] = useState('')
+  const [addOpen, setAddOpen] = useState(false)
+  const [permOf, setPermOf] = useState<Employee | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [addForm, setAddForm] = useState({ name: '', title: '연구원', dept: 'art', role: 'user' as 'admin' | 'user' })
+
+  async function createUser() {
+    if (!addForm.name.trim()) return
+    setBusy(true)
+    await supabase.from('employees').insert({
+      name: addForm.name.trim(),
+      dept_key: addForm.dept || null,
+      title: addForm.title,
+      join_ym: new Date().toISOString().slice(0, 7).replace('-', '.'),
+      role: addForm.role,
+      is_mgmt: false,
+      status: '재직',
+    })
+    setBusy(false)
+    setAddOpen(false)
+    setAddForm({ name: '', title: '연구원', dept: 'art', role: 'user' })
+    empQ.reload()
+  }
+  async function savePerm(role: 'admin' | 'user', mgmt: boolean) {
+    if (!permOf) return
+    setBusy(true)
+    await supabase.from('employees').update({ role, is_mgmt: mgmt }).eq('id', permOf.id)
+    // admin_grants: mgmt 면 전 영역 부여, 아니면 제거
+    await supabase.from('admin_grants').delete().eq('employee_id', permOf.id)
+    if (mgmt) {
+      await supabase.from('admin_grants').insert(
+        (['hr', 'labor', 'accounting'] as const).map((area) => ({ employee_id: permOf.id, area })),
+      )
+    }
+    setBusy(false)
+    setPermOf(null)
+    empQ.reload()
+  }
 
   const empQ = useQuery<Employee[]>(
     async () =>
@@ -54,7 +91,7 @@ export default function Users() {
         title="사용자관리"
         desc="구성원을 등록하고 역할과 기능별 접근 권한을 설정하세요."
         actions={
-          <button className="btn pri">
+          <button className="btn pri" onClick={() => setAddOpen(true)}>
             <Icon name="approval" className="icon ic" /> 사용자 등록
           </button>
         }
@@ -133,7 +170,7 @@ export default function Users() {
                       </span>
                     </td>
                     <td>
-                      <button className="btn sec" style={{ padding: '5px 10px' }}>
+                      <button className="btn sec" style={{ padding: '5px 10px' }} onClick={() => setPermOf(e)} disabled={e.is_root}>
                         권한 설정
                       </button>
                     </td>
@@ -146,6 +183,119 @@ export default function Users() {
           </table>
         </div>
       </section>
+
+      {/* 사용자 등록 */}
+      {addOpen && (
+        <div className="modal-bg" onClick={() => setAddOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="mh">
+              <div>
+                <div className="eyebrow">사용자 등록</div>
+                <h3>새 구성원</h3>
+              </div>
+              <button className="x" onClick={() => setAddOpen(false)}>
+                ✕
+              </button>
+            </div>
+            <div className="mb">
+              <div className="mfield">
+                <label>이름</label>
+                <input className="ctl" value={addForm.name} onChange={(e) => setAddForm({ ...addForm, name: e.target.value })} autoFocus />
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <div className="mfield" style={{ flex: 1 }}>
+                  <label>소속</label>
+                  <select className="ctl" value={addForm.dept} onChange={(e) => setAddForm({ ...addForm, dept: e.target.value })}>
+                    <option value="art">미술</option>
+                    <option value="management">경영</option>
+                    <option value="product">상품</option>
+                    <option value="promotion">홍보</option>
+                    <option value="experience">체험</option>
+                    <option value="education">교육</option>
+                    <option value="">대표</option>
+                  </select>
+                </div>
+                <div className="mfield" style={{ flex: 1 }}>
+                  <label>직급</label>
+                  <input className="ctl" value={addForm.title} onChange={(e) => setAddForm({ ...addForm, title: e.target.value })} />
+                </div>
+              </div>
+              <div className="mfield">
+                <label>역할</label>
+                <select className="ctl" value={addForm.role} onChange={(e) => setAddForm({ ...addForm, role: e.target.value as 'admin' | 'user' })}>
+                  <option value="user">일반 사용자</option>
+                  <option value="admin">관리자</option>
+                </select>
+              </div>
+              <div className="login-alert warn" style={{ margin: 0 }}>
+                등록 후 로그인하려면 Supabase Authentication에서 계정을 만들고 연결해야 합니다.
+              </div>
+            </div>
+            <div className="mf">
+              <button className="btn sec" onClick={() => setAddOpen(false)} disabled={busy}>
+                취소
+              </button>
+              <button className="btn pri" onClick={createUser} disabled={busy || !addForm.name.trim()}>
+                {busy ? '등록 중…' : '등록'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 권한 설정 */}
+      {permOf && <PermModal emp={permOf} busy={busy} onClose={() => setPermOf(null)} onSave={savePerm} />}
+    </div>
+  )
+}
+
+function PermModal({
+  emp,
+  busy,
+  onClose,
+  onSave,
+}: {
+  emp: Employee
+  busy: boolean
+  onClose: () => void
+  onSave: (role: 'admin' | 'user', mgmt: boolean) => void
+}) {
+  const [role, setRole] = useState<'admin' | 'user'>(emp.role)
+  const [mgmt, setMgmt] = useState(emp.is_mgmt)
+  return (
+    <div className="modal-bg" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="mh">
+          <div>
+            <div className="eyebrow">권한 설정</div>
+            <h3>{emp.name}</h3>
+          </div>
+          <button className="x" onClick={onClose}>
+            ✕
+          </button>
+        </div>
+        <div className="mb">
+          <div className="mfield">
+            <label>역할</label>
+            <select className="ctl" value={role} onChange={(e) => setRole(e.target.value as 'admin' | 'user')}>
+              <option value="user">일반 사용자</option>
+              <option value="admin">관리자</option>
+            </select>
+          </div>
+          <label className="mfield" style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+            <input type="checkbox" checked={mgmt} onChange={(e) => setMgmt(e.target.checked)} />
+            <span style={{ fontSize: 13 }}>인사·노무·회계 담당 (급여·회계 전표 열람/처리)</span>
+          </label>
+        </div>
+        <div className="mf">
+          <button className="btn sec" onClick={onClose} disabled={busy}>
+            취소
+          </button>
+          <button className="btn pri" onClick={() => onSave(role, mgmt)} disabled={busy}>
+            {busy ? '저장 중…' : '저장'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

@@ -5,6 +5,7 @@ import { ErrorBanner, LoadingRow, EmptyRow } from '../components/States'
 import { supabase } from '../lib/supabase'
 import { useQuery } from '../lib/useQuery'
 import { mmdd } from '../lib/format'
+import { useAuth } from '../lib/auth'
 import type { GotganDocument, Employee } from '../types/db'
 
 type Folder = 'all' | '개인' | '전사' | '선택'
@@ -16,8 +17,27 @@ const SCOPE_BADGE: Record<string, string> = {
 }
 
 export default function Documents() {
+  const { me } = useAuth()
   const [folder, setFolder] = useState<Folder>('all')
   const [q, setQ] = useState('')
+  const [addOpen, setAddOpen] = useState(false)
+  const [form, setForm] = useState({ title: '', category: '', scope: '개인' as '개인' | '선택' | '전사' })
+  const [busy, setBusy] = useState(false)
+
+  async function createDoc() {
+    if (!form.title.trim()) return
+    setBusy(true)
+    await supabase.from('documents').insert({
+      title: form.title.trim(),
+      category: form.category || null,
+      owner_id: me?.id ?? null,
+      share_scope: form.scope,
+    })
+    setBusy(false)
+    setAddOpen(false)
+    setForm({ title: '', category: '', scope: '개인' })
+    docQ.reload()
+  }
 
   const docQ = useQuery<GotganDocument[]>(
     async () => await supabase.from('documents').select('*').order('created_at', { ascending: false }),
@@ -56,7 +76,7 @@ export default function Documents() {
         title="문서보관"
         desc="필요한 자료를 정리하고, 정해진 범위 안에서 공유하세요."
         actions={
-          <button className="btn pri">
+          <button className="btn pri" onClick={() => setAddOpen(true)}>
             <Icon name="approval" className="icon ic" /> 문서 만들기
           </button>
         }
@@ -128,6 +148,48 @@ export default function Documents() {
           </table>
         </div>
       </section>
+
+      {addOpen && (
+        <div className="modal-bg" onClick={() => setAddOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="mh">
+              <div>
+                <div className="eyebrow">문서 만들기</div>
+                <h3>새 문서</h3>
+              </div>
+              <button className="x" onClick={() => setAddOpen(false)}>
+                ✕
+              </button>
+            </div>
+            <div className="mb">
+              <div className="mfield">
+                <label>문서 이름</label>
+                <input className="ctl" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="예: 2026 보존처리 표준계약서" autoFocus />
+              </div>
+              <div className="mfield">
+                <label>분류</label>
+                <input className="ctl" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="예: 계약 / 규정 / 보고서" />
+              </div>
+              <div className="mfield">
+                <label>공유 범위</label>
+                <select className="ctl" value={form.scope} onChange={(e) => setForm({ ...form, scope: e.target.value as typeof form.scope })}>
+                  <option value="개인">개인 보관</option>
+                  <option value="선택">선택 공유</option>
+                  <option value="전사">전사 공유</option>
+                </select>
+              </div>
+            </div>
+            <div className="mf">
+              <button className="btn sec" onClick={() => setAddOpen(false)} disabled={busy}>
+                취소
+              </button>
+              <button className="btn pri" onClick={createDoc} disabled={busy || !form.title.trim()}>
+                {busy ? '생성 중…' : '만들기'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

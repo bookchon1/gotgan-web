@@ -33,6 +33,11 @@ export default function ArtDetail() {
   const detailsRefs = useRef<HTMLDetailsElement[]>([])
   const [budItem, setBudItem] = useState<string | null>(null)
   const [advOpen, setAdvOpen] = useState(false)
+  const [addChange, setAddChange] = useState(false)
+  const [changeForm, setChangeForm] = useState({ date: '', type: '증액', memo: '', after: 0 })
+  const [addReceipt, setAddReceipt] = useState(false)
+  const [receiptForm, setReceiptForm] = useState({ kind: '기성', date: '', amount: 0 })
+  const [budBusy, setBudBusy] = useState(false)
 
   const projQ = useQuery<ArtProject[]>(
     async () => await supabase.from('art_projects').select('*').eq('id', id!),
@@ -89,6 +94,36 @@ export default function ArtDetail() {
   const reloadAdvisors = () => {
     advQ.reload()
     txQ.reload()
+  }
+
+  async function saveChange() {
+    if (!changeForm.date || !changeForm.after) return
+    setBudBusy(true)
+    await supabase.from('budget_changes').insert({
+      project_id: id!,
+      date: changeForm.date,
+      type: changeForm.type,
+      memo: changeForm.memo || null,
+      after_amount: changeForm.after,
+    })
+    setBudBusy(false)
+    setAddChange(false)
+    setChangeForm({ date: '', type: '증액', memo: '', after: 0 })
+    changesQ.reload()
+  }
+  async function saveReceipt() {
+    if (!receiptForm.date || !receiptForm.amount) return
+    setBudBusy(true)
+    await supabase.from('budget_receipts').insert({
+      project_id: id!,
+      kind: receiptForm.kind,
+      date: receiptForm.date,
+      amount: receiptForm.amount,
+    })
+    setBudBusy(false)
+    setAddReceipt(false)
+    setReceiptForm({ kind: '기성', date: '', amount: 0 })
+    receiptsQ.reload()
   }
 
   const contract = contractAmount(p?.contract_base ?? 0, changes)
@@ -249,40 +284,137 @@ export default function ArtDetail() {
             </div>
           </div>
 
+          {/* 대금 수령 */}
+          <div className="bud-h" style={{ marginTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="t">대금 수령</div>
+            <button className="btn txt" style={{ padding: 0, fontSize: 11.5, color: 'var(--brand-ink)' }} onClick={() => setAddReceipt((v) => !v)}>
+              {addReceipt ? '취소' : '+ 대금수령 추가'}
+            </button>
+          </div>
+          <table className="rowtbl">
+            <thead>
+              <tr>
+                <th>구분</th>
+                <th>날짜</th>
+                <th style={{ textAlign: 'right' }}>금액</th>
+              </tr>
+            </thead>
+            <tbody>
+              {receipts.map((r) => (
+                <tr key={r.id}>
+                  <td>
+                    <span className="badge">{r.kind}</span>
+                  </td>
+                  <td className="tnum">{dateOnly(r.date)}</td>
+                  <td className="tnum" style={{ textAlign: 'right', fontWeight: 700, color: 'var(--ok)' }}>
+                    {won(r.amount)}
+                  </td>
+                </tr>
+              ))}
+              {addReceipt && (
+                <tr>
+                  <td>
+                    <select className="hr-in" value={receiptForm.kind} onChange={(e) => setReceiptForm({ ...receiptForm, kind: e.target.value })}>
+                      <option>선금</option>
+                      <option>기성</option>
+                      <option>잔금</option>
+                    </select>
+                  </td>
+                  <td>
+                    <input className="hr-in" type="date" value={receiptForm.date} onChange={(e) => setReceiptForm({ ...receiptForm, date: e.target.value })} />
+                  </td>
+                  <td style={{ textAlign: 'right' }}>
+                    <input
+                      className="hr-in tnum"
+                      style={{ maxWidth: 110 }}
+                      placeholder="금액"
+                      value={receiptForm.amount ? won(receiptForm.amount) : ''}
+                      onChange={(e) => setReceiptForm({ ...receiptForm, amount: parseInt(e.target.value.replace(/[^0-9]/g, ''), 10) || 0 })}
+                    />
+                    <button className="btn pri" style={{ padding: '3px 9px', fontSize: 11, marginLeft: 5 }} onClick={saveReceipt} disabled={budBusy}>
+                      저장
+                    </button>
+                  </td>
+                </tr>
+              )}
+              {receipts.length === 0 && !addReceipt && (
+                <tr>
+                  <td colSpan={3} style={{ color: 'var(--muted)', textAlign: 'center', padding: 12 }}>
+                    수령 내역이 없습니다.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+
           {/* 설계변경 */}
-          {changes.length > 0 && (
-            <>
-              <div className="bud-h" style={{ marginTop: 16 }}>
-                <div className="t">설계변경</div>
-              </div>
-              <table className="rowtbl">
-                <thead>
-                  <tr>
-                    <th>일자</th>
-                    <th>구분</th>
-                    <th>사유</th>
-                    <th style={{ textAlign: 'right' }}>변경 후 계약금</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {changes.map((c) => (
-                    <tr key={c.id}>
-                      <td className="tnum">{dateOnly(c.date)}</td>
-                      <td>
-                        <span className="badge" style={{ color: c.type === '감액' ? 'var(--danger)' : 'var(--brand-ink)' }}>
-                          {c.type}
-                        </span>
-                      </td>
-                      <td>{c.memo}</td>
-                      <td className="tnum" style={{ textAlign: 'right', fontWeight: 700 }}>
-                        {won(c.after_amount)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </>
-          )}
+          <div className="bud-h" style={{ marginTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="t">설계변경</div>
+            <button className="btn txt" style={{ padding: 0, fontSize: 11.5, color: 'var(--brand-ink)' }} onClick={() => setAddChange((v) => !v)}>
+              {addChange ? '취소' : '+ 설계변경 추가'}
+            </button>
+          </div>
+          <table className="rowtbl">
+            <thead>
+              <tr>
+                <th>일자</th>
+                <th>구분</th>
+                <th>사유</th>
+                <th style={{ textAlign: 'right' }}>변경 후 계약금</th>
+              </tr>
+            </thead>
+            <tbody>
+              {changes.map((c) => (
+                <tr key={c.id}>
+                  <td className="tnum">{dateOnly(c.date)}</td>
+                  <td>
+                    <span className="badge" style={{ color: c.type === '감액' ? 'var(--danger)' : 'var(--brand-ink)' }}>
+                      {c.type}
+                    </span>
+                  </td>
+                  <td>{c.memo}</td>
+                  <td className="tnum" style={{ textAlign: 'right', fontWeight: 700 }}>
+                    {won(c.after_amount)}
+                  </td>
+                </tr>
+              ))}
+              {addChange && (
+                <tr>
+                  <td>
+                    <input className="hr-in" type="date" value={changeForm.date} onChange={(e) => setChangeForm({ ...changeForm, date: e.target.value })} />
+                  </td>
+                  <td>
+                    <select className="hr-in" value={changeForm.type} onChange={(e) => setChangeForm({ ...changeForm, type: e.target.value })}>
+                      <option>증액</option>
+                      <option>감액</option>
+                    </select>
+                  </td>
+                  <td>
+                    <input className="hr-in" placeholder="사유" value={changeForm.memo} onChange={(e) => setChangeForm({ ...changeForm, memo: e.target.value })} />
+                  </td>
+                  <td style={{ textAlign: 'right' }}>
+                    <input
+                      className="hr-in tnum"
+                      style={{ maxWidth: 110 }}
+                      placeholder="변경 후"
+                      value={changeForm.after ? won(changeForm.after) : ''}
+                      onChange={(e) => setChangeForm({ ...changeForm, after: parseInt(e.target.value.replace(/[^0-9]/g, ''), 10) || 0 })}
+                    />
+                    <button className="btn pri" style={{ padding: '3px 9px', fontSize: 11, marginLeft: 5 }} onClick={saveChange} disabled={budBusy}>
+                      저장
+                    </button>
+                  </td>
+                </tr>
+              )}
+              {changes.length === 0 && !addChange && (
+                <tr>
+                  <td colSpan={4} style={{ color: 'var(--muted)', textAlign: 'center', padding: 12 }}>
+                    설계변경 내역이 없습니다.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
 
           {/* 9대 예산 카드 */}
           <div className="bud-h" style={{ marginTop: 16 }}>

@@ -456,26 +456,43 @@ function EmpCardModal({
                   ))}
                 </select>
               </Field>
-              <Field label="겸소속 (복수 선택)" full>
-                <div className="dept-chips">
-                  {DEPT_OPTS.filter((d) => d[0] !== '' && d[0] !== (form.dept_key ?? '')).map((d) => {
-                    const on = (form.extra_depts ?? []).includes(d[0])
-                    return (
+              <Field label="겸소속 (복수 선택 가능)">
+                <select
+                  className="ctl"
+                  value=""
+                  onChange={(e) => {
+                    const v = e.target.value
+                    if (!v) return
+                    const cur = form.extra_depts ?? []
+                    if (!cur.includes(v)) set('extra_depts', [...cur, v])
+                  }}
+                >
+                  <option value="">+ 겸소속 추가</option>
+                  {DEPT_OPTS.filter(
+                    (d) => d[0] !== '' && d[0] !== (form.dept_key ?? '') && !(form.extra_depts ?? []).includes(d[0]),
+                  ).map((d) => (
+                    <option key={d[0]} value={d[0]}>
+                      {d[1]}
+                    </option>
+                  ))}
+                </select>
+                {(form.extra_depts ?? []).length > 0 && (
+                  <div className="dept-chips" style={{ marginTop: 7 }}>
+                    {(form.extra_depts ?? []).map((dk) => (
                       <button
                         type="button"
-                        key={d[0]}
-                        className={`dept-chip${on ? ' on' : ''}`}
-                        onClick={() => {
-                          const cur = form.extra_depts ?? []
-                          set('extra_depts', on ? cur.filter((x) => x !== d[0]) : [...cur, d[0]])
-                        }}
+                        key={dk}
+                        className="dept-chip on"
+                        title="클릭하면 제거"
+                        onClick={() => set('extra_depts', (form.extra_depts ?? []).filter((x) => x !== dk))}
                       >
-                        <span className={`sw-dot ${DEPT_CLS[d[0]] ?? ''}`} />
-                        {d[1]}
+                        <span className={`sw-dot ${DEPT_CLS[dk] ?? ''}`} />
+                        {deptLabel(dk)}
+                        <span style={{ marginLeft: 4, opacity: 0.6 }}>✕</span>
                       </button>
-                    )
-                  })}
-                </div>
+                    ))}
+                  </div>
+                )}
               </Field>
               <Field label="직급">
                 <input className="ctl" placeholder="예: 선임연구원" value={form.title ?? ''} onChange={(e) => set('title', e.target.value)} />

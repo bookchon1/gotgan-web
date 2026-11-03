@@ -881,3 +881,11 @@ td>.hr-in{max-width:160px}
 .sw-dot.ar-art{background:var(--ar-art)} .sw-dot.ar-manage{background:var(--ar-manage)}
 .sw-dot.ar-product{background:var(--ar-product)} .sw-dot.ar-promo{background:var(--ar-promo)}
 .sw-dot.ar-exp{background:var(--ar-exp)} .sw-dot.ar-edu{background:var(--ar-edu)}
+
+/* 인사관리 헤더 액션 (검색창 + 등록 버튼 나란히) */
+.hr-head-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.hr-head-actions .hr-search{min-width:240px;margin-bottom:0}
+@media(max-width:640px){
+  .hr-head-actions{width:100%}
+  .hr-head-actions .hr-search{flex:1;min-width:0}
+}

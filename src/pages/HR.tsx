@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { PageHead } from '../components/PageHead'
-import { Icon } from '../components/Icon'
 import { supabase, isConfigured } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import type { Employee, HrAssignment } from '../types/db'
@@ -86,12 +85,16 @@ export default function HR() {
   }, [])
 
   const filtered = useMemo(() => {
+    const searching = q.trim().length > 0
     return rows.filter((r) => {
-      if (statusFilter !== 'all' && r.status !== statusFilter) return false
+      // 검색어가 있으면 상태 필터는 무시(전체 상태에서 검색). 없으면 선택한 상태만.
+      if (!searching && statusFilter !== 'all' && r.status !== statusFilter) return false
       if (deptFilter !== 'all' && (r.dept_key ?? '') !== deptFilter) return false
-      if (q.trim()) {
+      if (searching) {
         const s = q.trim().toLowerCase()
-        const hay = [r.name, r.emp_no, r.title, r.position, r.phone, r.email]
+        // 부서명(주소속 + 겸소속)도 검색 대상에 포함
+        const deptNames = [deptLabel(r.dept_key), ...(r.extra_depts ?? []).map(deptLabel)]
+        const hay = [r.name, r.emp_no, r.title, r.position, r.phone, r.email, r.employment_type, r.status, ...deptNames]
           .filter(Boolean)
           .join(' ')
           .toLowerCase()
@@ -141,9 +144,18 @@ export default function HR() {
         title="인사관리"
         desc="구성원 명부와 상세 인사정보를 관리합니다. 이름을 클릭하면 상세 인사카드가 열립니다."
         actions={
-          <button className="btn pri" onClick={addEmp} disabled={!!error}>
-            직원 등록
-          </button>
+          <div className="hr-head-actions">
+            <div className="hr-search">
+              <input
+                placeholder="이름·사번·부서·직급·연락처 검색 (상태 무관)"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+              />
+            </div>
+            <button className="btn pri" onClick={addEmp} disabled={!!error}>
+              + 직원 등록
+            </button>
+          </div>
         }
       />
 
@@ -167,16 +179,8 @@ export default function HR() {
           </div>
         )}
 
-        {/* 검색·필터 바 */}
+        {/* 필터 바 (검색창은 상단 헤더로 이동) */}
         <div className="hr-toolbar">
-          <div className="hr-search">
-            <Icon name="search" size={15} />
-            <input
-              placeholder="이름·사번·직급·연락처 검색"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-            />
-          </div>
           <div className="hr-filters">
             <select value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)}>
               <option value="all">전체 부서</option>

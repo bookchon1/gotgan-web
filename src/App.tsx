@@ -13,6 +13,9 @@ import Labor from './pages/labor/Labor'
 import Approvals from './pages/Approvals'
 import Calendar from './pages/Calendar'
 import Documents from './pages/Documents'
+import Users from './pages/admin/Users'
+import Security from './pages/admin/Security'
+import Activity from './pages/admin/Activity'
 
 /** 로그인 필요 가드 */
 function RequireAuth({ children }: { children: JSX.Element }) {
@@ -116,7 +119,7 @@ export default function App() {
           path="/users"
           element={
             <RequireAdmin>
-              <Placeholder title="사용자관리" />
+              <Users />
             </RequireAdmin>
           }
         />
@@ -124,7 +127,7 @@ export default function App() {
           path="/security"
           element={
             <RequireAdmin>
-              <Placeholder title="권한 검증" />
+              <Security />
             </RequireAdmin>
           }
         />
@@ -132,7 +135,7 @@ export default function App() {
           path="/activity"
           element={
             <RequireAdmin>
-              <Placeholder title="활동 기록" />
+              <Activity />
             </RequireAdmin>
           }
         />

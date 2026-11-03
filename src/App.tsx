@@ -7,6 +7,7 @@ import HR from './pages/HR'
 import { Placeholder } from './pages/Placeholder'
 import Tasks from './pages/Tasks'
 import ArtList from './pages/ops/ArtList'
+import Accounting from './pages/accounting/Accounting'
 
 /** 로그인 필요 가드 */
 function RequireAuth({ children }: { children: JSX.Element }) {
@@ -95,7 +96,7 @@ export default function App() {
           path="/accounting"
           element={
             <RequireAdmin>
-              <Placeholder title="회계관리" />
+              <Accounting />
             </RequireAdmin>
           }
         />

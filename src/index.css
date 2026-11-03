@@ -796,6 +796,11 @@ td>.hr-in{max-width:160px}
 /* 페이지 헤더 우측 액션 (.acts 는 시안에 있으나 margin-left:auto 재확인) */
 .ph .acts{margin-left:auto}
 
+/* 회계 화면 chip 변형 (시안 JS는 chip inc/exp/auto 를 쓰지만 색 정의가 없어 보강) */
+.chip.inc{background:var(--brand-soft);color:var(--brand-ink)}
+.chip.exp{background:var(--danger-soft);color:var(--expense)}
+.chip.auto{background:var(--info-soft);color:var(--info)}
+
 /* 모바일 사이드바 토글 (시안: #sb.open) — 데스크톱은 그대로 그리드 */
 @media(max-width:860px){
   .sidebar{position:fixed;left:0;top:0;bottom:0;z-index:50;transform:translateX(-100%);transition:transform .2s;box-shadow:var(--shadow)}

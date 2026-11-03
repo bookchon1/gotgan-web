@@ -99,7 +99,7 @@ export default function ArtList() {
   // project_id → 수금 합계
   const receivedMap = useMemo(() => {
     const m: Record<string, number> = {}
-    for (const r of receipts.data ?? []) m[r.project_id] = (m[r.project_id] || 0) + r.amount
+    for (const r of receipts.data ?? []) m[r.project_id] = (m[r.project_id] || 0) + (Number(r.amount) || 0)
     return m
   }, [receipts.data])
 
@@ -110,7 +110,7 @@ export default function ArtList() {
   let tCon = 0,
     tRec = 0
   for (const p of list) {
-    tCon += p.contract_base || 0
+    tCon += Number(p.contract_base) || 0
     tRec += receivedMap[p.id] || 0
   }
 

@@ -148,6 +148,16 @@ export interface Advisor {
   sort: number
 }
 
+export interface ArtStakeholder {
+  id: string
+  project_id: string
+  kind: string
+  name: string
+  org: string | null
+  phone: string | null
+  sort: number
+}
+
 export type TxType = '수입' | '지출'
 
 export interface AcctTx {

@@ -13,6 +13,7 @@ import type {
   ProjectStep,
   StepComment,
   Advisor,
+  ArtStakeholder,
   AcctTx,
 } from '../../types/db'
 import {
@@ -38,6 +39,9 @@ export default function ArtDetail() {
   const [addReceipt, setAddReceipt] = useState(false)
   const [receiptForm, setReceiptForm] = useState({ kind: '기성', date: '', amount: 0 })
   const [budBusy, setBudBusy] = useState(false)
+  const [addStk, setAddStk] = useState(false)
+  const [stkForm, setStkForm] = useState({ kind: '발주담당', name: '', org: '', phone: '' })
+  const [stkBusy, setStkBusy] = useState(false)
 
   const projQ = useQuery<ArtProject[]>(
     async () => await supabase.from('art_projects').select('*').eq('id', id!),
@@ -64,6 +68,10 @@ export default function ArtDetail() {
     async () => await supabase.from('advisors').select('*').eq('project_id', id!).order('sort', { ascending: true }),
     [id],
   )
+  const stkQ = useQuery<ArtStakeholder[]>(
+    async () => await supabase.from('art_stakeholders').select('*').eq('project_id', id!).order('sort', { ascending: true }),
+    [id],
+  )
   const txQ = useQuery<AcctTx[]>(
     async () => await supabase.from('acct_tx').select('*').eq('project_id', id!),
     [id],
@@ -83,6 +91,7 @@ export default function ArtDetail() {
   const receipts = receiptsQ.data ?? []
   const steps = stepsQ.data ?? []
   const advisors = advQ.data ?? []
+  const stakeholders = stkQ.data ?? []
   const tx = txQ.data ?? []
   const comments = cmtQ.data ?? []
 
@@ -124,6 +133,22 @@ export default function ArtDetail() {
     setAddReceipt(false)
     setReceiptForm({ kind: '기성', date: '', amount: 0 })
     receiptsQ.reload()
+  }
+  async function saveStk() {
+    if (!stkForm.name.trim()) return
+    setStkBusy(true)
+    await supabase.from('art_stakeholders').insert({
+      project_id: id!,
+      kind: stkForm.kind,
+      name: stkForm.name.trim(),
+      org: stkForm.org.trim() || null,
+      phone: stkForm.phone.trim() || null,
+      sort: stakeholders.length,
+    })
+    setStkBusy(false)
+    setAddStk(false)
+    setStkForm({ kind: '발주담당', name: '', org: '', phone: '' })
+    stkQ.reload()
   }
 
   const contract = contractAmount(p?.contract_base ?? 0, changes)
@@ -209,6 +234,74 @@ export default function ArtDetail() {
             />
             <Field l="담당" v={'—'} />
           </div>
+
+          {/* 관계자 */}
+          <div className="bud-h" style={{ marginTop: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div className="t">
+              관계자 <span style={{ color: 'var(--muted)', fontWeight: 400 }}>· {stakeholders.length}명</span>
+            </div>
+            {!addStk && (
+              <button className="btn txt" style={{ padding: 0, fontSize: 11.5, color: 'var(--brand-ink)' }} onClick={() => setAddStk(true)}>
+                + 관계자 추가
+              </button>
+            )}
+          </div>
+          <table className="rowtbl">
+            <thead>
+              <tr>
+                <th>구분</th>
+                <th>이름</th>
+                <th>소속</th>
+                <th>연락처</th>
+              </tr>
+            </thead>
+            <tbody>
+              {stakeholders.map((s) => (
+                <tr key={s.id}>
+                  <td>{s.kind}</td>
+                  <td>
+                    <b>{s.name}</b>
+                  </td>
+                  <td className="t-sub">{s.org || '—'}</td>
+                  <td className="tnum">{s.phone || '—'}</td>
+                </tr>
+              ))}
+              {addStk && (
+                <tr>
+                  <td>
+                    <select className="ctl" style={{ padding: '4px 6px', fontSize: 11 }} value={stkForm.kind} onChange={(e) => setStkForm({ ...stkForm, kind: e.target.value })}>
+                      <option>발주담당</option>
+                      <option>소장자</option>
+                      <option>재무과</option>
+                      <option>기타</option>
+                    </select>
+                  </td>
+                  <td>
+                    <input className="ctl" style={{ padding: '4px 6px', fontSize: 11 }} value={stkForm.name} onChange={(e) => setStkForm({ ...stkForm, name: e.target.value })} placeholder="이름" autoFocus />
+                  </td>
+                  <td>
+                    <input className="ctl" style={{ padding: '4px 6px', fontSize: 11 }} value={stkForm.org} onChange={(e) => setStkForm({ ...stkForm, org: e.target.value })} placeholder="소속" />
+                  </td>
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    <input className="ctl" style={{ padding: '4px 6px', fontSize: 11, width: 110 }} value={stkForm.phone} onChange={(e) => setStkForm({ ...stkForm, phone: e.target.value })} placeholder="연락처" />
+                    <button className="btn pri" style={{ padding: '3px 9px', fontSize: 11, marginLeft: 5 }} onClick={saveStk} disabled={stkBusy || !stkForm.name.trim()}>
+                      {stkBusy ? '…' : '저장'}
+                    </button>
+                    <button className="btn sec" style={{ padding: '3px 9px', fontSize: 11, marginLeft: 4 }} onClick={() => { setAddStk(false); setStkForm({ kind: '발주담당', name: '', org: '', phone: '' }) }}>
+                      취소
+                    </button>
+                  </td>
+                </tr>
+              )}
+              {stakeholders.length === 0 && !addStk && (
+                <tr>
+                  <td colSpan={4} style={{ color: 'var(--muted)', textAlign: 'center', padding: 16 }}>
+                    등록된 관계자가 없습니다.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
 
           {/* 자문위원 */}
           <div className="bud-h" style={{ marginTop: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

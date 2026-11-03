@@ -155,7 +155,7 @@ export default function Accounting() {
         />
       )}
 
-      {tab === 'ledger' && <LedgerView allTx={allTx} loading={txQ.loading} projName={projName} />}
+      {tab === 'ledger' && <LedgerView allTx={allTx} loading={txQ.loading} projName={projName} onPosted={() => txQ.reload()} />}
       {tab === 'inbox' && <InboxView onPosted={() => txQ.reload()} />}
       {tab === 'card' && <CardView onPosted={() => txQ.reload()} />}
       {tab === 'partner' && <PartnerView />}
@@ -569,13 +569,16 @@ function LedgerView({
   allTx,
   loading,
   projName,
+  onPosted,
 }: {
   allTx: AcctTx[]
   loading: boolean
   projName: Record<string, string>
+  onPosted: () => void
 }) {
   const [biz, setBiz] = useState('all')
   const [type, setType] = useState('all')
+  const [addOpen, setAddOpen] = useState(false)
   const list = allTx
     .filter((t) => (biz === 'all' || t.biz_code === biz) && (type === 'all' || t.tx_type === type))
     .sort((a, b) => (a.date < b.date ? 1 : -1))
@@ -594,7 +597,7 @@ function LedgerView({
             전표 내역 <span className="count">{loading ? '…' : list.length}</span>
           </h2>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <select className="sel" value={biz} onChange={(e) => setBiz(e.target.value)}>
             <option value="all">전체 사업자</option>
             <option value="법인">법인</option>
@@ -606,6 +609,9 @@ function LedgerView({
             <option value="수입">수입</option>
             <option value="지출">지출</option>
           </select>
+          <button className="btn pri" style={{ padding: '7px 13px' }} onClick={() => setAddOpen(true)}>
+            + 예외 전표
+          </button>
         </div>
       </div>
       <div className="tbl-wrap">
@@ -669,6 +675,148 @@ function LedgerView({
           </tfoot>
         </table>
       </div>
+
+      {addOpen && (
+        <LedgerAddModal
+          onClose={() => setAddOpen(false)}
+          onPosted={() => {
+            onPosted()
+            setAddOpen(false)
+          }}
+        />
+      )}
     </section>
+  )
+}
+
+// 예외 전표 직접 입력 — 이자수입·잡수입·소액·정정 등 결의서로 안 잡히는 거래
+function LedgerAddModal({ onClose, onPosted }: { onClose: () => void; onPosted: () => void }) {
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
+  const [biz, setBiz] = useState('법인')
+  const [dept, setDept] = useState('management')
+  const [txType, setTxType] = useState<'수입' | '지출'>('지출')
+  const [account, setAccount] = useState('')
+  const [partner, setPartner] = useState('')
+  const [amount, setAmount] = useState(0)
+  const [memo, setMemo] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  async function save() {
+    if (!account.trim()) {
+      setErr('계정을 입력하세요.')
+      return
+    }
+    if (amount <= 0) {
+      setErr('금액을 입력하세요.')
+      return
+    }
+    setBusy(true)
+    setErr(null)
+    const { error } = await supabase.from('acct_tx').insert({
+      date,
+      biz_code: biz,
+      dept_key: dept,
+      tx_type: txType,
+      account: account.trim(),
+      amount: Number(amount),
+      partner: partner || null,
+      memo: memo || null,
+      src: '직접',
+      year: new Date(date).getFullYear(),
+    })
+    setBusy(false)
+    if (error) {
+      setErr(error.message)
+      return
+    }
+    onPosted()
+  }
+
+  return (
+    <div className="modal-bg" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="mh">
+          <div>
+            <div className="eyebrow">예외 전표</div>
+            <h3>전표 직접 입력</h3>
+          </div>
+          <button className="x" onClick={onClose}>
+            ✕
+          </button>
+        </div>
+        <div className="mb">
+          <div style={{ display: 'flex', gap: 10 }}>
+            <div className="mfield" style={{ flex: 1 }}>
+              <label>일자</label>
+              <input className="ctl" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </div>
+            <div className="mfield" style={{ width: 130 }}>
+              <label>사업자</label>
+              <select className="ctl" value={biz} onChange={(e) => setBiz(e.target.value)}>
+                <option value="법인">법인</option>
+                <option value="개인">개인</option>
+                <option value="더북촌">더북촌</option>
+              </select>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <div className="mfield" style={{ flex: 1 }}>
+              <label>부서</label>
+              <select className="ctl" value={dept} onChange={(e) => setDept(e.target.value)}>
+                <option value="management">경영</option>
+                <option value="art">미술</option>
+                <option value="product">상품</option>
+                <option value="promotion">홍보</option>
+                <option value="experience">체험</option>
+                <option value="education">교육</option>
+              </select>
+            </div>
+            <div className="mfield" style={{ width: 130 }}>
+              <label>구분</label>
+              <select className="ctl" value={txType} onChange={(e) => setTxType(e.target.value as '수입' | '지출')}>
+                <option value="수입">수입</option>
+                <option value="지출">지출</option>
+              </select>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <div className="mfield" style={{ flex: 1 }}>
+              <label>계정</label>
+              <input className="ctl" value={account} onChange={(e) => setAccount(e.target.value)} placeholder="예: 이자수입" />
+            </div>
+            <div className="mfield" style={{ flex: 1 }}>
+              <label>거래처</label>
+              <input className="ctl" value={partner} onChange={(e) => setPartner(e.target.value)} placeholder="(선택)" />
+            </div>
+          </div>
+          <div className="mfield">
+            <label>금액</label>
+            <input
+              className="ctl"
+              type="number"
+              min={0}
+              value={amount || ''}
+              onChange={(e) => setAmount(parseInt(e.target.value, 10) || 0)}
+              placeholder="0"
+            />
+          </div>
+          <div className="mfield">
+            <label>적요</label>
+            <input className="ctl" value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="예: 보통예금 이자" />
+          </div>
+
+          {err && <div className="login-alert err" style={{ margin: 0 }}>{err}</div>}
+        </div>
+        <div className="mf">
+          <button className="btn sec" onClick={onClose} disabled={busy}>
+            취소
+          </button>
+          <button className="btn pri" onClick={save} disabled={busy}>
+            {busy ? '저장 중…' : '전표 등록'}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }

@@ -4,13 +4,15 @@ import { won } from '../../lib/format'
 import { useAuth } from '../../lib/auth'
 import type { Advisor } from '../../types/db'
 
-/** 자문비 차수 일괄 상신 — 참석 위원 선택 + 차수 + 위원별 자문비 → 지출결의서(전표) 생성 */
+/** 자문비 차수 일괄 상신 — 참석 위원 선택 + 차수 + 위원별 자문비 → 전자결재(지출결의서) 상신 */
 export function AdvisorFeeModal({
+  projectId,
   projectName,
   advisors,
   onClose,
   onSubmitted,
 }: {
+  projectId: string
   projectName: string
   advisors: Advisor[]
   onClose: () => void
@@ -55,23 +57,48 @@ export function AdvisorFeeModal({
     }
     setBusy(true)
     setErr(null)
-    // 지출 전표 생성 (자문회비) — 법인·미술
-    const { error } = await supabase.from('acct_tx').insert({
-      date: new Date().toISOString().slice(0, 10),
-      biz_code: '법인',
-      dept_key: 'art',
-      tx_type: '지출',
-      account: '자문료',
-      amount: total,
-      partner: `자문위원 ${selCount}인`,
-      memo: docTitle,
-      budget_item: '자문회비',
-      src: '결의서',
-      year: new Date().getFullYear(),
-    })
+    // 전자결재(지출결의서) 상신 — 기안→승인(실장)→회계접수. 전표는 회계접수 승인 시 자동 생성.
+    const docNo = `제${new Date().getFullYear()}-${String(Math.floor(Math.random() * 9000) + 1000)}호`
+    const { data: appr, error } = await supabase
+      .from('approvals')
+      .insert({
+        doc_no: docNo,
+        kind: '지출결의서',
+        drafter_id: me?.id ?? null,
+        biz_code: '법인',
+        dept_key: 'art',
+        title: docTitle,
+        amount: total,
+        account: '자문료',
+        memo: `${docTitle} · 자문위원 ${selCount}인`,
+        project_id: projectId,
+        budget_item: '자문회비',
+        req_date: new Date().toISOString().slice(0, 10),
+        status: '진행',
+      })
+      .select('id')
+      .single()
+    if (error || !appr) {
+      setBusy(false)
+      setErr(error?.message ?? '상신 실패')
+      return
+    }
+    // 결재선: 기안(본인 승인됨) → 승인(실장) → 회계접수
+    const lines: {
+      approval_id: string
+      seq: number
+      approver_id: string | null
+      role: '기안' | '승인' | '회계접수'
+      decided: '대기' | '승인' | '반려'
+    }[] = [
+      { approval_id: appr.id, seq: 1, approver_id: me?.id ?? null, role: '기안', decided: '승인' },
+      { approval_id: appr.id, seq: 2, approver_id: null, role: '승인', decided: '대기' },
+      { approval_id: appr.id, seq: 3, approver_id: null, role: '회계접수', decided: '대기' },
+    ]
+    const { error: lineErr } = await supabase.from('approval_lines').insert(lines)
     setBusy(false)
-    if (error) {
-      setErr(error.message)
+    if (lineErr) {
+      setErr(lineErr.message)
       return
     }
     onSubmitted()

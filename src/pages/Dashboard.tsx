@@ -262,7 +262,7 @@ export default function Dashboard() {
             <div className="panel-h">
               <div>
                 <h2>
-                  {isAdmin ? '전체 업무현황' : '내 업무현황'}{' '}
+                  {isAdmin ? '전체 업무현황' : '팀 업무현황'}{' '}
                   <span className="count">{taskQ.loading ? '…' : tasks.length}</span>
                 </h2>
                 <p>마감이 가까운 업무부터 확인하세요.</p>
@@ -357,7 +357,9 @@ export default function Dashboard() {
                         </span>
                       </td>
                       <td>
-                        <span className={SCOPE_BADGE[d.share_scope]}>{d.share_scope} 공유</span>
+                        <span className={SCOPE_BADGE[d.share_scope]}>
+                          {d.share_scope === '개인' ? '개인 보관' : `${d.share_scope} 공유`}
+                        </span>
                       </td>
                       <td className="muted tnum" style={{ color: 'var(--muted)' }}>
                         {dateOnly(d.created_at).slice(5)}

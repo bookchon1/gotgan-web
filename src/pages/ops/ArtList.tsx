@@ -4,8 +4,11 @@ import { PageHead } from '../../components/PageHead'
 import { ErrorBanner, LoadingRow, EmptyRow } from '../../components/States'
 import { supabase } from '../../lib/supabase'
 import { useQuery } from '../../lib/useQuery'
+import { won } from '../../lib/format'
 import ArtSchedule from './ArtSchedule'
 import type { ArtProject, BudgetReceipt, ArtStatus } from '../../types/db'
+
+const ART_STATUSES: ArtStatus[] = ['공고/입찰', '예정', '진행', '완료', '탈락/보류']
 
 // 진행상태 정렬 우선순위 (시안: 진행 먼저, 완료·보류 뒤로)
 const ST_ORDER: Record<string, number> = {
@@ -89,6 +92,7 @@ function isCurrent(p: ArtProject): boolean {
 export default function ArtList() {
   const navigate = useNavigate()
   const [showDone, setShowDone] = useState(false)
+  const [addOpen, setAddOpen] = useState(false)
 
   const projects = useQuery<ArtProject[]>(
     async () =>
@@ -143,14 +147,19 @@ export default function ArtList() {
         title="사업관리"
         desc="진행 중이거나 당해연도 사업을 확인하세요. 행을 클릭하면 상세로 이동합니다."
         actions={
-          (hiddenDone > 0 || showDone) && (
-            <button
-              className={`btn ${showDone ? 'pri' : 'sec'}`}
-              onClick={() => setShowDone((v) => !v)}
-            >
-              {showDone ? '진행 사업만 보기' : `완료 사업 보기 (${hiddenDone})`}
+          <>
+            {(hiddenDone > 0 || showDone) && (
+              <button
+                className={`btn ${showDone ? 'pri' : 'sec'}`}
+                onClick={() => setShowDone((v) => !v)}
+              >
+                {showDone ? '진행 사업만 보기' : `완료 사업 보기 (${hiddenDone})`}
+              </button>
+            )}
+            <button className="btn pri" onClick={() => setAddOpen(true)}>
+              + 사업 등록
             </button>
-          )
+          </>
         }
       />
 
@@ -279,6 +288,162 @@ export default function ArtList() {
           <span>행을 클릭하면 사업 상세로 이동합니다.</span>
         </div>
       </section>
+
+      {addOpen && (
+        <ArtProjectModal
+          onClose={() => setAddOpen(false)}
+          onCreated={() => {
+            setAddOpen(false)
+            projects.reload()
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+/** 미술 사업 등록 — art_projects insert */
+function ArtProjectModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const [name, setName] = useState('')
+  const [client, setClient] = useState('')
+  const [projType, setProjType] = useState('')
+  const [kind, setKind] = useState<'입찰' | '발주'>('발주')
+  const [bizCode, setBizCode] = useState('법인')
+  const [status, setStatus] = useState<ArtStatus>('예정')
+  const [contractBase, setContractBase] = useState(0)
+  const [dueDate, setDueDate] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  async function submit() {
+    if (!name.trim()) {
+      setErr('사업명을 입력하세요.')
+      return
+    }
+    setBusy(true)
+    setErr(null)
+    const { error } = await supabase.from('art_projects').insert({
+      name: name.trim(),
+      client: client.trim() || null,
+      biz_code: bizCode,
+      proj_type: projType.trim() || null,
+      kind,
+      status,
+      progress: 0,
+      est_amount: 0,
+      contract_base: contractBase,
+      due_date: dueDate || null,
+      year: (dueDate ? +dueDate.slice(0, 4) : null) || CUR_YEAR,
+    })
+    setBusy(false)
+    if (error) {
+      setErr(error.message)
+      return
+    }
+    onCreated()
+  }
+
+  return (
+    <div className="modal-bg" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="mh">
+          <div>
+            <div className="eyebrow">사업 등록</div>
+            <h3>새 미술 사업</h3>
+          </div>
+          <button className="x" onClick={onClose}>
+            ✕
+          </button>
+        </div>
+        <div className="mb">
+          <div className="mfield">
+            <label>사업명</label>
+            <input
+              className="ctl"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="예: 삼국유사 목판 보존처리"
+              autoFocus
+            />
+          </div>
+          <div className="mfield">
+            <label>발주기관</label>
+            <input
+              className="ctl"
+              value={client}
+              onChange={(e) => setClient(e.target.value)}
+              placeholder="예: 국가유산청"
+            />
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <div className="mfield" style={{ flex: 1 }}>
+              <label>유형</label>
+              <input
+                className="ctl"
+                value={projType}
+                onChange={(e) => setProjType(e.target.value)}
+                placeholder="예: 서화 / 조형 / 건축"
+              />
+            </div>
+            <div className="mfield" style={{ width: 120 }}>
+              <label>구분</label>
+              <select className="ctl" value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
+                <option value="발주">발주</option>
+                <option value="입찰">입찰</option>
+              </select>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <div className="mfield" style={{ flex: 1 }}>
+              <label>사업자</label>
+              <select className="ctl" value={bizCode} onChange={(e) => setBizCode(e.target.value)}>
+                <option value="법인">법인</option>
+                <option value="개인">개인(도래헌)</option>
+                <option value="더북촌">더북촌</option>
+              </select>
+            </div>
+            <div className="mfield" style={{ flex: 1 }}>
+              <label>진행상태</label>
+              <select className="ctl" value={status} onChange={(e) => setStatus(e.target.value as ArtStatus)}>
+                {ART_STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <div className="mfield" style={{ flex: 1 }}>
+              <label>계약금</label>
+              <input
+                className="ctl"
+                type="text"
+                value={contractBase ? won(contractBase) : ''}
+                onChange={(e) => setContractBase(parseInt(e.target.value.replace(/[^0-9]/g, ''), 10) || 0)}
+                placeholder="0"
+              />
+            </div>
+            <div className="mfield" style={{ flex: 1 }}>
+              <label>준공 예정일</label>
+              <input className="ctl" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+            </div>
+          </div>
+          {err && (
+            <div className="login-alert err" style={{ margin: 0 }}>
+              {err}
+            </div>
+          )}
+        </div>
+        <div className="mf">
+          <button className="btn sec" onClick={onClose} disabled={busy}>
+            취소
+          </button>
+          <button className="btn pri" onClick={submit} disabled={busy || !name.trim()}>
+            {busy ? '등록 중…' : '등록'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

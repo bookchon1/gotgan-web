@@ -540,6 +540,7 @@ export default function ArtDetail() {
       )}
       {advOpen && (
         <AdvisorFeeModal
+          projectId={p.id}
           projectName={p.name}
           advisors={advisors}
           onClose={() => setAdvOpen(false)}

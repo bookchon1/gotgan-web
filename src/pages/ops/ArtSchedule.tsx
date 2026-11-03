@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useQuery } from '../../lib/useQuery'
 import { dateOnly } from '../../lib/format'
-import type { ArtProject, ProjectStep, WorkTask } from '../../types/db'
+import type { ArtProject, ProjectStep, WorkTask, Employee } from '../../types/db'
 
 /* 업무 일정 (사업관리 상단) — 공정(project_steps) + 미술 업무(work_tasks)를 모아
    주간 / 월간 / 분기 뷰로. 시안 "업무 일정" 패널의 실데이터 버전. */
@@ -57,6 +57,7 @@ function covers(w: WorkItem, dYmd: string): boolean {
 
 export default function ArtSchedule() {
   const [plan, setPlan] = useState<Plan>('week')
+  const [addOpen, setAddOpen] = useState(false)
   const now = new Date()
   const todayYmd = ymd(now)
   const [monthView, setMonthView] = useState(now.getMonth() + 1)
@@ -74,6 +75,10 @@ export default function ArtSchedule() {
   )
   const taskQ = useQuery<WorkTask[]>(
     async () => await supabase.from('work_tasks').select('*').eq('area', 'art').not('start_date', 'is', null),
+    [],
+  )
+  const empQ = useQuery<Pick<Employee, 'id' | 'name'>[]>(
+    async () => await supabase.from('employees').select('id,name'),
     [],
   )
 
@@ -123,7 +128,7 @@ export default function ArtSchedule() {
         <div>
           <h2>업무 일정</h2>
         </div>
-        <div className="r" style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div className="r" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <div className="seg-text">
             <button className={plan === 'week' ? 'on' : ''} onClick={() => setPlan('week')}>
               주간
@@ -135,6 +140,9 @@ export default function ArtSchedule() {
               분기
             </button>
           </div>
+          <button className="btn pri" style={{ padding: '6px 13px', fontSize: 12.5 }} onClick={() => setAddOpen(true)}>
+            + 업무 등록
+          </button>
         </div>
       </div>
 
@@ -157,7 +165,141 @@ export default function ArtSchedule() {
           <QuarterView works={works} quarter={quarterView} onSet={setQuarterView} />
         )}
       </div>
+
+      {addOpen && (
+        <ArtTaskModal
+          employees={empQ.data ?? []}
+          onClose={() => setAddOpen(false)}
+          onCreated={() => {
+            setAddOpen(false)
+            taskQ.reload()
+          }}
+        />
+      )}
     </section>
+  )
+}
+
+/** 미술 업무 등록 — work_tasks insert (area:'art'). Tasks.tsx addTask 와 동일 패턴. */
+function ArtTaskModal({
+  employees,
+  onClose,
+  onCreated,
+}: {
+  employees: Pick<Employee, 'id' | 'name'>[]
+  onClose: () => void
+  onCreated: () => void
+}) {
+  const [form, setForm] = useState({ title: '', owner: '', start: '', due: '', detail: '' })
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  async function submit() {
+    if (!form.title.trim()) {
+      setErr('업무명을 입력하세요.')
+      return
+    }
+    setBusy(true)
+    setErr(null)
+    const ownerId = employees.find((e) => e.name === form.owner)?.id ?? null
+    const { error } = await supabase.from('work_tasks').insert({
+      area: 'art',
+      title: form.title.trim(),
+      dept: '미술',
+      detail: form.detail || null,
+      owner_id: ownerId,
+      reg_date: new Date().toISOString().slice(0, 10),
+      start_date: form.start || null,
+      due_date: form.due || null,
+      status: 'plan',
+    })
+    setBusy(false)
+    if (error) {
+      setErr(error.message)
+      return
+    }
+    onCreated()
+  }
+
+  return (
+    <div className="modal-bg" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="mh">
+          <div>
+            <div className="eyebrow">업무 등록</div>
+            <h3>미술 업무</h3>
+          </div>
+          <button className="x" onClick={onClose}>
+            ✕
+          </button>
+        </div>
+        <div className="mb">
+          <div className="mfield">
+            <label>업무명</label>
+            <input
+              className="ctl"
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+              placeholder="예: 보존처리 설계도면 작성"
+              autoFocus
+            />
+          </div>
+          <div className="mfield">
+            <label>담당자</label>
+            <select className="ctl" value={form.owner} onChange={(e) => setForm({ ...form, owner: e.target.value })}>
+              <option value="">선택</option>
+              {employees.map((e) => (
+                <option key={e.id} value={e.name}>
+                  {e.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <div className="mfield" style={{ flex: 1 }}>
+              <label>시작일</label>
+              <input
+                className="ctl"
+                type="date"
+                value={form.start}
+                onChange={(e) => setForm({ ...form, start: e.target.value })}
+              />
+            </div>
+            <div className="mfield" style={{ flex: 1 }}>
+              <label>마감일</label>
+              <input
+                className="ctl"
+                type="date"
+                value={form.due}
+                onChange={(e) => setForm({ ...form, due: e.target.value })}
+              />
+            </div>
+          </div>
+          <div className="mfield">
+            <label>세부분류</label>
+            <input
+              className="ctl"
+              value={form.detail}
+              onChange={(e) => setForm({ ...form, detail: e.target.value })}
+              placeholder="예: 설계 / 조사 / 작업"
+            />
+          </div>
+          {err && (
+            <div className="login-alert err" style={{ margin: 0 }}>
+              {err}
+            </div>
+          )}
+        </div>
+        <div className="mf">
+          <button className="btn sec" onClick={onClose} disabled={busy}>
+            취소
+          </button>
+          <button className="btn pri" onClick={submit} disabled={busy || !form.title.trim()}>
+            {busy ? '등록 중…' : '등록'}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 

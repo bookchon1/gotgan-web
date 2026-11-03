@@ -134,7 +134,9 @@ export default function Documents() {
                       </span>
                     </td>
                     <td>
-                      <span className={SCOPE_BADGE[d.share_scope]}>{d.share_scope} 공유</span>
+                      <span className={SCOPE_BADGE[d.share_scope]}>
+                        {d.share_scope === '개인' ? '개인 보관' : `${d.share_scope} 공유`}
+                      </span>
                     </td>
                     <td className="tnum" style={{ color: 'var(--muted)' }}>
                       {mmdd(d.created_at)}

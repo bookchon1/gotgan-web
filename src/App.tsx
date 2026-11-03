@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard'
 import HR from './pages/HR'
 import { Placeholder } from './pages/Placeholder'
 import Tasks from './pages/Tasks'
+import ArtList from './pages/ops/ArtList'
 
 /** 로그인 필요 가드 */
 function RequireAuth({ children }: { children: JSX.Element }) {
@@ -62,7 +63,7 @@ export default function App() {
         <Route path="/tasks/:area" element={<Tasks />} />
 
         {/* 미술 */}
-        <Route path="/ops/art" element={<Placeholder title="사업관리" />} />
+        <Route path="/ops/art" element={<ArtList />} />
         <Route path="/ops/art/:id" element={<Placeholder title="사업 상세" />} />
         <Route path="/ops/art-field" element={<Placeholder title="현장관리" />} />
         {/* 기타 영역 */}

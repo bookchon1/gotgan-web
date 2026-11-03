@@ -1,5 +1,4 @@
 import { PageHead } from '../../components/PageHead'
-import { Icon } from '../../components/Icon'
 
 // 역할별 접근 범위 (시안 matrix)
 const ROWS: [string, string, string][] = [
@@ -21,7 +20,7 @@ export default function Security() {
         desc="역할에 따라 실제 접근이 허용·차단되는 범위를 확인합니다."
         actions={
           <button className="btn pri">
-            <Icon name="shield" className="icon ic" /> 권한 검증 실행
+            권한 검증 실행
           </button>
         }
       />

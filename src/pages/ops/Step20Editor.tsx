@@ -131,10 +131,7 @@ export function Step20Editor({
           disabled={busy}
         >
           {edit ? (
-            <>
-              <Icon name="check" size={13} style={{ marginRight: 4 }} />
-              편집 완료
-            </>
+            '편집 완료'
           ) : (
             '공정 편집'
           )}

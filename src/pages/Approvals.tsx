@@ -163,7 +163,7 @@ export default function Approvals() {
         desc="기안을 작성하고, 결재선에 따라 승인과 반려를 처리하세요."
         actions={
           <button className="btn pri" onClick={() => setDraftOpen(true)}>
-            <Icon name="approval" className="icon ic" /> 기안 작성
+            기안 작성
           </button>
         }
       />

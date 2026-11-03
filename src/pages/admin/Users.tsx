@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { PageHead } from '../../components/PageHead'
-import { Icon } from '../../components/Icon'
 import { ErrorBanner, LoadingRow, EmptyRow } from '../../components/States'
 import { supabase } from '../../lib/supabase'
 import { useQuery } from '../../lib/useQuery'
@@ -92,7 +91,7 @@ export default function Users() {
         desc="구성원을 등록하고 역할과 기능별 접근 권한을 설정하세요."
         actions={
           <button className="btn pri" onClick={() => setAddOpen(true)}>
-            <Icon name="approval" className="icon ic" /> 사용자 등록
+            사용자 등록
           </button>
         }
       />

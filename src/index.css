@@ -869,3 +869,15 @@ td>.hr-in{max-width:160px}
   .hr-grid{grid-template-columns:1fr}
   .assign-add{grid-template-columns:1fr 1fr;gap:8px}
 }
+
+/* 겸소속(복수 소속) */
+.dept-cell{display:inline-flex;gap:4px;flex-wrap:wrap;align-items:center}
+.area.area-sub{opacity:.72;border:1px dashed currentColor;background:transparent!important}
+.dept-chips{display:flex;gap:7px;flex-wrap:wrap}
+.dept-chip{display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink-soft);border-radius:999px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+.dept-chip:hover{border-color:var(--brand);color:var(--brand-ink)}
+.dept-chip.on{background:var(--brand-soft);border-color:var(--brand);color:var(--brand-ink)}
+.sw-dot{width:8px;height:8px;border-radius:3px;flex:none;background:var(--muted)}
+.sw-dot.ar-art{background:var(--ar-art)} .sw-dot.ar-manage{background:var(--ar-manage)}
+.sw-dot.ar-product{background:var(--ar-product)} .sw-dot.ar-promo{background:var(--ar-promo)}
+.sw-dot.ar-exp{background:var(--ar-exp)} .sw-dot.ar-edu{background:var(--ar-edu)}

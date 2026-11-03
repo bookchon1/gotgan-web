@@ -142,7 +142,6 @@ export default function HR() {
         desc="구성원 명부와 상세 인사정보를 관리합니다. 이름을 클릭하면 상세 인사카드가 열립니다."
         actions={
           <button className="btn pri" onClick={addEmp} disabled={!!error}>
-            <Icon name="users" size={13} style={{ marginRight: 4 }} />
             직원 등록
           </button>
         }
@@ -237,11 +236,23 @@ export default function HR() {
                       </span>
                     </td>
                     <td>
-                      <span
-                        className={`area ${DEPT_CLS[e.dept_key ?? ''] ?? 'ar-manage'}`}
-                        style={{ fontSize: 10 }}
-                      >
-                        {deptLabel(e.dept_key)}
+                      <span className="dept-cell">
+                        <span
+                          className={`area ${DEPT_CLS[e.dept_key ?? ''] ?? 'ar-manage'}`}
+                          style={{ fontSize: 10 }}
+                        >
+                          {deptLabel(e.dept_key)}
+                        </span>
+                        {(e.extra_depts ?? []).map((dk) => (
+                          <span
+                            key={dk}
+                            className={`area ${DEPT_CLS[dk] ?? 'ar-manage'} area-sub`}
+                            style={{ fontSize: 10 }}
+                            title="겸소속"
+                          >
+                            {deptLabel(dk)}
+                          </span>
+                        ))}
                       </span>
                     </td>
                     <td>
@@ -338,6 +349,7 @@ function EmpCardModal({
       .update({
         name: form.name,
         dept_key: form.dept_key || null,
+        extra_depts: (form.extra_depts ?? []).filter((x) => x !== (form.dept_key ?? '')),
         title: form.title,
         position: form.position,
         employment_type: form.employment_type,
@@ -463,7 +475,7 @@ function EmpCardModal({
 
           {tab === 'hr' && (
             <div className="hr-grid">
-              <Field label="소속">
+              <Field label="주소속">
                 <select className="ctl" value={form.dept_key ?? ''} onChange={(e) => set('dept_key', e.target.value)}>
                   {DEPT_OPTS.map((d) => (
                     <option key={d[0]} value={d[0]}>
@@ -471,6 +483,27 @@ function EmpCardModal({
                     </option>
                   ))}
                 </select>
+              </Field>
+              <Field label="겸소속 (복수 선택)" full>
+                <div className="dept-chips">
+                  {DEPT_OPTS.filter((d) => d[0] !== '' && d[0] !== (form.dept_key ?? '')).map((d) => {
+                    const on = (form.extra_depts ?? []).includes(d[0])
+                    return (
+                      <button
+                        type="button"
+                        key={d[0]}
+                        className={`dept-chip${on ? ' on' : ''}`}
+                        onClick={() => {
+                          const cur = form.extra_depts ?? []
+                          set('extra_depts', on ? cur.filter((x) => x !== d[0]) : [...cur, d[0]])
+                        }}
+                      >
+                        <span className={`sw-dot ${DEPT_CLS[d[0]] ?? ''}`} />
+                        {d[1]}
+                      </button>
+                    )
+                  })}
+                </div>
               </Field>
               <Field label="직급">
                 <input className="ctl" placeholder="예: 선임연구원" value={form.title ?? ''} onChange={(e) => set('title', e.target.value)} />

@@ -35,6 +35,7 @@ export interface Employee {
   gender: string | null           // 성별
   employment_type: string | null  // 고용형태(정규직/계약직/일용직/파견)
   position: string | null         // 직책(팀장/실장 등)
+  extra_depts: string[]           // 겸소속(주소속 외 추가 부서 키 목록)
   join_date: string | null        // 입사일(YYYY-MM-DD)
   leave_date: string | null       // 퇴사일
   address: string | null          // 주소

@@ -1,16 +1,17 @@
-import { useMemo, useRef } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Icon } from '../../components/Icon'
 import { ErrorBanner, CenterNote } from '../../components/States'
 import { supabase } from '../../lib/supabase'
 import { useQuery } from '../../lib/useQuery'
-import { eok, won, dateRange, dateOnly } from '../../lib/format'
+import { eok, won, dateOnly } from '../../lib/format'
 import type {
   ArtProject,
   ArtBudget,
   BudgetChange,
   BudgetReceipt,
   ProjectStep,
+  StepComment,
   Advisor,
   AcctTx,
 } from '../../types/db'
@@ -21,13 +22,17 @@ import {
   budgetRows,
   pctColor,
   stepProgress,
-  STEP_LABEL,
 } from './artDetail'
+import { Step20Editor } from './Step20Editor'
+import { BudgetTxPopup } from './BudgetTxPopup'
+import { AdvisorFeeModal } from './AdvisorFeeModal'
 
 export default function ArtDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const detailsRefs = useRef<HTMLDetailsElement[]>([])
+  const [budItem, setBudItem] = useState<string | null>(null)
+  const [advOpen, setAdvOpen] = useState(false)
 
   const projQ = useQuery<ArtProject[]>(
     async () => await supabase.from('art_projects').select('*').eq('id', id!),
@@ -58,6 +63,14 @@ export default function ArtDetail() {
     async () => await supabase.from('acct_tx').select('*').eq('project_id', id!),
     [id],
   )
+  const stepIds = useMemo(() => (stepsQ.data ?? []).map((s) => s.id), [stepsQ.data])
+  const cmtQ = useQuery<StepComment[]>(
+    async () =>
+      stepIds.length
+        ? await supabase.from('step_comments').select('*').in('step_id', stepIds)
+        : { data: [], error: null },
+    [stepIds.join(',')],
+  )
 
   const p = projQ.data?.[0]
   const budget = budgetQ.data ?? []
@@ -66,6 +79,17 @@ export default function ArtDetail() {
   const steps = stepsQ.data ?? []
   const advisors = advQ.data ?? []
   const tx = txQ.data ?? []
+  const comments = cmtQ.data ?? []
+
+  // 공정 변경 시 재조회 (+ 진행률 반영 위해 사업도)
+  const reloadSteps = () => {
+    stepsQ.reload()
+    cmtQ.reload()
+  }
+  const reloadAdvisors = () => {
+    advQ.reload()
+    txQ.reload()
+  }
 
   const contract = contractAmount(p?.contract_base ?? 0, changes)
   const received = receivedAmount(receipts)
@@ -152,10 +176,15 @@ export default function ArtDetail() {
           </div>
 
           {/* 자문위원 */}
-          <div className="bud-h" style={{ marginTop: 18 }}>
+          <div className="bud-h" style={{ marginTop: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div className="t">
               자문위원 <span style={{ color: 'var(--muted)', fontWeight: 400 }}>· {advisors.length}명</span>
             </div>
+            {advisors.length > 0 && (
+              <button className="btn pri" style={{ padding: '5px 12px', fontSize: 11.5 }} onClick={() => setAdvOpen(true)}>
+                자문비 지출결의서
+              </button>
+            )}
           </div>
           <table className="rowtbl">
             <thead>
@@ -289,6 +318,13 @@ export default function ArtDetail() {
                     </b>
                   </div>
                 </div>
+                {b.txCount > 0 && (
+                  <div className="detail">
+                    <button className="db" onClick={() => setBudItem(b.item)}>
+                      내역 보기 ({b.txCount}) ›
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
             {/* 합계 카드 */}
@@ -347,39 +383,40 @@ export default function ArtDetail() {
           <Icon name="chevron" className="icon chev" />
         </summary>
         <div className="sbody">
-          <div className="step20 sched">
-            {steps.map((s, i) => {
-              const cls = s.status === 'done' ? 'done' : s.status === 'prog' ? 'prog' : s.status === 'na' ? 'na' : ''
-              return (
-                <div className={`s20c ${cls}`} key={s.id}>
-                  <div className="s20-main">
-                    <div className="top">
-                      <span className="num">{i + 1}</span>
-                      <span>{s.title}</span>
-                      <span className={`stt ${STEP_LABEL[s.status][0]}`}>{STEP_LABEL[s.status][1]}</span>
-                    </div>
-                    <div className="sch">
-                      <Icon name="calendar" size={13} style={{ color: 'var(--muted)', flex: 'none' }} />
-                      <span className="dur">
-                        {s.from_date ? dateRange(s.from_date, s.to_date) : <span style={{ color: 'var(--muted)' }}>일정 미정</span>}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-            {steps.length === 0 && <CenterNote>등록된 공정이 없습니다.</CenterNote>}
-          </div>
-          {steps.length > 0 && (
-            <p className="sec-mini" style={{ marginTop: 12 }}>
-              진행률 <b>{prog.pct}%</b> = (완료 {prog.nDone} + 진행중 {prog.nProg}×0.5) ÷ 유효 {prog.valid}공정
-              {prog.nNa > 0 && (
-                <span style={{ color: 'var(--muted)' }}> · 해당없음 {prog.nNa}건 제외</span>
-              )}
-            </p>
+          {steps.length === 0 ? (
+            <CenterNote>등록된 공정이 없습니다.</CenterNote>
+          ) : (
+            <Step20Editor
+              projectId={id!}
+              steps={steps}
+              comments={comments}
+              onChanged={reloadSteps}
+            />
           )}
         </div>
       </details>
+
+      {/* 모달 */}
+      {budItem && (
+        <BudgetTxPopup
+          item={budItem}
+          projectId={id!}
+          tx={tx}
+          budget={budget}
+          onClose={() => setBudItem(null)}
+        />
+      )}
+      {advOpen && (
+        <AdvisorFeeModal
+          projectName={p.name}
+          advisors={advisors}
+          onClose={() => setAdvOpen(false)}
+          onSubmitted={() => {
+            setAdvOpen(false)
+            reloadAdvisors()
+          }}
+        />
+      )}
     </div>
   )
 }

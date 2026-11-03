@@ -21,16 +21,19 @@ function areaOfPath(pathname: string): string | null {
   return null
 }
 
-/** 업무관리 서브메뉴(영역별) — 아코디언 (한 번에 하나만 열림, 시안과 동일) */
-function TaskSubnav({ isAdmin }: { isAdmin: boolean }) {
-  const loc = useLocation()
-  // 시안과 동일: 펼쳐도 아무 부서도 자동으로 열지 않음. 현재 화면이 속한 부서만 열어둔다.
-  const [openArea, setOpenArea] = useState<string | null>(() => areaOfPath(loc.pathname))
-  // 화면 이동 시: 그 화면이 속한 부서를 자동으로 연다(다른 부서는 닫힘).
-  useEffect(() => {
-    const target = areaOfPath(loc.pathname)
-    if (target) setOpenArea(target)
-  }, [loc.pathname])
+/** 업무관리 서브메뉴(영역별) — 아코디언 (한 번에 하나만 열림, 시안과 동일).
+ *  열림 상태(openArea)는 부모 Sidebar 가 관리한다:
+ *   - 화면 이동 시: 해당 부서 열기
+ *   - 업무관리 접기: 전부 닫기 → 다시 펴도 아무 부서도 열리지 않음(시안 동작) */
+function TaskSubnav({
+  isAdmin,
+  openArea,
+  setOpenArea,
+}: {
+  isAdmin: boolean
+  openArea: string | null
+  setOpenArea: (fn: (cur: string | null) => string | null) => void
+}) {
   // 같은 영역 클릭 → 닫기, 다른 영역 클릭 → 그 영역만 열고 나머지는 닫기
   const toggle = (id: string) => setOpenArea((cur) => (cur === id ? null : id))
 
@@ -96,6 +99,24 @@ export default function Sidebar({
   const loc = useLocation()
   const navigate = useNavigate()
   const [tasksOpen, setTasksOpen] = useState(true)
+  // 업무관리 하위 '열린 부서'(하나만). 시안 동작:
+  //  - 화면 이동 시 그 부서만 열기, - 업무관리 접기 시 전부 닫기(다시 펴도 닫힌 채)
+  const [openArea, setOpenArea] = useState<string | null>(() => areaOfPath(loc.pathname))
+
+  // 화면(경로) 이동 시: 해당 부서 열기. 접기/펴기로는 경로가 안 바뀌므로 다시 열리지 않음.
+  useEffect(() => {
+    const target = areaOfPath(loc.pathname)
+    if (target) setOpenArea(target)
+  }, [loc.pathname])
+
+  // 업무관리 토글: 접을 때 열린 부서 전부 닫기(시안). 펴기는 openArea 그대로.
+  function toggleTasks() {
+    setTasksOpen((v) => {
+      const next = !v
+      if (!next) setOpenArea(null)
+      return next
+    })
+  }
 
   const tasksActive = loc.pathname.startsWith('/tasks') || loc.pathname.startsWith('/ops') ||
     ['/hr', '/labor', '/accounting'].includes(loc.pathname)
@@ -135,7 +156,7 @@ export default function Sidebar({
         {/* 업무관리 (3단) */}
         <button
           className={`ni${tasksActive ? ' on' : ''}`}
-          onClick={() => setTasksOpen((v) => !v)}
+          onClick={toggleTasks}
         >
           <Icon name="tasks" className="icon ic" />
           <span>업무관리</span>
@@ -144,7 +165,9 @@ export default function Sidebar({
             className={`icon chev${tasksOpen ? ' open' : ''}`}
           />
         </button>
-        {tasksOpen && <TaskSubnav isAdmin={isAdmin} />}
+        {tasksOpen && (
+          <TaskSubnav isAdmin={isAdmin} openArea={openArea} setOpenArea={setOpenArea} />
+        )}
 
         <NavLink
           className={({ isActive }) => `ni${isActive ? ' on' : ''}`}

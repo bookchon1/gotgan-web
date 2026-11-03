@@ -15,6 +15,7 @@ import {
   type Delta,
 } from './fund'
 import { FundBar, FundDonut } from './FundCharts'
+import { InboxView, CardView, PartnerView } from './AcctTabs'
 
 const YEARS = ['2026', '2025']
 const MONTHS = [
@@ -133,16 +134,9 @@ export default function Accounting() {
       )}
 
       {tab === 'ledger' && <LedgerView allTx={allTx} loading={txQ.loading} projName={projName} />}
-
-      {tab !== 'fund' && tab !== 'ledger' && (
-        <section className="panel">
-          <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>
-            {tab === 'inbox' && '회계 접수 대기 — 연동 예정'}
-            {tab === 'card' && '법인카드 내역 — 연동 예정'}
-            {tab === 'partner' && '업체 정보 — 연동 예정'}
-          </div>
-        </section>
-      )}
+      {tab === 'inbox' && <InboxView onPosted={() => txQ.reload()} />}
+      {tab === 'card' && <CardView onPosted={() => txQ.reload()} />}
+      {tab === 'partner' && <PartnerView />}
     </div>
   )
 }

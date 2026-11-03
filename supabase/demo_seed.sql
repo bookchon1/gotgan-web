@@ -132,3 +132,12 @@ insert into public.purchase_history (inventory_id, code, date, qty, unit_price, 
    ('MT-011','2026-07-20',20,44000,'한국미술재료상사','제2026-0071호')
   ) as d(code,date,qty,price,partner,docno)
   join public.inventory i on i.code = d.code;
+
+-- 거래처 데모
+insert into public.partners (name, biz_no, kind, memo) values
+  ('한국미술복원','123-45-67890','외주','보존처리 외주 전문'),
+  ('한국미술재료상사','234-56-78901','재료','안료·재료 공급'),
+  ('북촌지류','345-67-89012','재료','전통 한지'),
+  ('대한인쇄','456-78-90123','인쇄','도록·엽서 인쇄'),
+  ('(주)종로빌딩','567-89-01234','임대','사무실 임대'),
+  ('국립경주박물관','111-82-00001','발주처','삼국유사 목판 발주');

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ErrorBanner } from '../../components/States'
 import { supabase } from '../../lib/supabase'
 import { useQuery } from '../../lib/useQuery'
@@ -106,6 +106,10 @@ export default function Certificates() {
 
   const join = selected ? resolveJoin(selected) : null
   const isActive = selected?.status === '재직'
+  // 퇴직자는 재직증명서 발급 불가 → 경력증명서로 자동 전환
+  useEffect(() => {
+    if (selected && !isActive && kind === '재직증명서') setKind('경력증명서')
+  }, [selected, isActive, kind])
   const periodTo = isActive ? null : selected?.leave_date ?? null
   const dutyParts = selected
     ? [deptLabel(selected.dept_key), selected.title, selected.position].filter(Boolean)
@@ -139,9 +143,16 @@ export default function Certificates() {
           <div className="mfield">
             <label>증명서 종류</label>
             <select className="ctl" value={kind} onChange={(e) => setKind(e.target.value as CertKind)}>
-              <option value="재직증명서">재직증명서</option>
+              <option value="재직증명서" disabled={!!selected && !isActive}>
+                재직증명서{!!selected && !isActive ? ' (퇴직자 불가)' : ''}
+              </option>
               <option value="경력증명서">경력증명서</option>
             </select>
+            {!!selected && !isActive && (
+              <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 4 }}>
+                퇴직한 직원은 경력증명서만 발급할 수 있어요.
+              </div>
+            )}
           </div>
           <div className="mfield">
             <label>발급 사유 (용도)</label>
@@ -248,12 +259,13 @@ export default function Certificates() {
                 )}
               </p>
 
-              <p className="cert-attest">위 사실을 증명합니다.</p>
+              {/* 위 사실을 증명합니다 + 발급일 — 문서 중앙 하단으로 */}
+              <div className="cert-closing">
+                <p className="cert-attest">위 사실을 증명합니다.</p>
+                <p className="cert-date">{krDate(issueDate)}</p>
+              </div>
 
-              {/* 발급일 */}
-              <p className="cert-date">{krDate(issueDate)}</p>
-
-              {/* 발급기관 + 대표이사 — 한 줄, 인쇄 시 가장 하단 */}
+              {/* 발급기관 + 대표이사 — 한 줄, 문서 가장 하단 */}
               <div className="cert-sign">
                 <div className="cert-orgline">
                   <b>{COMPANY_FORMAL}</b>&nbsp;&nbsp;대표이사&nbsp;&nbsp;{repName}

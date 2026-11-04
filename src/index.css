@@ -925,7 +925,10 @@ td>.hr-in{max-width:160px}
 
 /* 미리보기 = 인쇄 영역. 흰 A4 느낌의 문서 카드 */
 .cert-print{display:flex;justify-content:center}
-.cert-doc{background:#fff;color:#1a1a1a;width:100%;max-width:720px;padding:56px 60px 48px;border:1px solid var(--line);border-radius:6px;box-shadow:var(--shadow-s);font-family:"Noto Serif KR","Noto Sans KR",serif;line-height:1.7}
+/* 미리보기 카드도 A4 비율(210:297)로 세워, 인쇄와 동일하게 균형있게 배치 */
+.cert-doc{background:#fff;color:#1a1a1a;width:100%;max-width:720px;aspect-ratio:210/297;padding:60px 60px 56px;border:1px solid var(--line);border-radius:6px;box-shadow:var(--shadow-s);font-family:"Noto Serif KR","Noto Sans KR",serif;line-height:1.7;display:flex;flex-direction:column}
+/* 발급기관 줄은 문서 맨 아래, 발급일은 그 바로 위에 배치 */
+.cert-doc .cert-sign{margin-top:auto}
 .cert-no{font-size:12.5px;color:#555;letter-spacing:.02em}
 .cert-title{text-align:center;font-size:30px;font-weight:800;letter-spacing:.4em;margin:26px 0 34px;padding-left:.4em;color:#111}
 .cert-table{width:100%;border-collapse:collapse;margin-bottom:30px;font-size:14px;border:1.5px solid #333}
@@ -937,10 +940,12 @@ td>.hr-in{max-width:160px}
 .cert-table td{color:#111}
 .cert-sub{color:#666;font-size:12.5px;font-weight:400}
 .cert-career{margin-top:6px;font-size:12.5px;color:#444;white-space:pre-wrap}
-.cert-body{font-size:15px;color:#111;margin:4px 0 30px;text-align:justify}
-.cert-attest{text-align:center;font-size:17px;font-weight:700;letter-spacing:.08em;margin:36px 0 30px;color:#111}
-.cert-date{text-align:center;font-size:15px;margin:0 0 40px;color:#111;letter-spacing:.02em}
-.cert-sign{text-align:center;margin-top:24px}
+.cert-body{font-size:15px;color:#111;margin:8px 0 0;text-align:justify}
+/* 본문 ↓ 유연한 여백 ↓ (증명 문구+발급일) ↓ 유연한 여백 ↓ 발급기관 — 균형 배치 */
+.cert-closing{margin-top:auto;text-align:center}
+.cert-attest{text-align:center;font-size:17px;font-weight:700;letter-spacing:.08em;margin:0 0 26px;color:#111}
+.cert-date{text-align:center;font-size:15px;margin:0;color:#111;letter-spacing:.02em}
+.cert-sign{text-align:center;margin-top:auto}
 /* 회사명 + 대표이사 한 줄 */
 .cert-orgline{font-size:17px;font-weight:700;color:#111;letter-spacing:.03em;display:inline-flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:2px}
 .cert-orgline b{font-weight:800;letter-spacing:.05em}

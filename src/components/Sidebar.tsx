@@ -52,7 +52,7 @@ function TaskSubnav({
             <span>{a.label}</span>
             <Icon
               name="chevron"
-              className={`icon chev${isOpen ? ' open' : ''}`}
+              className={`icon chev${isOpen ? ' ex' : ''}`}
             />
           </button>
           <div className="dept-views" id={`dv-${a.id}`} hidden={!isOpen}>
@@ -162,7 +162,7 @@ export default function Sidebar({
           <span>업무관리</span>
           <Icon
             name="chevron"
-            className={`icon chev${tasksOpen ? ' open' : ''}`}
+            className={`icon chev${tasksOpen ? ' ex' : ''}`}
           />
         </button>
         {tasksOpen && (

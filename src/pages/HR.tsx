@@ -142,20 +142,6 @@ export default function HR() {
         eyebrow="경영 · 인사"
         title="인사관리"
         desc="구성원 명부와 상세 인사정보를 관리합니다. 이름을 클릭하면 상세 인사카드가 열립니다."
-        actions={
-          <div className="hr-head-actions">
-            <div className="hr-search">
-              <input
-                placeholder="이름·사번·부서·직급·연락처 검색 (상태 무관)"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-              />
-            </div>
-            <button className="btn txt hr-add-btn" onClick={addEmp} disabled={!!error}>
-              + 직원 등록
-            </button>
-          </div>
-        }
       />
 
       {/* 요약 KPI */}
@@ -177,6 +163,25 @@ export default function HR() {
             직원 정보를 불러오지 못했습니다: {error}
           </div>
         )}
+
+        {/* 직원 명부 헤더: 왼쪽 제목 · 오른쪽 끝 검색창 + 직원 등록 */}
+        <div className="toolbar hr-roster-bar">
+          <h2 style={{ fontSize: 15, fontWeight: 800, margin: 0 }}>
+            직원 명부 <span className="count">{loading ? '…' : filtered.length}</span>
+          </h2>
+          <div className="hr-head-actions" style={{ marginLeft: 'auto' }}>
+            <div className="hr-search">
+              <input
+                placeholder="이름·사번·부서·직급·연락처 검색 (상태 무관)"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+              />
+            </div>
+            <button className="btn txt hr-add-btn" onClick={addEmp} disabled={!!error}>
+              + 직원 등록
+            </button>
+          </div>
+        </div>
 
         <div className="tbl-wrap">
           <table className="hr-table">

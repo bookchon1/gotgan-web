@@ -233,21 +233,17 @@ export default function Certificates() {
                 </tbody>
               </table>
 
-              {/* 본문 서술 */}
+              {/* 본문 서술 (소속·직급·직책은 위 표에 기재 — 문장에서는 생략) */}
               <p className="cert-body">
                 위 사람은 <b>{COMPANY}</b>
                 {kind === '재직증명서' ? (
                   <>
-                    에 <b>{join ? krDate(join) : ''}</b> 입사하여 현재 <b>{deptLabel(selected.dept_key)}</b>
-                    {selected.title ? ` ${selected.title}` : ''}
-                    {selected.position ? `(${selected.position})` : ''}(으)로 <b>재직 중</b>임을 증명합니다.
+                    에 <b>{join ? krDate(join) : ''}</b> 입사하여 현재 <b>재직 중</b>임을 증명합니다.
                   </>
                 ) : (
                   <>
                     에서 <b>{join ? krDate(join) : ''}</b>부터 <b>{periodTo ? krDate(periodTo) : '현재'}</b>까지{' '}
-                    <b>{tenure(join, periodTo)}</b>간 <b>{deptLabel(selected.dept_key)}</b>
-                    {selected.title ? ` ${selected.title}` : ''}
-                    {selected.position ? `(${selected.position})` : ''}(으)로 근무하였음을 증명합니다.
+                    <b>{tenure(join, periodTo)}</b>간 근무하였음을 증명합니다.
                   </>
                 )}
               </p>

@@ -845,7 +845,8 @@ td>.hr-in{max-width:160px}
 .hr-grid .mfield label{font-size:11.5px;color:var(--muted);font-weight:700;margin-bottom:5px;display:block}
 .hr-grid textarea.ctl{resize:vertical;min-height:38px}
 
-.hr-card-foot{display:flex;align-items:center;gap:9px;padding:13px 20px;border-top:1px solid var(--line);background:var(--surface-2)}
+/* 인사카드 푸터: 표준 모달 푸터(.mf)와 동일한 여백·배경 유지 + 세로 가운데 정렬(좌측 퇴직처리·상태문구용) */
+.hr-card-foot{align-items:center}
 .hr-msg{font-size:12px;color:var(--brand-ink);font-weight:600}
 .btn.danger-txt{background:none;border:0;color:var(--danger);font-weight:700;cursor:pointer;padding:6px 2px;font-size:13px}
 .btn.danger-txt:hover{text-decoration:underline}

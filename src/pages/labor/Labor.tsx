@@ -5,6 +5,9 @@ import { supabase } from '../../lib/supabase'
 import { useQuery } from '../../lib/useQuery'
 import { useAuth } from '../../lib/auth'
 import { won, dateOnly, mmdd } from '../../lib/format'
+import { ANNUAL_DEDUCT, grantedAnnual } from './leave'
+import LaborDashboard from './LaborDashboard'
+import Certificates from './Certificates'
 import type {
   Employee,
   PayrollRun,
@@ -15,10 +18,10 @@ import type {
   ArtProject,
 } from '../../types/db'
 
-type Tab = 'att' | 'pay' | 'leave'
+type Tab = 'dash' | 'att' | 'pay' | 'leave' | 'cert'
 
 export default function Labor() {
-  const [tab, setTab] = useState<Tab>('att')
+  const [tab, setTab] = useState<Tab>('dash')
 
   // 직원 명부 (이름·부서·입사일·고용형태 — 연차 자동계산/정규직 필터용)
   const empQ = useQuery<Pick<Employee, 'id' | 'name' | 'dept_key' | 'join_date' | 'join_ym' | 'employment_type'>[]>(
@@ -46,9 +49,11 @@ export default function Labor() {
       />
       <div className="subtabs">
         {([
+          ['dash', '대시보드'],
           ['att', '근무 기록'],
           ['pay', '급여 기록'],
           ['leave', '휴가 현황'],
+          ['cert', '증명서'],
         ] as [Tab, string][]).map(([k, t]) => (
           <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>
             {t}
@@ -56,9 +61,11 @@ export default function Labor() {
         ))}
       </div>
 
+      {tab === 'dash' && <LaborDashboard />}
       {tab === 'att' && <AttView />}
       {tab === 'pay' && <PayView empById={empById} />}
       {tab === 'leave' && <LeaveView empById={empById} />}
+      {tab === 'cert' && <Certificates />}
     </div>
   )
 }
@@ -113,6 +120,12 @@ function AttView() {
   )
   const rows = attQ.data ?? []
 
+  // 월 요약 — 총 근무 건수 / 총 실근무시간 합계
+  const totalHours = rows.reduce((a, r) => {
+    const h = workHours(r.check_in, r.check_out, r.next_day, r.break_min)
+    return a + (h ?? 0)
+  }, 0)
+
   // 월 선택지 (최근 6개월 + 당월)
   const months = useMemo(() => {
     const out: string[] = []
@@ -148,6 +161,22 @@ function AttView() {
           <button className="btn txt add-txt" onClick={() => setAddOpen(true)}>
             + 근무 추가
           </button>
+        </div>
+      </div>
+
+      {/* 월 요약 */}
+      <div className="ops-stats">
+        <div className="s">
+          <small>이번 달 근무 건수</small>
+          <b className="tnum">{attQ.loading ? '…' : `${rows.length}건`}</b>
+        </div>
+        <div className="s">
+          <small>총 실근무시간</small>
+          <b className="tnum">{attQ.loading ? '…' : `${totalHours.toFixed(1)}시간`}</b>
+        </div>
+        <div className="s">
+          <small>평균 1건당</small>
+          <b className="tnum">{rows.length > 0 ? `${(totalHours / rows.length).toFixed(1)}시간` : '—'}</b>
         </div>
       </div>
 
@@ -873,37 +902,8 @@ function PaySubmitModal({
 }
 
 // ===================== 휴가 현황 =====================
-// 연차에서 차감되는 유형(연차 소진). 대체휴무·대체반차·병가·생일휴무·경조사·공가·출장은 차감 안 함.
-const ANNUAL_DEDUCT = new Set(['연차', '반차', '월차', '휴가'])
-
-/** 연차 자동 부여 계산 (근로기준법 기준, 기준일=오늘)
- *  - 입사 1년 미만: 매월 1개 발생(최대 11). 다음 해 1월 1일 되면 소멸 → 15개 전환
- *  - 입사 1년(만 1년) 이상: 기본 15개
- *  - 입사 2년 이후부터 2년마다 +1 (3년차 16, 5년차 17 …) = 15 + floor((만근속연수-1)/2)
- *  반환: { granted, basis } basis 는 표시용 설명
- */
-function grantedAnnual(joinISO: string | null, today = new Date()): { granted: number; basis: string } {
-  if (!joinISO) return { granted: 0, basis: '입사일 미등록' }
-  const join = new Date(joinISO)
-  if (isNaN(+join)) return { granted: 0, basis: '입사일 오류' }
-
-  // 만 근속 연수(완성 연수)
-  let years = today.getFullYear() - join.getFullYear()
-  const anniv = new Date(join)
-  anniv.setFullYear(join.getFullYear() + years)
-  if (anniv > today) years -= 1 // 아직 이번 주기 생일(입사일) 전이면 1 빼기
-
-  if (years < 1) {
-    // 입사 1년 미만: 경과 월수(완성 월) 1개월당 1개, 최대 11
-    let months = (today.getFullYear() - join.getFullYear()) * 12 + (today.getMonth() - join.getMonth())
-    if (today.getDate() < join.getDate()) months -= 1
-    const g = Math.max(0, Math.min(11, months))
-    return { granted: g, basis: `입사 1년 미만 · 월 ${g}개(최대11)` }
-  }
-  // 1년 이상: 15 + 2년마다 1 가산
-  const g = 15 + Math.floor((years - 1) / 2)
-  return { granted: g, basis: `근속 ${years}년 · 기본15${g > 15 ? `+가산${g - 15}` : ''}` }
-}
+// 연차 소진 계산(ANNUAL_DEDUCT)·입사일 기준 자동 부여(grantedAnnual)는 ./leave 로 분리.
+// (노무 대시보드와 동일 로직을 공유 — 이 뷰의 집계 규칙은 변경하지 않는다.)
 
 function LeaveView({ empById }: { empById: Record<string, { name: string; dept: string; join: string | null; empType: string | null }> }) {
   const [q, setQ] = useState('')

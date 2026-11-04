@@ -456,11 +456,7 @@ function EmpCardModal({
             <div className="hr-card-meta">
               {[form.emp_no ?? '사번 미지정', deptLabel(form.dept_key), roleLabel(form.title, form.position)]
                 .filter((x) => x && x !== '—')
-                .map((part, i) => (
-                  <span key={i} className="hr-meta-item">
-                    {part}
-                  </span>
-                ))}
+                .join('  ·  ')}
             </div>
           </div>
           <button className="x" onClick={onClose} aria-label="닫기">

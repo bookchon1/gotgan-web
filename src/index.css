@@ -838,8 +838,8 @@ td>.hr-in{max-width:160px}
 .hr-card-id{flex:1;min-width:0}
 .hr-card-name{font-size:22px;font-weight:800;letter-spacing:-.01em;color:var(--ink);display:flex;align-items:center;gap:10px;line-height:1.1}
 .hr-card-name .badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px}
-.hr-card-meta{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-top:10px}
-.hr-meta-item{font-size:12.5px;color:var(--ink-soft);font-weight:600;background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:3px 10px;white-space:nowrap}
+/* 메타: 금빛 한 줄 · 구분 (사번 · 소속 · 직급) */
+.hr-card-meta{margin-top:9px;font-size:12.5px;font-weight:700;color:var(--gold);letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hr-card .x{border:0;background:none;font-size:15px;color:var(--muted);cursor:pointer;flex:none;width:32px;height:32px;border-radius:8px;display:grid;place-items:center;transition:background .12s,color .12s}
 .hr-card .x:hover{color:var(--ink);background:var(--surface-2)}
 

@@ -155,7 +155,7 @@ export default function HR() {
       <section className="panel">
         {error === 'config' && (
           <div className="login-alert warn" style={{ margin: '0 0 12px' }}>
-            Supabase 연결이 설정되지 않았습니다. <code>.env</code> 설정 후 직원 명부가 표시됩니다.
+            Supabase 연결이 설정되지 않았습니다. <code>.env</code> 설정 후 직원명부가 표시됩니다.
           </div>
         )}
         {error && error !== 'config' && (
@@ -164,10 +164,10 @@ export default function HR() {
           </div>
         )}
 
-        {/* 직원 명부 헤더: 왼쪽 제목 · 오른쪽 끝 검색창 + 직원 등록 */}
+        {/* 직원명부 헤더: 왼쪽 제목 · 오른쪽 끝 검색창 + 직원 등록 */}
         <div className="toolbar hr-roster-bar">
           <h2 style={{ fontSize: 15, fontWeight: 800, margin: 0 }}>
-            직원 명부 <span className="count">{loading ? '…' : filtered.length}</span>
+            직원명부 <span className="count">{loading ? '…' : filtered.length}</span>
           </h2>
           <div className="hr-head-actions" style={{ marginLeft: 'auto' }}>
             <div className="hr-search">
@@ -667,7 +667,7 @@ function AssignTab({ empId }: { empId: string }) {
   return (
     <div>
       <div className="assign-head">
-        <span className="hr-sub">인사발령 이력 (최신순)</span>
+        <span className="hr-sub">인사발령이력 (최신순)</span>
         <button className="btn txt" onClick={() => setAdding((v) => !v)}>
           {adding ? '취소' : '+ 발령 추가'}
         </button>
@@ -692,7 +692,7 @@ function AssignTab({ empId }: { empId: string }) {
 
       <div className="timeline">
         {loading && <div className="hr-sub">불러오는 중…</div>}
-        {!loading && rows.length === 0 && <div className="hr-sub">등록된 발령 이력이 없습니다.</div>}
+        {!loading && rows.length === 0 && <div className="hr-sub">등록된 발령이력이 없습니다.</div>}
         {!loading &&
           rows.map((r) => (
             <div className="tl-item" key={r.id}>

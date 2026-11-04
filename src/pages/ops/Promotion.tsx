@@ -14,7 +14,7 @@ const ST_CHIP: Record<PromoActivity['status'], [string, string]> = {
 }
 const CHANNELS = ['인스타그램', '블로그', '보도자료', '유튜브', '기타']
 
-/** 홍보 · 홍보현황 — 채널별 홍보 활동·담당자·진행상태·게시 링크 */
+/** 홍보 · 홍보현황 — 채널별 홍보활동·담당자·진행상태·게시 링크 */
 export default function Promotion() {
   const [addOpen, setAddOpen] = useState(false)
 
@@ -57,13 +57,13 @@ export default function Promotion() {
 
   const topBtn = (
     <button className="btn txt add-txt" onClick={() => setAddOpen(true)}>
-      + 홍보 활동 등록
+      + 홍보활동 등록
     </button>
   )
 
   return (
     <div className="page on">
-      <PageHead eyebrow="홍보" title="홍보현황" desc="채널별 홍보 활동과 게시 일정을 관리합니다." actions={topBtn} />
+      <PageHead eyebrow="홍보" title="홍보현황" desc="채널별 홍보활동과 게시 일정을 관리합니다." actions={topBtn} />
       <section className="panel">
         <ErrorBanner error={promoQ.error} table="promo_activities" />
         <div className="toolbar">
@@ -93,7 +93,7 @@ export default function Promotion() {
           <table>
             <thead>
               <tr>
-                <th>홍보 활동 / 채널</th>
+                <th>홍보활동 / 채널</th>
                 <th>담당자</th>
                 <th>진행 기간</th>
                 <th>상태</th>
@@ -146,7 +146,7 @@ export default function Promotion() {
                   )
                 })}
               {!promoQ.loading && list.length === 0 && !promoQ.error && (
-                <EmptyRow cols={5} text="등록된 홍보 활동이 없습니다. '홍보 활동 등록'으로 추가하세요." />
+                <EmptyRow cols={5} text="등록된 홍보활동이 없습니다. '홍보활동 등록'으로 추가하세요." />
               )}
             </tbody>
           </table>
@@ -167,7 +167,7 @@ export default function Promotion() {
   )
 }
 
-// 홍보 활동 등록 모달
+// 홍보활동 등록 모달
 function PromoModal({
   employees,
   onClose,
@@ -190,7 +190,7 @@ function PromoModal({
 
   async function save() {
     if (!title.trim()) {
-      setErr('홍보 활동명을 입력하세요.')
+      setErr('홍보활동명을 입력하세요.')
       return
     }
     setBusy(true)
@@ -219,7 +219,7 @@ function PromoModal({
         <div className="mh">
           <div>
             <div className="eyebrow">홍보 · 활동</div>
-            <h3>홍보 활동 등록</h3>
+            <h3>홍보활동 등록</h3>
           </div>
           <button className="x" onClick={onClose}>
             ✕

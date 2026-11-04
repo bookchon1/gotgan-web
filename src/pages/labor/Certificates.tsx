@@ -123,7 +123,7 @@ export default function Certificates() {
       <section className="panel cert-controls">
         <div className="panel-h">
           <div>
-            <h2>증명서 발급 <span className="count">{kind}</span></h2>
+            <h2>증명서발급 <span className="count">{kind}</span></h2>
           </div>
         </div>
         <div className="cert-form">
@@ -148,7 +148,7 @@ export default function Certificates() {
             </select>
           </div>
           <div className="mfield">
-            <label>발급 사유 (용도)</label>
+            <label>발급사유 (용도)</label>
             <input
               className="ctl"
               value={purpose}

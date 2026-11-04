@@ -197,7 +197,7 @@ export default function Calendar() {
             style={{ marginLeft: 'auto', color: 'var(--brand-ink)', fontWeight: 700, whiteSpace: 'nowrap', padding: '4px 6px' }}
             onClick={() => setAddOpen(true)}
           >
-            + 개인 일정 등록
+            + 개인일정 등록
           </button>
         </div>
 
@@ -247,7 +247,7 @@ export default function Calendar() {
   )
 }
 
-/** 개인 일정 등록 — events 테이블에 area:'personal' 로 insert */
+/** 개인일정 등록 — events 테이블에 area:'personal' 로 insert */
 function PersonalEventModal({
   employeeId,
   defaultMonth,
@@ -304,7 +304,7 @@ function PersonalEventModal({
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="mh">
           <div>
-            <div className="eyebrow">개인 일정 등록</div>
+            <div className="eyebrow">개인일정 등록</div>
             <h3>내 일정</h3>
           </div>
           <button className="x" onClick={onClose}>

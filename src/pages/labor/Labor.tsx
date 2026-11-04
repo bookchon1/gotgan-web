@@ -6,6 +6,7 @@ import { useQuery } from '../../lib/useQuery'
 import { useAuth } from '../../lib/auth'
 import { won, dateOnly, mmdd } from '../../lib/format'
 import { ANNUAL_DEDUCT, grantedAnnual } from './leave'
+import { prevMonth, recentMonths, payrollMonths } from './month'
 import LaborDashboard from './LaborDashboard'
 import Certificates from './Certificates'
 import type {
@@ -45,14 +46,14 @@ export default function Labor() {
       <PageHead
         eyebrow="경영 · 노무"
         title="노무관리"
-        desc="근무 기록·급여·휴가 현황을 관리하세요."
+        desc="근무기록·급여·휴가현황을 관리하세요."
       />
       <div className="subtabs">
         {([
           ['dash', '대시보드'],
-          ['att', '근무 기록'],
-          ['pay', '급여 기록'],
-          ['leave', '휴가 현황'],
+          ['att', '근무기록'],
+          ['pay', '급여기록'],
+          ['leave', '휴가현황'],
           ['cert', '증명서'],
         ] as [Tab, string][]).map(([k, t]) => (
           <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>
@@ -70,7 +71,7 @@ export default function Labor() {
   )
 }
 
-// ===================== 근무 기록 (일용직) =====================
+// ===================== 근무기록 (일용직) =====================
 /** 실근무 시간: 출근·퇴근(HH:MM[:SS])·익일여부·휴게(분) → 시간 */
 function workHours(ci: string | null, co: string | null, nextDay: boolean, breakMin: number): number | null {
   if (!ci || !co) return null
@@ -87,7 +88,7 @@ function hm(t: string | null): string {
 }
 
 function AttView() {
-  const [ym, setYm] = useState('2026-10')
+  const [ym, setYm] = useState(recentMonths(1)[0]) // 당월
   const [addOpen, setAddOpen] = useState(false)
   const [wkOpen, setWkOpen] = useState(false)
 
@@ -126,16 +127,8 @@ function AttView() {
     return a + (h ?? 0)
   }, 0)
 
-  // 월 선택지 (최근 6개월 + 당월)
-  const months = useMemo(() => {
-    const out: string[] = []
-    const base = new Date(2026, 10, 1) // 2026-11 기준 표기
-    for (let i = 0; i < 6; i++) {
-      const d = new Date(base.getFullYear(), base.getMonth() - i, 1)
-      out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
-    }
-    return out
-  }, [])
+  // 월 선택지 (당월 포함 최근 6개월, 최신순)
+  const months = useMemo(() => recentMonths(6), [])
 
   return (
     <section className="panel">
@@ -143,7 +136,7 @@ function AttView() {
       <div className="panel-h">
         <div>
           <h2>
-            근무 기록 <span className="count">일용직</span>
+            근무기록 <span className="count">일용직</span>
           </h2>
           <p>출근·퇴근·휴게·실근무 · 익일 퇴근 지원</p>
         </div>
@@ -159,7 +152,7 @@ function AttView() {
             작업자 관리
           </button>
           <button className="btn txt add-txt" onClick={() => setAddOpen(true)}>
-            + 근무 추가
+            + 근무추가
           </button>
         </div>
       </div>
@@ -218,7 +211,7 @@ function AttView() {
                 )
               })}
             {!attQ.loading && rows.length === 0 && !attQ.error && (
-              <EmptyRow cols={6} text="이 달 근무 기록이 없습니다. '근무 추가'로 입력하세요." />
+              <EmptyRow cols={6} text="이 달 근무기록이 없습니다. '근무추가'로 입력하세요." />
             )}
           </tbody>
         </table>
@@ -250,7 +243,7 @@ function AttView() {
   )
 }
 
-/** 근무 추가 모달 */
+/** 근무추가 모달 */
 function AttAddModal({
   workers,
   projects,
@@ -302,8 +295,8 @@ function AttAddModal({
       <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 460 }}>
         <div className="mh">
           <div>
-            <div className="eyebrow">근무 기록</div>
-            <h3>일용직 근무 추가</h3>
+            <div className="eyebrow">근무기록</div>
+            <h3>일용직 근무추가</h3>
           </div>
           <button className="x" onClick={onClose}>
             ✕
@@ -485,7 +478,9 @@ function payStatusBadge(status: string) {
 }
 
 function PayView({ empById }: { empById: Record<string, { name: string; dept: string }> }) {
-  const [ym, setYm] = useState('2026-10')
+  // 급여는 전월분을 이번 달에 지급 → 기본 귀속월 = 전월 (예: 11월이면 10월 급여)
+  const [ym, setYm] = useState(prevMonth())
+  const payMonths = useMemo(() => payrollMonths(6), [])
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [submitOpen, setSubmitOpen] = useState(false)
@@ -596,14 +591,16 @@ function PayView({ empById }: { empById: Record<string, { name: string; dept: st
             급여대장 <span className="count">{slipsQ.loading ? '…' : slips.length}</span>
           </h2>
           <p>
-            귀속월 {ym} · {payStatusBadge(status)} · 전 직원 급여를 한 표로 관리 · 지출결의서 일괄 상신
+            {ym} 귀속(익월 지급) · {payStatusBadge(status)} · 전 직원 급여를 한 표로 관리 · 지출결의서 일괄 상신
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <select className="sel" value={ym} onChange={(e) => setYm(e.target.value)}>
-            <option value="2026-10">2026-10</option>
-            <option value="2026-09">2026-09</option>
-            <option value="2026-11">2026-11</option>
+            {payMonths.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
           </select>
           {showCopy && (
             <button className="btn sec" onClick={copyPrev} disabled={busy}>
@@ -958,7 +955,7 @@ function LeaveView({ empById }: { empById: Record<string, { name: string; dept: 
       <div className="panel-h">
         <div>
           <h2>
-            휴가 현황 <span className="count">{allEmps.length}</span>
+            휴가현황 <span className="count">{allEmps.length}</span>
           </h2>
         </div>
       </div>

@@ -252,7 +252,7 @@ export default function LaborDashboard() {
           </div>
         </div>
         {!attQ.loading && attCount === 0 && (
-          <p className="dash-note">이번 달 일용직 근무 기록이 없습니다. (근무 기록 탭에서 입력)</p>
+          <p className="dash-note">이번 달 일용직 근무기록이 없습니다. (근무기록 탭에서 입력)</p>
         )}
       </section>
     </>

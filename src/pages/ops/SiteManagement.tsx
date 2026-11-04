@@ -58,7 +58,7 @@ export default function SiteManagement() {
   const topBtn =
     tab === 'daily' ? (
       <button className="btn txt add-txt" onClick={() => { setDraftFrom(null); setDraftOpen(true) }}>
-        + 일일 기록 작성
+        + 일일기록 작성
       </button>
     ) : undefined
 
@@ -215,7 +215,7 @@ function DailyTab({
                 )
               })}
             {!loading && list.length === 0 && (
-              <EmptyRow cols={7} text="일일 기록이 없습니다. '일일 기록 작성'으로 추가하세요." />
+              <EmptyRow cols={7} text="일일기록이 없습니다. '일일기록 작성'으로 추가하세요." />
             )}
           </tbody>
         </table>
@@ -754,7 +754,7 @@ function WorkerModal({
   )
 }
 
-// ============================ 일일 기록 작성 모달 ============================
+// ============================ 일일기록 작성 모달 ============================
 function DailyDraftModal({
   projects,
   workers,
@@ -836,7 +836,7 @@ function DailyDraftModal({
         <div className="mh">
           <div>
             <div className="eyebrow">현장 · 일일기록</div>
-            <h3>{copyFrom ? '일일 기록 작성 (복사)' : '일일 기록 작성'}</h3>
+            <h3>{copyFrom ? '일일기록 작성 (복사)' : '일일기록 작성'}</h3>
           </div>
           <button className="x" onClick={onClose}>
             ✕

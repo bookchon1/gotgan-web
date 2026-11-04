@@ -117,7 +117,7 @@ export default function Login() {
               <input
                 type="text"
                 autoComplete="username"
-                placeholder="예: 이윤정"
+                placeholder="이름을 입력하세요"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
@@ -175,13 +175,6 @@ export default function Login() {
             )}
           </button>
 
-          <div className="login-note">
-            <Icon name="shield" className="icon ic" />
-            <span>
-              처음 로그인하시는 경우 비밀번호는 <b>0000</b> 입니다. 로그인 후 바로 새 비밀번호로
-              변경하게 됩니다.
-            </span>
-          </div>
         </form>
       </div>
     </main>

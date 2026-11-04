@@ -8,6 +8,7 @@ export const ANNUAL_DEDUCT = new Set(['연차', '반차', '월차', '휴가'])
  *  - 입사 1년 미만: 매월 1개 발생(최대 11). 다음 해 1월 1일 되면 소멸 → 15개 전환
  *  - 입사 1년(만 1년) 이상: 기본 15개
  *  - 입사 2년 이후부터 2년마다 +1 (3년차 16, 5년차 17 …) = 15 + floor((만근속연수-1)/2)
+ *  - 가산 포함 최대 25일 한도(근로기준법 제60조④)
  *  반환: { granted, basis } basis 는 표시용 설명
  */
 export function grantedAnnual(joinISO: string | null, today = new Date()): { granted: number; basis: string } {
@@ -28,7 +29,12 @@ export function grantedAnnual(joinISO: string | null, today = new Date()): { gra
     const g = Math.max(0, Math.min(11, months))
     return { granted: g, basis: `입사 1년 미만 · 월 ${g}개(최대11)` }
   }
-  // 1년 이상: 15 + 2년마다 1 가산
-  const g = 15 + Math.floor((years - 1) / 2)
-  return { granted: g, basis: `근속 ${years}년 · 기본15${g > 15 ? `+가산${g - 15}` : ''}` }
+  // 1년 이상: 15 + 2년마다 1 가산, 단 최대 25일(가산 포함 법정 상한)
+  const raw = 15 + Math.floor((years - 1) / 2)
+  const g = Math.min(25, raw)
+  const capped = raw > 25
+  return {
+    granted: g,
+    basis: `근속 ${years}년 · 기본15${g > 15 ? `+가산${g - 15}` : ''}${capped ? ' (최대25 한도)' : ''}`,
+  }
 }

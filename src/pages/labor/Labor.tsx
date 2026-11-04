@@ -866,7 +866,7 @@ function PaySubmitModal({
   )
 }
 
-// ===================== 연차 =====================
+// ===================== 휴가 현황 =====================
 function LeaveView({ empById }: { empById: Record<string, { name: string; dept: string }> }) {
   const leaveQ = useQuery<LeaveRecord[]>(
     async () => await supabase.from('leave_records').select('*').order('start_date', { ascending: false }),
@@ -895,7 +895,7 @@ function LeaveView({ empById }: { empById: Record<string, { name: string; dept: 
       <div className="panel-h">
         <div>
           <h2>
-            연차 현황 <span className="count">{leaveQ.loading ? '…' : emps.length}</span>
+            휴가 현황 <span className="count">{leaveQ.loading ? '…' : emps.length}</span>
           </h2>
         </div>
       </div>
@@ -934,7 +934,7 @@ function LeaveView({ empById }: { empById: Record<string, { name: string; dept: 
                 )
               })}
             {!leaveQ.loading && emps.length === 0 && (
-              <EmptyRow cols={5} text="연차 기록이 없습니다." />
+              <EmptyRow cols={5} text="휴가 기록이 없습니다." />
             )}
           </tbody>
         </table>

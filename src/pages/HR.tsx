@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { PageHead } from '../components/PageHead'
 import { supabase, isConfigured } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -60,9 +60,6 @@ export default function HR() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // 검색 (필터 UI 제거 — 기본: 재직자만, 검색 시 전체 상태에서 검색)
-  const [q, setQ] = useState('')
-
   // 상세 모달 대상
   const [openId, setOpenId] = useState<string | null>(null)
 
@@ -94,23 +91,8 @@ export default function HR() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const filtered = useMemo(() => {
-    const searching = q.trim().length > 0
-    return rows.filter((r) => {
-      // 기본값: 전체 상태(재직·휴직·퇴직 모두 표시). 검색 시에도 전체에서 찾는다.
-      if (searching) {
-        const s = q.trim().toLowerCase()
-        // 부서명(주소속 + 겸소속)도 검색 대상에 포함
-        const deptNames = [deptLabel(r.dept_key), ...(r.extra_depts ?? []).map(deptLabel)]
-        const hay = [r.name, r.emp_no, r.title, r.position, r.phone, r.email, r.employment_type, r.status, ...deptNames]
-          .filter(Boolean)
-          .join(' ')
-          .toLowerCase()
-        if (!hay.includes(s)) return false
-      }
-      return true
-    })
-  }, [rows, q])
+  // 전체 상태(재직·휴직·퇴직) 모두 표시 — 입사일 기준 정렬은 아래 load 에서 수행.
+  const filtered = rows
 
   // 요약 KPI (재직 기준)
   const active = rows.filter((r) => r.status === '재직')
@@ -174,23 +156,14 @@ export default function HR() {
           </div>
         )}
 
-        {/* 직원명부 헤더: 왼쪽 제목 · 오른쪽 끝 검색창 + 직원 등록 */}
+        {/* 직원명부 헤더: 왼쪽 제목 · 오른쪽 끝 직원등록 */}
         <div className="toolbar hr-roster-bar">
           <h2 style={{ fontSize: 15, fontWeight: 800, margin: 0 }}>
             직원명부 <span className="count">{loading ? '…' : filtered.length}</span>
           </h2>
-          <div className="hr-head-actions" style={{ marginLeft: 'auto' }}>
-            <div className="hr-search">
-              <input
-                placeholder=""
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-              />
-            </div>
-            <button className="btn txt hr-add-btn" onClick={addEmp} disabled={!!error}>
-              + 직원 등록
-            </button>
-          </div>
+          <button className="btn txt hr-add-btn" onClick={addEmp} disabled={!!error} style={{ marginLeft: 'auto' }}>
+            +직원등록
+          </button>
         </div>
 
         <div className="tbl-wrap">

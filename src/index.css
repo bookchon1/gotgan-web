@@ -913,9 +913,10 @@ td>.hr-in{max-width:160px}
 .ph.ph-slim .eyebrow{margin-bottom:0}
 
 /* 배경·외곽선 없는 텍스트형 직원 등록 버튼 */
+/* 상단 텍스트 버튼(+직원등록 등): 모달 푸터 저장·닫기와 동일 글씨형 — hover 밑줄 */
 .btn.txt.hr-add-btn,.btn.txt.add-txt{color:var(--brand-ink);font-weight:700;padding:8px 6px;background:none;border:0;cursor:pointer;white-space:nowrap}
-.btn.txt.hr-add-btn:hover,.btn.txt.add-txt:hover{color:var(--brand)}
-.btn.txt.hr-add-btn:disabled,.btn.txt.add-txt:disabled{color:var(--muted);cursor:not-allowed}
+.btn.txt.hr-add-btn:hover,.btn.txt.add-txt:hover{color:var(--brand-ink);text-decoration:underline}
+.btn.txt.hr-add-btn:disabled,.btn.txt.add-txt:disabled{color:var(--muted);cursor:not-allowed;text-decoration:none}
 
 /* ============================================================
    노무관리 — 대시보드 / 증명서

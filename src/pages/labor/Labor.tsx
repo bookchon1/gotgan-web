@@ -931,13 +931,19 @@ function LeaveView({ empById }: { empById: Record<string, { name: string; dept: 
     return m
   }, [records])
 
-  // 재직 직원 전체를 표시(휴가 기록 없는 직원도 0으로). 부서·이름순 정렬.
+  // 재직 직원 전체를 표시(휴가 기록 없는 직원도 0으로). 입사 순서(입사일 빠른 순) 정렬.
+  // 입사일 없는 직원은 뒤로, 같으면 이름순.
   const emptySlot = { carry: 0, annualUsed: 0, otherUsed: 0 }
   const allEmps = useMemo(
     () =>
       Object.entries(empById)
         .map(([id, e]) => ({ id, name: e.name, dept: e.dept, join: e.join }))
-        .sort((a, b) => a.dept.localeCompare(b.dept) || a.name.localeCompare(b.name)),
+        .sort((a, b) => {
+          if (a.join && b.join) return a.join < b.join ? -1 : a.join > b.join ? 1 : a.name.localeCompare(b.name)
+          if (a.join) return -1
+          if (b.join) return 1
+          return a.name.localeCompare(b.name)
+        }),
     [empById],
   )
 

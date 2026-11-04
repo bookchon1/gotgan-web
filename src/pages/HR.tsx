@@ -280,6 +280,10 @@ export default function HR() {
             setRows((rs) => rs.map((r) => (r.id === id ? { ...r, status: '퇴직' } : r)))
             setOpenId(null)
           }}
+          onDeleted={(id) => {
+            setRows((rs) => rs.filter((r) => r.id !== id))
+            setOpenId(null)
+          }}
         />
       )}
     </div>
@@ -310,11 +314,13 @@ function EmpCardModal({
   onClose,
   onSaved,
   onRemoved,
+  onDeleted,
 }: {
   emp: Emp
   onClose: () => void
   onSaved: (e: Emp) => void
   onRemoved: (id: string) => void
+  onDeleted: (id: string) => void
 }) {
   const [tab, setTab] = useState<Tab>('basic')
   const [form, setForm] = useState<Emp>(emp)
@@ -414,6 +420,27 @@ function EmpCardModal({
       return
     }
     onRemoved(form.id)
+  }
+
+  // 완전 삭제 — DB 행 제거(연관 발령/급여/휴가/근태 기록은 FK on delete cascade 로 함께 정리).
+  // 되돌릴 수 없으므로 2단계 확인. 재직 중/기록 있는 직원은 가급적 '퇴직 처리' 권장.
+  async function removeEmp() {
+    if (!isConfigured) return
+    const warn =
+      `'${form.name}' 님을 완전히 삭제합니다.\n\n` +
+      `· 이 직원의 발령이력·급여·휴가·근태 기록도 함께 삭제됩니다.\n` +
+      `· 되돌릴 수 없습니다. (기록을 남기려면 '퇴직 처리'를 사용하세요)\n\n` +
+      `정말 삭제하시겠습니까?`
+    if (!window.confirm(warn)) return
+    setSaving(true)
+    setMsg(null)
+    const { error } = await supabase.from('employees').delete().eq('id', form.id)
+    setSaving(false)
+    if (error) {
+      setMsg('삭제 실패: ' + error.message)
+      return
+    }
+    onDeleted(form.id)
   }
 
   return (
@@ -606,6 +633,9 @@ function EmpCardModal({
           <div className="mf hr-card-foot">
             <button className="btn danger-txt" onClick={retire} disabled={saving || form.status === '퇴직'}>
               퇴직 처리
+            </button>
+            <button className="btn danger-txt" onClick={removeEmp} disabled={saving}>
+              삭제
             </button>
             <div style={{ flex: 1 }} />
             {msg && <span className="hr-msg">{msg}</span>}

@@ -853,8 +853,11 @@ td>.hr-in{max-width:160px}
 .hr-grid textarea.ctl{resize:vertical;min-height:38px}
 
 /* 인사카드 푸터: 표준 모달 푸터(.mf)와 동일한 여백·배경 유지 + 세로 가운데 정렬(좌측 퇴직처리·상태문구용) */
-.hr-card-foot{align-items:center}
-.hr-msg{font-size:12px;color:var(--brand-ink);font-weight:600}
+.hr-card-foot{align-items:stretch}
+.hr-msg{font-size:12px;color:var(--brand-ink);font-weight:600;align-self:center}
+/* 모달 푸터 안의 모든 버튼을 동일 높이·동일 세로정렬로 강제 (닫기·저장·퇴직처리 한 줄 정렬) */
+.mf .btn{min-height:34px;padding-top:0;padding-bottom:0;font-size:13px;line-height:1;align-items:center}
+.mf .btn.danger-txt{padding-left:2px;padding-right:2px}
 .btn.danger-txt{background:none;border:0;color:var(--danger);font-weight:700;cursor:pointer;padding:6px 2px;font-size:13px}
 .btn.danger-txt:hover{text-decoration:underline}
 .btn.danger-txt:disabled{color:var(--muted);cursor:not-allowed;text-decoration:none}

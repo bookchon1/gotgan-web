@@ -16,7 +16,7 @@ const DEPT_OPTS: [string, string][] = [
   ['promotion', '홍보'],
   ['experience', '체험'],
   ['education', '교육'],
-  ['', '대표'],
+  ['', '소속 없음'],
 ]
 const DEPT_CLS: Record<string, string> = {
   art: 'ar-art',
@@ -31,8 +31,10 @@ const STATUS_OPTS: Emp['status'][] = ['재직', '휴직', '퇴직']
 const ASSIGN_KINDS = ['입사', '승진', '부서이동', '보직변경', '휴직', '복직', '퇴직', '기타']
 
 function deptLabel(key: string | null): string {
-  const d = DEPT_OPTS.find((x) => x[0] === (key ?? ''))
-  return d ? d[1] : '대표'
+  // 소속이 없거나(대표·임원 등) 매칭 안 되면 공란(—). 드롭다운 라벨('소속 없음')과 별개로 표시는 '—'.
+  if (!key) return '—'
+  const d = DEPT_OPTS.find((x) => x[0] === key)
+  return d && d[0] ? d[1] : '—'
 }
 function fmtDate(d: string | null): string {
   if (!d) return '—'
@@ -42,6 +44,14 @@ function statusBadge(s: string): string {
   if (s === '재직') return 'green'
   if (s === '휴직') return 'gold'
   return 'gray'
+}
+
+/** 직급·직책을 한 명칭으로 묶음. 같으면 한 번만, 다르면 "직급 · 직책", 한쪽만 있으면 그것만. */
+function roleLabel(title: string | null | undefined, position: string | null | undefined): string {
+  const t = (title ?? '').trim()
+  const p = (position ?? '').trim()
+  if (t && p) return t === p ? t : `${t} · ${p}`
+  return t || p || '—'
 }
 
 export default function HR() {
@@ -235,12 +245,7 @@ export default function HR() {
                         ))}
                       </span>
                     </td>
-                    <td>
-                      {e.title ?? '—'}
-                      {e.position && (
-                        <span style={{ color: 'var(--muted)' }}> · {e.position}</span>
-                      )}
-                    </td>
+                    <td>{roleLabel(e.title, e.position)}</td>
                     <td>{e.employment_type ?? '—'}</td>
                     <td className="tnum" style={{ color: 'var(--muted)' }}>
                       {fmtDate(e.join_date) !== '—' ? fmtDate(e.join_date) : e.join_ym ?? '—'}
@@ -423,8 +428,7 @@ function EmpCardModal({
               </span>
             </div>
             <div className="hr-card-meta">
-              {form.emp_no ?? '사번 미지정'} · {deptLabel(form.dept_key)} · {form.title ?? '—'}
-              {form.position ? ` (${form.position})` : ''}
+              {form.emp_no ?? '사번 미지정'} · {deptLabel(form.dept_key)} · {roleLabel(form.title, form.position)}
             </div>
           </div>
           <button className="x" onClick={onClose}>

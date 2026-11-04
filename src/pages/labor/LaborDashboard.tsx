@@ -18,7 +18,7 @@ const DEPT_LABEL: Record<string, string> = {
   education: '교육',
 }
 function deptLabel(key: string | null): string {
-  return key ? DEPT_LABEL[key] ?? '대표' : '대표'
+  return key ? DEPT_LABEL[key] ?? '—' : '—'
 }
 
 const NOW = new Date()

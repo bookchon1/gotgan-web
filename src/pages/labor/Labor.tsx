@@ -467,7 +467,7 @@ function deptLabel(key: string | null): string {
     experience: '체험',
     education: '교육',
   }
-  return key ? m[key] ?? '대표' : '대표'
+  return key ? m[key] ?? '—' : '—'
 }
 
 // ===================== 급여 =====================

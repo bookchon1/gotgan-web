@@ -16,7 +16,16 @@ const DEPT_LABEL: Record<string, string> = {
   art: '미술', management: '경영', product: '상품', promotion: '홍보', experience: '체험', education: '교육',
 }
 function deptLabel(key: string | null): string {
-  return key ? DEPT_LABEL[key] ?? '대표' : '대표'
+  // 매칭되는 부서가 없으면(대표·임원 등) '대표'가 아니라 공란(—) 처리
+  return key ? DEPT_LABEL[key] ?? '—' : '—'
+}
+
+/** 직급·직책을 한 명칭으로 묶음(인사관리와 동일). 같으면 한 번만, 다르면 "직급 / 직책". */
+function roleLabel(title: string | null | undefined, position: string | null | undefined): string {
+  const t = (title ?? '').trim()
+  const p = (position ?? '').trim()
+  if (t && p) return t === p ? t : `${t} / ${p}`
+  return t || p || '—'
 }
 
 type CertKind = '재직증명서' | '경력증명서'
@@ -111,8 +120,11 @@ export default function Certificates() {
     if (selected && !isActive && kind === '재직증명서') setKind('경력증명서')
   }, [selected, isActive, kind])
   const periodTo = isActive ? null : selected?.leave_date ?? null
+  // 담당업무: 소속(있을 때만) + 직급/직책(중복 제거). '—'(소속 없음)은 제외.
   const dutyParts = selected
-    ? [deptLabel(selected.dept_key), selected.title, selected.position].filter(Boolean)
+    ? [deptLabel(selected.dept_key), roleLabel(selected.title, selected.position)].filter(
+        (x) => x && x !== '—',
+      )
     : []
 
   return (
@@ -201,10 +213,7 @@ export default function Certificates() {
                     <th>소 속</th>
                     <td>{deptLabel(selected.dept_key)}</td>
                     <th>직 급 / 직 책</th>
-                    <td>
-                      {selected.title ?? '—'}
-                      {selected.position ? ` / ${selected.position}` : ''}
-                    </td>
+                    <td>{roleLabel(selected.title, selected.position)}</td>
                   </tr>
                   <tr>
                     <th>입 사 일</th>

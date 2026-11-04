@@ -172,7 +172,7 @@ export default function HR() {
           <div className="hr-head-actions" style={{ marginLeft: 'auto' }}>
             <div className="hr-search">
               <input
-                placeholder="이름·사번·부서·직급·연락처 검색 (상태 무관)"
+                placeholder=""
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
               />

@@ -308,10 +308,12 @@ tr:last-child td{border-bottom:0}
 
 /* 툴바(탭+검색) */
 .toolbar{display:flex;align-items:center;gap:11px;flex-wrap:wrap;margin-bottom:14px}
-.tabs{display:inline-flex;gap:3px;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:3px}
-.tabs button{border:0;background:none;padding:6px 12px;border-radius:7px;font-size:12.5px;font-weight:700;color:var(--muted);display:inline-flex;align-items:center;gap:6px}
-.tabs button span{font-size:10.5px;background:var(--line-2);padding:0 6px;border-radius:999px}
-.tabs button.on{background:var(--surface);color:var(--brand-ink);box-shadow:var(--shadow-s)}
+/* 탭 — 밑줄 스타일 통일 */
+.tabs{display:flex;gap:18px;border-bottom:1px solid var(--line)}
+.tabs button{border:0;background:none;padding:9px 1px;font-size:13px;font-weight:700;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;display:inline-flex;align-items:center;gap:6px}
+.tabs button:hover{color:var(--ink-soft)}
+.tabs button span{font-size:10.5px;background:var(--line-2);padding:0 6px;border-radius:999px;color:var(--ink-soft)}
+.tabs button.on{color:var(--brand-ink);border-bottom-color:var(--brand)}
 .tabs button.on span{background:var(--brand-soft);color:var(--brand-ink)}
 .search{display:inline-flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:7px 11px;color:var(--muted);font-size:12.5px;min-width:180px}
 .search input{border:0;background:none;outline:none;font-family:inherit;font-size:12.5px;color:var(--ink);width:100%}
@@ -524,9 +526,11 @@ tr:last-child td{border-bottom:0}
 .t-title.done-txt{text-decoration:line-through;color:var(--muted)}
 
 /* 영역 내 서브탭 (사업관리 모드, 현장관리 탭 등) */
-.subtabs{display:inline-flex;gap:3px;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:3px;margin-bottom:14px;flex-wrap:wrap}
-.subtabs button{border:0;background:none;padding:7px 13px;border-radius:7px;font-size:12.5px;font-weight:700;color:var(--muted)}
-.subtabs button.on{background:var(--surface);color:var(--brand-ink);box-shadow:var(--shadow-s)}
+/* 서브탭 — 박스/알약 대신 밑줄 탭 (저장·닫기처럼 깔끔하게) */
+.subtabs{display:flex;gap:18px;border-bottom:1px solid var(--line);margin-bottom:16px;flex-wrap:wrap}
+.subtabs button{border:0;background:none;padding:9px 1px;font-size:13px;font-weight:700;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.subtabs button:hover{color:var(--ink-soft)}
+.subtabs button.on{color:var(--brand-ink);border-bottom-color:var(--brand)}
 /* 회계 자금현황 drill 경로 */
 .acct-crumb{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13px}
 .crumb-b{background:none;border:0;color:var(--brand-ink);font-weight:700;font-size:13px;padding:2px 4px;border-radius:5px;cursor:pointer}
@@ -683,9 +687,10 @@ td>.hr-in{max-width:160px}
 .mcal .mmore{font-size:9px;color:var(--brand-ink);font-weight:800}
 @media(max-width:620px){.mcal{grid-auto-rows:minmax(54px,auto)}.mcal .mcell{min-height:54px}.mcal .mev{font-size:0;padding:3px}.mcal .mev::before{content:"·";font-size:14px}.mcal .mcell .mcnt{font-size:8px}.mcal .mmore{font-size:8px}}
 /* 분기 탭 */
-.qtabs{display:flex;align-items:center;gap:4px;margin-bottom:6px;flex-wrap:wrap}
-.qtabs button{border:1px solid var(--line);background:var(--surface);padding:7px 14px;border-radius:9px;font-size:12.5px;font-weight:700;color:var(--muted)}
-.qtabs button.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+.qtabs{display:flex;align-items:center;gap:16px;margin-bottom:6px;flex-wrap:wrap}
+.qtabs button{border:0;background:none;padding:7px 1px;font-size:12.5px;font-weight:700;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent}
+.qtabs button:hover{color:var(--ink-soft)}
+.qtabs button.on{color:var(--brand-ink);border-bottom-color:var(--brand)}
 .qtabs .qrange{margin-left:auto;font-size:12px;color:var(--muted);font-weight:600}
 .qmonth{font-size:13px;font-weight:800;color:var(--ink);padding:4px 0 7px;border-bottom:1px solid var(--line)}
 .qmonth span{font-size:11px;color:var(--muted);font-weight:700;margin-left:6px}

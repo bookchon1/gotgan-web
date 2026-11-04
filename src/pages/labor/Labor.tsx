@@ -7,7 +7,6 @@ import { useAuth } from '../../lib/auth'
 import { won, dateOnly, mmdd } from '../../lib/format'
 import { ANNUAL_DEDUCT, grantedAnnual } from './leave'
 import { prevMonth, recentMonths, payrollMonths } from './month'
-import LaborDashboard from './LaborDashboard'
 import Certificates from './Certificates'
 import type {
   Employee,
@@ -19,10 +18,10 @@ import type {
   ArtProject,
 } from '../../types/db'
 
-type Tab = 'dash' | 'att' | 'pay' | 'leave' | 'cert'
+type Tab = 'pay' | 'att' | 'leave' | 'cert'
 
 export default function Labor() {
-  const [tab, setTab] = useState<Tab>('dash')
+  const [tab, setTab] = useState<Tab>('pay')
 
   // 직원 명부 (이름·부서·입사일·고용형태 — 연차 자동계산/정규직 필터용)
   const empQ = useQuery<Pick<Employee, 'id' | 'name' | 'dept_key' | 'join_date' | 'join_ym' | 'employment_type'>[]>(
@@ -50,9 +49,8 @@ export default function Labor() {
       />
       <div className="subtabs">
         {([
-          ['dash', '대시보드'],
-          ['att', '근무기록'],
           ['pay', '급여기록'],
+          ['att', '근무기록'],
           ['leave', '휴가현황'],
           ['cert', '증명서'],
         ] as [Tab, string][]).map(([k, t]) => (
@@ -62,9 +60,8 @@ export default function Labor() {
         ))}
       </div>
 
-      {tab === 'dash' && <LaborDashboard />}
-      {tab === 'att' && <AttView />}
       {tab === 'pay' && <PayView empById={empById} />}
+      {tab === 'att' && <AttView />}
       {tab === 'leave' && <LeaveView empById={empById} />}
       {tab === 'cert' && <Certificates />}
     </div>

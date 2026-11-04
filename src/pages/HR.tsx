@@ -349,11 +349,46 @@ function EmpCardModal({
         memo: form.memo || null,
       })
       .eq('id', form.id)
-    setSaving(false)
     if (error) {
+      setSaving(false)
       setMsg('저장 실패: ' + error.message)
       return
     }
+
+    // 입사일이 바뀌면 발령이력의 '입사' 기록도 함께 맞춘다.
+    //  - 기존 입사일과 일치하던 '입사' 발령을 새 입사일로 이동(최초입사 등 다른 입사기록은 보존)
+    //  - 일치하는 입사 발령이 없으면 새로 생성
+    const oldJoin = emp.join_date || null
+    const newJoin = form.join_date || null
+    if (newJoin && newJoin !== oldJoin) {
+      let moved = false
+      if (oldJoin) {
+        const { data: upd } = await supabase
+          .from('hr_assignments')
+          .update({ eff_date: newJoin })
+          .eq('employee_id', form.id)
+          .eq('kind', '입사')
+          .eq('eff_date', oldJoin)
+          .select('id')
+        moved = !!upd && upd.length > 0
+      }
+      if (!moved) {
+        // 이동할 입사 발령이 없으면, '입사' 발령이 아예 없을 때만 새로 생성(중복 방지)
+        const { data: exist } = await supabase
+          .from('hr_assignments')
+          .select('id')
+          .eq('employee_id', form.id)
+          .eq('kind', '입사')
+          .eq('eff_date', newJoin)
+        if (!exist || exist.length === 0) {
+          await supabase
+            .from('hr_assignments')
+            .insert({ employee_id: form.id, eff_date: newJoin, kind: '입사', detail: '입사' })
+        }
+      }
+    }
+
+    setSaving(false)
     setMsg('저장되었습니다.')
     onSaved(form)
   }

@@ -937,9 +937,10 @@ td>.hr-in{max-width:160px}
 .cert-body{font-size:15px;color:#111;margin:4px 0 30px;text-align:justify}
 .cert-attest{text-align:center;font-size:17px;font-weight:700;letter-spacing:.08em;margin:36px 0 30px;color:#111}
 .cert-date{text-align:center;font-size:15px;margin:0 0 40px;color:#111;letter-spacing:.02em}
-.cert-sign{text-align:center;line-height:2.1}
-.cert-org{font-size:18px;font-weight:800;letter-spacing:.06em;color:#111}
-.cert-rep{font-size:16px;font-weight:700;color:#111;position:relative;display:inline-block}
+.cert-sign{text-align:center;margin-top:24px}
+/* 회사명 + 대표이사 한 줄 */
+.cert-orgline{font-size:17px;font-weight:700;color:#111;letter-spacing:.03em;display:inline-flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:2px}
+.cert-orgline b{font-weight:800;letter-spacing:.05em}
 .cert-seal{display:inline-block;margin-left:10px;width:46px;height:46px;border:1.5px dashed #c0392b;border-radius:50%;color:#c0392b;font-size:10px;font-weight:700;line-height:46px;text-align:center;vertical-align:middle;opacity:.7}
 
 /* 인쇄: 증명서(.cert-print)만 보이게 */
@@ -947,7 +948,9 @@ td>.hr-in{max-width:160px}
   body *{visibility:hidden}
   .cert-print,.cert-print *{visibility:visible}
   .cert-print{position:absolute;inset:0;display:block}
-  .cert-doc{border:0;box-shadow:none;max-width:none;width:auto;margin:0;padding:40px 36px}
+  /* 문서를 페이지 높이만큼 채워, 발급기관 줄(.cert-sign)을 가장 하단에 배치 */
+  .cert-doc{border:0;box-shadow:none;max-width:none;width:auto;margin:0;padding:40px 36px;min-height:calc(100vh - 32mm);display:flex;flex-direction:column}
+  .cert-sign{margin-top:auto}
   .cert-seal{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .cert-table th{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   @page{size:A4;margin:16mm}

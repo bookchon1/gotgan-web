@@ -9,8 +9,8 @@ import type { Employee } from '../../types/db'
  *  서버 저장 없이 화면에서 생성 → 브라우저 인쇄(window.print)로 PDF 저장.
  *  @media print 로 .cert-print 영역만 인쇄된다(index.css). */
 
-const COMPANY = '북촌불교미술보존연구소'
-const COMPANY_FORMAL = '북촌불교미술보존연구소 (법인)'
+const COMPANY = '(주)북촌불교미술 보존연구소'
+const COMPANY_FORMAL = '(주)북촌불교미술 보존연구소'
 
 const DEPT_LABEL: Record<string, string> = {
   art: '미술', management: '경영', product: '상품', promotion: '홍보', experience: '체험', education: '교육',
@@ -253,11 +253,10 @@ export default function Certificates() {
               {/* 발급일 */}
               <p className="cert-date">{krDate(issueDate)}</p>
 
-              {/* 발급기관 + 직인란 */}
+              {/* 발급기관 + 대표이사 — 한 줄, 인쇄 시 가장 하단 */}
               <div className="cert-sign">
-                <div className="cert-org">{COMPANY_FORMAL}</div>
-                <div className="cert-rep">
-                  대표이사&nbsp;&nbsp;{repName}
+                <div className="cert-orgline">
+                  <b>{COMPANY_FORMAL}</b>&nbsp;&nbsp;대표이사&nbsp;&nbsp;{repName}
                   <span className="cert-seal">(직인)</span>
                 </div>
               </div>

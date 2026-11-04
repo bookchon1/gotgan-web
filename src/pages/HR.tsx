@@ -66,6 +66,8 @@ export default function HR() {
     const { data, error } = await supabase
       .from('employees')
       .select('*')
+      // 입사일(입사 순서) 기준 정렬 — 입사일 없는 직원은 뒤로, 같으면 sort 보조
+      .order('join_date', { ascending: true, nullsFirst: false })
       .order('sort', { ascending: true })
     if (error) {
       setError(error.message)

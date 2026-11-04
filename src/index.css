@@ -954,9 +954,9 @@ td>.hr-in{max-width:160px}
   body *{visibility:hidden}
   .cert-print,.cert-print *{visibility:visible}
   .cert-print{position:absolute;inset:0;display:block}
-  /* 문서를 페이지 높이만큼 채워, 발급기관 줄(.cert-sign)을 가장 하단에 배치 */
-  .cert-doc{border:0;box-shadow:none;max-width:none;width:auto;margin:0;padding:40px 36px;min-height:calc(100vh - 32mm);display:flex;flex-direction:column}
-  .cert-sign{margin-top:auto}
+  /* 인쇄: @page margin(16mm)이 여백을 주므로 문서는 그 안을 꽉 채운다(100vh).
+     발급기관 줄(.cert-sign)이 페이지 가장 하단에 오도록. */
+  .cert-doc{border:0;box-shadow:none;max-width:none;width:auto;margin:0;padding:8px 10px;min-height:100vh;box-sizing:border-box;display:flex;flex-direction:column}
   .cert-seal{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .cert-table th{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   @page{size:A4;margin:16mm}

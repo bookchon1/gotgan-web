@@ -378,7 +378,7 @@ function AttAddModal({
   )
 }
 
-/** 작업자 관리 모달 */
+/** 작업자 관리 모달 — 일용직 작업자 등록·수정·삭제 */
 function WorkerModal({
   workers,
   onClose,
@@ -391,6 +391,10 @@ function WorkerModal({
   const [name, setName] = useState('')
   const [rate, setRate] = useState(150000)
   const [busy, setBusy] = useState(false)
+  // 수정 중인 작업자
+  const [editId, setEditId] = useState<string | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editRate, setEditRate] = useState(0)
 
   async function add() {
     if (!name.trim()) return
@@ -402,9 +406,42 @@ function WorkerModal({
     onChanged()
   }
 
+  function startEdit(w: LaborWorker) {
+    setEditId(w.id)
+    setEditName(w.name)
+    setEditRate(w.day_rate)
+  }
+  function cancelEdit() {
+    setEditId(null)
+  }
+  async function saveEdit(id: string) {
+    if (!editName.trim()) return
+    setBusy(true)
+    await supabase
+      .from('labor_workers')
+      .update({ name: editName.trim(), day_rate: Number(editRate) || 0 })
+      .eq('id', id)
+    setBusy(false)
+    setEditId(null)
+    onChanged()
+  }
+  async function removeWorker(w: LaborWorker) {
+    const ok = window.confirm(
+      `'${w.name}' 작업자를 삭제합니다.\n\n` +
+        `· 이 작업자의 근무기록도 함께 삭제됩니다.\n` +
+        `· 되돌릴 수 없습니다.\n\n정말 삭제하시겠습니까?`,
+    )
+    if (!ok) return
+    setBusy(true)
+    await supabase.from('labor_workers').delete().eq('id', w.id)
+    setBusy(false)
+    if (editId === w.id) setEditId(null)
+    onChanged()
+  }
+
   return (
     <div className="modal-bg" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
+      <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
         <div className="mh">
           <div>
             <div className="eyebrow">작업자 관리</div>
@@ -421,18 +458,57 @@ function WorkerModal({
                 <tr>
                   <th>작업자</th>
                   <th style={{ textAlign: 'right' }}>기본 일당</th>
+                  <th style={{ textAlign: 'right', width: 96 }}>관리</th>
                 </tr>
               </thead>
               <tbody>
-                {workers.map((w) => (
-                  <tr key={w.id}>
-                    <td className="t-title">{w.name}</td>
-                    <td className="tnum" style={{ textAlign: 'right' }}>
-                      {won(w.day_rate)}원
-                    </td>
-                  </tr>
-                ))}
-                {workers.length === 0 && <EmptyRow cols={2} text="등록된 작업자가 없습니다." />}
+                {workers.map((w) =>
+                  editId === w.id ? (
+                    <tr key={w.id}>
+                      <td>
+                        <input
+                          className="ctl"
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          style={{ padding: '5px 8px', fontSize: 12 }}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          className="ctl"
+                          value={editRate}
+                          onChange={(e) => setEditRate(Number(e.target.value))}
+                          style={{ padding: '5px 8px', fontSize: 12, textAlign: 'right' }}
+                        />
+                      </td>
+                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <button className="btn pri" style={{ padding: '4px 7px', fontSize: 11 }} onClick={() => saveEdit(w.id)} disabled={busy || !editName.trim()}>
+                          저장
+                        </button>
+                        <button className="btn sec" style={{ padding: '4px 7px', fontSize: 11, marginLeft: 3 }} onClick={cancelEdit} disabled={busy}>
+                          취소
+                        </button>
+                      </td>
+                    </tr>
+                  ) : (
+                    <tr key={w.id}>
+                      <td className="t-title">{w.name}</td>
+                      <td className="tnum" style={{ textAlign: 'right' }}>
+                        {won(w.day_rate)}원
+                      </td>
+                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <button className="btn sec" style={{ padding: '4px 7px', fontSize: 11 }} onClick={() => startEdit(w)} disabled={busy}>
+                          수정
+                        </button>
+                        <button className="btn danger-txt" style={{ padding: '4px 5px', fontSize: 11, marginLeft: 2 }} onClick={() => removeWorker(w)} disabled={busy}>
+                          삭제
+                        </button>
+                      </td>
+                    </tr>
+                  ),
+                )}
+                {workers.length === 0 && <EmptyRow cols={3} text="등록된 작업자가 없습니다." />}
               </tbody>
             </table>
           </div>

@@ -169,11 +169,11 @@ main{padding:22px max(16px,env(safe-area-inset-left,0px)) 60px max(16px,env(safe
    hover 때만 옅은 배경으로 눌리는 영역 표시. */
 .btn.pri,.btn.sec{background:none;border:0;box-shadow:none;border-radius:7px}
 .btn.pri{color:var(--brand-ink)}
-.btn.pri:hover{background:var(--brand-soft);color:var(--brand)}
-.btn.pri:disabled{color:var(--muted);background:none;cursor:not-allowed}
+.btn.pri:hover{background:none;text-decoration:underline}
+.btn.pri:disabled{color:var(--muted);background:none;cursor:not-allowed;text-decoration:none}
 .btn.sec{color:var(--ink-soft)}
-.btn.sec:hover{background:var(--surface-2);color:var(--ink)}
-.btn.sec:disabled{color:var(--muted);background:none;cursor:not-allowed}
+.btn.sec:hover{background:none;text-decoration:underline}
+.btn.sec:disabled{color:var(--muted);background:none;cursor:not-allowed;text-decoration:none}
 .btn.txt{background:none;color:var(--brand-ink);font-weight:700;padding:5px 2px}
 /* 주간/월간/분기 — 글씨만 전환 (패널 헤더 우측) */
 .seg-text{display:inline-flex;gap:14px;align-items:center}
@@ -853,10 +853,12 @@ td>.hr-in{max-width:160px}
 .hr-grid textarea.ctl{resize:vertical;min-height:38px}
 
 /* 인사카드 푸터: 표준 모달 푸터(.mf)와 동일한 여백·배경 유지 + 세로 가운데 정렬(좌측 퇴직처리·상태문구용) */
-.hr-card-foot{align-items:stretch}
-.hr-msg{font-size:12px;color:var(--brand-ink);font-weight:600;align-self:center}
-/* 모달 푸터 안의 모든 버튼을 동일 높이·동일 세로정렬로 강제 (닫기·저장·퇴직처리 한 줄 정렬) */
-.mf .btn{min-height:34px;padding-top:0;padding-bottom:0;font-size:13px;line-height:1;align-items:center}
+.hr-card-foot{align-items:center}
+.hr-msg{font-size:12px;color:var(--brand-ink);font-weight:600}
+/* 모달 푸터 버튼: 퇴직처리 포함 모두 동일 높이·동일 세로중앙 정렬 (한 줄 정렬 강제).
+   danger-txt 를 같은 셀렉터에 넣어 뒤에 오는 .btn.danger-txt{padding:6px 2px} 에 안 눌리게 함.
+   margin-top/bottom:auto 가 flex 세로중앙을 확실히 강제(align-items 만으로는 닫기가 미세하게 뜨는 현상 해결). */
+.mf .btn,.mf .btn.danger-txt{height:34px;min-height:34px;padding-top:0;padding-bottom:0;margin-top:auto;margin-bottom:auto;font-size:13px;line-height:1;display:inline-flex;align-items:center}
 .mf .btn.danger-txt{padding-left:2px;padding-right:2px}
 .btn.danger-txt{background:none;border:0;color:var(--danger);font-weight:700;cursor:pointer;padding:6px 2px;font-size:13px}
 .btn.danger-txt:hover{text-decoration:underline}

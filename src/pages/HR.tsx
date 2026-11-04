@@ -31,10 +31,10 @@ const STATUS_OPTS: Emp['status'][] = ['재직', '휴직', '퇴직']
 const ASSIGN_KINDS = ['입사', '승진', '부서이동', '보직변경', '휴직', '복직', '퇴직', '기타']
 
 function deptLabel(key: string | null): string {
-  // 소속이 없거나(대표·임원 등) 매칭 안 되면 공란(—). 드롭다운 라벨('소속 없음')과 별개로 표시는 '—'.
-  if (!key) return '—'
+  // 소속이 없거나(대표·임원 등) 매칭 안 되면 공란(빈칸). 드롭다운 라벨('소속 없음')과 별개.
+  if (!key) return ''
   const d = DEPT_OPTS.find((x) => x[0] === key)
-  return d && d[0] ? d[1] : '—'
+  return d && d[0] ? d[1] : ''
 }
 function fmtDate(d: string | null): string {
   if (!d) return '—'
@@ -227,12 +227,14 @@ export default function HR() {
                     </td>
                     <td>
                       <span className="dept-cell">
-                        <span
-                          className={`area ${DEPT_CLS[e.dept_key ?? ''] ?? 'ar-manage'}`}
-                          style={{ fontSize: 10 }}
-                        >
-                          {deptLabel(e.dept_key)}
-                        </span>
+                        {deptLabel(e.dept_key) && (
+                          <span
+                            className={`area ${DEPT_CLS[e.dept_key ?? ''] ?? 'ar-manage'}`}
+                            style={{ fontSize: 10 }}
+                          >
+                            {deptLabel(e.dept_key)}
+                          </span>
+                        )}
                         {(e.extra_depts ?? []).map((dk) => (
                           <span
                             key={dk}
@@ -428,7 +430,9 @@ function EmpCardModal({
               </span>
             </div>
             <div className="hr-card-meta">
-              {form.emp_no ?? '사번 미지정'} · {deptLabel(form.dept_key)} · {roleLabel(form.title, form.position)}
+              {[form.emp_no ?? '사번 미지정', deptLabel(form.dept_key), roleLabel(form.title, form.position)]
+                .filter((x) => x && x !== '—')
+                .join(' · ')}
             </div>
           </div>
           <button className="x" onClick={onClose}>

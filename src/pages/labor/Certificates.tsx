@@ -17,7 +17,7 @@ const DEPT_LABEL: Record<string, string> = {
 }
 function deptLabel(key: string | null): string {
   // 매칭되는 부서가 없으면(대표·임원 등) '대표'가 아니라 공란(—) 처리
-  return key ? DEPT_LABEL[key] ?? '—' : '—'
+  return key ? DEPT_LABEL[key] ?? '' : ''
 }
 
 /** 직급·직책을 한 명칭으로 묶음(인사관리와 동일). 같으면 한 번만, 다르면 "직급 / 직책". */

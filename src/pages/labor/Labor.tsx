@@ -86,7 +86,9 @@ function hm(t: string | null): string {
 function AttView() {
   const [ym, setYm] = useState(recentMonths(1)[0]) // 당월
   const [addOpen, setAddOpen] = useState(false)
+  const [editRow, setEditRow] = useState<LaborAttendance | null>(null)
   const [wkOpen, setWkOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
 
   const workerQ = useQuery<LaborWorker[]>(
     async () => await supabase.from('labor_workers').select('*').order('name'),
@@ -108,6 +110,16 @@ function AttView() {
     [workerQ.data],
   )
   const rows = attQ.data ?? []
+
+  async function removeAtt(r: LaborAttendance) {
+    const w = workerById[r.worker_id]
+    const ok = window.confirm(`${mmdd(r.work_date)} ${w?.name ?? ''} 근무기록을 삭제하시겠습니까?`)
+    if (!ok) return
+    setBusy(true)
+    await supabase.from('labor_attendance').delete().eq('id', r.id)
+    setBusy(false)
+    attQ.reload()
+  }
 
   // 월 요약 — 총 근무 건수 / 총 실근무시간 합계
   const totalHours = rows.reduce((a, r) => {
@@ -171,10 +183,11 @@ function AttView() {
               <th style={{ textAlign: 'right' }}>휴게</th>
               <th style={{ textAlign: 'right' }}>실근무</th>
               <th>부서 · 업무</th>
+              <th style={{ textAlign: 'right', width: 92 }}>관리</th>
             </tr>
           </thead>
           <tbody>
-            {attQ.loading && <LoadingRow cols={6} />}
+            {attQ.loading && <LoadingRow cols={7} />}
             {!attQ.loading &&
               rows.map((r) => {
                 const w = workerById[r.worker_id]
@@ -199,11 +212,19 @@ function AttView() {
                       {dept && <span className="badge" style={{ marginRight: 6, fontSize: 10 }}>{dept}</span>}
                       {task || (dept ? '' : '—')}
                     </td>
+                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <button className="btn sec" style={{ padding: '4px 7px', fontSize: 11 }} onClick={() => setEditRow(r)} disabled={busy}>
+                        수정
+                      </button>
+                      <button className="btn danger-txt" style={{ padding: '4px 5px', fontSize: 11, marginLeft: 2 }} onClick={() => removeAtt(r)} disabled={busy}>
+                        삭제
+                      </button>
+                    </td>
                   </tr>
                 )
               })}
             {!attQ.loading && rows.length === 0 && !attQ.error && (
-              <EmptyRow cols={6} text="이 달 근무기록이 없습니다. '근무추가'로 입력하세요." />
+              <EmptyRow cols={7} text="이 달 근무기록이 없습니다. '근무추가'로 입력하세요." />
             )}
           </tbody>
         </table>
@@ -223,6 +244,18 @@ function AttView() {
           }}
         />
       )}
+      {editRow && (
+        <AttAddModal
+          workers={workerQ.data ?? []}
+          ym={ym}
+          editRow={editRow}
+          onClose={() => setEditRow(null)}
+          onSaved={() => {
+            setEditRow(null)
+            attQ.reload()
+          }}
+        />
+      )}
       {wkOpen && (
         <WorkerModal
           workers={workerQ.data ?? []}
@@ -234,27 +267,30 @@ function AttView() {
   )
 }
 
-/** 근무추가 모달 */
+/** 근무 추가/수정 모달 */
 function AttAddModal({
   workers,
   ym,
+  editRow,
   onClose,
   onSaved,
 }: {
   workers: LaborWorker[]
   ym: string
+  editRow?: LaborAttendance
   onClose: () => void
   onSaved: () => void
 }) {
+  const isEdit = !!editRow
   const [f, setF] = useState({
-    worker_id: workers[0]?.id ?? '',
-    work_date: `${ym}-01`,
-    check_in: '09:00',
-    check_out: '18:00',
-    next_day: false,
-    break_min: 60,
-    dept_key: '',
-    task: '', // 업무 내용(무슨 일) — place 컬럼에 저장
+    worker_id: editRow?.worker_id ?? workers[0]?.id ?? '',
+    work_date: editRow?.work_date ?? `${ym}-01`,
+    check_in: editRow ? (editRow.check_in ?? '').slice(0, 5) : '09:00',
+    check_out: editRow ? (editRow.check_out ?? '').slice(0, 5) : '18:00',
+    next_day: editRow?.next_day ?? false,
+    break_min: editRow?.break_min ?? 60,
+    dept_key: editRow?.dept_key ?? '',
+    task: editRow?.place ?? '', // 업무 내용(무슨 일) — place 컬럼에 저장
   })
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -264,7 +300,7 @@ function AttAddModal({
     if (!f.worker_id || !f.work_date) return
     setBusy(true)
     setErr(null)
-    const { error } = await supabase.from('labor_attendance').insert({
+    const payload = {
       worker_id: f.worker_id,
       work_date: f.work_date,
       check_in: f.check_in || null,
@@ -273,7 +309,10 @@ function AttAddModal({
       break_min: Number(f.break_min) || 0,
       dept_key: f.dept_key || null,
       place: f.task || null, // 업무 내용
-    })
+    }
+    const { error } = isEdit
+      ? await supabase.from('labor_attendance').update(payload).eq('id', editRow!.id)
+      : await supabase.from('labor_attendance').insert(payload)
     setBusy(false)
     if (error) setErr(error.message)
     else onSaved()
@@ -285,7 +324,7 @@ function AttAddModal({
         <div className="mh">
           <div>
             <div className="eyebrow">근무기록</div>
-            <h3>일용직 근무추가</h3>
+            <h3>일용직 근무{isEdit ? '수정' : '추가'}</h3>
           </div>
           <button className="x" onClick={onClose}>
             ✕

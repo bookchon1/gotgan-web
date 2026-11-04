@@ -867,6 +867,9 @@ function PaySubmitModal({
 }
 
 // ===================== 휴가 현황 =====================
+// 연차에서 차감되는 유형(연차 소진). 대체휴무·대체반차·병가·생일휴무·경조사·공가·출장은 차감 안 함.
+const ANNUAL_DEDUCT = new Set(['연차', '반차', '월차', '휴가'])
+
 function LeaveView({ empById }: { empById: Record<string, { name: string; dept: string }> }) {
   const leaveQ = useQuery<LeaveRecord[]>(
     async () => await supabase.from('leave_records').select('*').order('start_date', { ascending: false }),
@@ -874,20 +877,35 @@ function LeaveView({ empById }: { empById: Record<string, { name: string; dept: 
   )
   const records = leaveQ.data ?? []
 
-  // 직원별 집계: 부여(granted+carry_over) − 승인사용(승인된 days 합)
+  // 직원별 집계
+  //  - 이월(carry_over), 부여(granted): 직원당 1개 값이므로 레코드 중 최대값 사용(합산하지 않음)
+  //  - 연차사용: '승인'된 연차 차감 유형(연차/반차/월차/휴가)의 days 합
+  //  - 대체 등 비차감: 승인된 대체휴무/대체반차/병가/생일휴무 등의 days 합(참고 표시)
   const byEmp = useMemo(() => {
-    const m: Record<string, { granted: number; used: number }> = {}
+    const m: Record<string, { carry: number; granted: number; annualUsed: number; otherUsed: number }> = {}
     for (const r of records) {
-      const g = (Number(r.granted) || 0) + (Number(r.carry_over) || 0)
-      const u = r.status === '승인' ? Number(r.days) || 0 : 0
-      if (!m[r.employee_id]) m[r.employee_id] = { granted: 0, used: 0 }
-      m[r.employee_id].granted += g
-      m[r.employee_id].used += u
+      if (!m[r.employee_id]) m[r.employee_id] = { carry: 0, granted: 0, annualUsed: 0, otherUsed: 0 }
+      const slot = m[r.employee_id]
+      slot.carry = Math.max(slot.carry, Number(r.carry_over) || 0)
+      slot.granted = Math.max(slot.granted, Number(r.granted) || 0)
+      if (r.status === '승인') {
+        const d = Number(r.days) || 0
+        if (ANNUAL_DEDUCT.has(r.leave_type)) slot.annualUsed += d
+        else slot.otherUsed += d
+      }
     }
     return m
   }, [records])
 
-  const emps = Object.keys(byEmp)
+  // 재직 직원 전체를 표시(휴가 기록 없는 직원도 0으로). 부서·이름순 정렬.
+  const emptySlot = { carry: 0, granted: 0, annualUsed: 0, otherUsed: 0 }
+  const allEmps = useMemo(
+    () =>
+      Object.entries(empById)
+        .map(([id, e]) => ({ id, name: e.name, dept: e.dept }))
+        .sort((a, b) => a.dept.localeCompare(b.dept) || a.name.localeCompare(b.name)),
+    [empById],
+  )
 
   return (
     <section className="panel">
@@ -895,7 +913,7 @@ function LeaveView({ empById }: { empById: Record<string, { name: string; dept: 
       <div className="panel-h">
         <div>
           <h2>
-            휴가 현황 <span className="count">{leaveQ.loading ? '…' : emps.length}</span>
+            휴가 현황 <span className="count">{allEmps.length}</span>
           </h2>
         </div>
       </div>
@@ -905,40 +923,51 @@ function LeaveView({ empById }: { empById: Record<string, { name: string; dept: 
             <tr>
               <th>직원</th>
               <th>부서</th>
+              <th style={{ textAlign: 'right' }}>이월</th>
               <th style={{ textAlign: 'right' }}>부여</th>
-              <th style={{ textAlign: 'right' }}>승인 사용</th>
-              <th style={{ textAlign: 'right' }}>현재 잔여</th>
+              <th style={{ textAlign: 'right' }}>연차 사용</th>
+              <th style={{ textAlign: 'right' }}>잔여</th>
+              <th style={{ textAlign: 'right' }}>대체·기타</th>
             </tr>
           </thead>
           <tbody>
-            {leaveQ.loading && <LoadingRow cols={5} />}
+            {leaveQ.loading && <LoadingRow cols={7} />}
             {!leaveQ.loading &&
-              emps.map((eid) => {
-                const e = empById[eid]
-                const a = byEmp[eid]
-                const rem = a.granted - a.used
+              allEmps.map((e) => {
+                const a = byEmp[e.id] ?? emptySlot
+                const rem = a.carry + a.granted - a.annualUsed
                 return (
-                  <tr key={eid}>
-                    <td className="t-title">{e?.name ?? '—'}</td>
-                    <td>{e?.dept ?? '—'}</td>
+                  <tr key={e.id}>
+                    <td className="t-title">{e.name}</td>
+                    <td>{e.dept}</td>
+                    <td className="tnum" style={{ textAlign: 'right' }}>
+                      {a.carry}
+                    </td>
                     <td className="tnum" style={{ textAlign: 'right' }}>
                       {a.granted}
                     </td>
                     <td className="tnum" style={{ textAlign: 'right' }}>
-                      {a.used}
+                      {a.annualUsed}
                     </td>
                     <td className="tnum" style={{ textAlign: 'right', fontWeight: 800, color: 'var(--brand)' }}>
                       {rem}
                     </td>
+                    <td className="tnum" style={{ textAlign: 'right', color: 'var(--muted)' }}>
+                      {a.otherUsed || '—'}
+                    </td>
                   </tr>
                 )
               })}
-            {!leaveQ.loading && emps.length === 0 && (
-              <EmptyRow cols={5} text="휴가 기록이 없습니다." />
+            {!leaveQ.loading && allEmps.length === 0 && (
+              <EmptyRow cols={7} text="재직 직원이 없습니다." />
             )}
           </tbody>
         </table>
       </div>
+      <p className="sec-mini" style={{ marginTop: 10 }}>
+        연차 사용 = 연차·반차·월차 등 연차 차감 유형의 승인 일수. <b>대체휴무·대체반차·병가·생일휴무는 연차에서 차감되지 않습니다</b>(대체·기타 열에 표시).
+        잔여 = 이월 + 부여 − 연차 사용.
+      </p>
       {/* 최근 신청 내역 */}
       {records.length > 0 && (
         <>

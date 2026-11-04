@@ -104,7 +104,8 @@ export default function HR() {
 
   // 요약 KPI (재직 기준)
   const active = rows.filter((r) => r.status === '재직')
-  const deptCount = new Set(active.map((r) => r.dept_key ?? '')).size
+  // 부서 수: 조직 전체 부서(대표 제외) 기준 — 재직자 유무와 무관하게 고정 6개
+  const deptCount = DEPT_OPTS.filter(([k]) => k !== '').length
   const regular = active.filter((r) => r.employment_type === '정규직').length
   const nonRegular = active.length - regular
 

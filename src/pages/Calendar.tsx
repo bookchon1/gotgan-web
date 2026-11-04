@@ -21,9 +21,9 @@ const AREA_COLOR: Record<string, { c: string; t: string }> = {
   personal: { c: '#536c84', t: '개인' },
 }
 
-// 범례 고정 노출 순서 (부서는 이 달 events 유무와 무관하게 항상 표시하지 않고,
-// 휴가·개인은 시안과 동일하게 항상 표시)
-const LEGEND_FIXED = ['leave', 'personal']
+// 범례 노출 순서 (시안과 동일) — 6개 부서는 이 달 일정 유무와 무관하게 항상 표시,
+// 그 뒤에 휴가·개인. '전체' 버튼은 별도로 맨 앞에 둔다.
+const LEGEND_ORDER = ['management', 'art', 'product', 'promotion', 'experience', 'education', 'leave', 'personal']
 
 // 캘린더 표시용 통합 이벤트 (events + 승인된 휴가)
 interface CalItem {
@@ -127,13 +127,8 @@ export default function Calendar() {
   const isThisMonth = ym.y === today.getFullYear() && ym.m === today.getMonth() + 1
   const todayDate = today.getDate()
 
-  // 범례: 이번 달에 등장하는 부서 영역(업무현황+이벤트) + 휴가·개인 고정. (중복 제거)
-  const legendAreas = useMemo(() => {
-    const s = new Set<string>()
-    for (const e of events) if (e.area && !LEGEND_FIXED.includes(e.area)) s.add(e.area)
-    for (const tk of taskQ.data ?? []) if (tk.area && !LEGEND_FIXED.includes(tk.area)) s.add(tk.area)
-    return [...s, ...LEGEND_FIXED]
-  }, [events, taskQ.data])
+  // 범례: 6개 부서 + 휴가·개인을 시안처럼 항상 모두 표시(이 달 일정 유무와 무관).
+  const legendAreas = LEGEND_ORDER
 
   const toggleFilter = (k: string) => {
     if (k === '') setFilters([])

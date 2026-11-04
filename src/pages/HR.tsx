@@ -448,21 +448,22 @@ function EmpCardModal({
       <div className="modal hr-card" onClick={(e) => e.stopPropagation()}>
         {/* 헤더 */}
         <div className="hr-card-head">
-          <span className="av-l">{form.name.slice(0, 1)}</span>
           <div className="hr-card-id">
             <div className="hr-card-name">
               {form.name}
-              <span className={`badge ${statusBadge(form.status)}`} style={{ marginLeft: 8 }}>
-                {form.status}
-              </span>
+              <span className={`badge ${statusBadge(form.status)}`}>{form.status}</span>
             </div>
             <div className="hr-card-meta">
               {[form.emp_no ?? '사번 미지정', deptLabel(form.dept_key), roleLabel(form.title, form.position)]
                 .filter((x) => x && x !== '—')
-                .join(' · ')}
+                .map((part, i) => (
+                  <span key={i} className="hr-meta-item">
+                    {part}
+                  </span>
+                ))}
             </div>
           </div>
-          <button className="x" onClick={onClose}>
+          <button className="x" onClick={onClose} aria-label="닫기">
             ✕
           </button>
         </div>

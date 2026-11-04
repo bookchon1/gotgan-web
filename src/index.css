@@ -833,13 +833,15 @@ td>.hr-in{max-width:160px}
 
 /* 상세 인사카드 모달 */
 .modal.hr-card{max-width:680px;width:94vw;padding:0;overflow:hidden}
-.hr-card-head{display:flex;align-items:center;gap:13px;padding:18px 20px 14px;border-bottom:1px solid var(--line)}
-.av-l{width:46px;height:46px;border-radius:50%;background:var(--brand-soft);color:var(--brand-ink);display:grid;place-items:center;font-size:19px;font-weight:800;flex:none}
+/* 인사카드 헤더 — 아바타 제거, 여백 넉넉하게, 이름/상태/메타 깔끔한 리듬 */
+.hr-card-head{display:flex;align-items:flex-start;gap:12px;padding:24px 24px 20px}
 .hr-card-id{flex:1;min-width:0}
-.hr-card-name{font-size:17px;font-weight:800;color:var(--ink);display:flex;align-items:center}
-.hr-card-meta{font-size:12px;color:var(--muted);margin-top:3px}
-.hr-card .x{border:0;background:none;font-size:17px;color:var(--muted);cursor:pointer;align-self:flex-start;padding:2px 4px}
-.hr-card .x:hover{color:var(--ink)}
+.hr-card-name{font-size:22px;font-weight:800;letter-spacing:-.01em;color:var(--ink);display:flex;align-items:center;gap:10px;line-height:1.1}
+.hr-card-name .badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px}
+.hr-card-meta{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-top:10px}
+.hr-meta-item{font-size:12.5px;color:var(--ink-soft);font-weight:600;background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:3px 10px;white-space:nowrap}
+.hr-card .x{border:0;background:none;font-size:15px;color:var(--muted);cursor:pointer;flex:none;width:32px;height:32px;border-radius:8px;display:grid;place-items:center;transition:background .12s,color .12s}
+.hr-card .x:hover{color:var(--ink);background:var(--surface-2)}
 
 /* 탭 */
 .seg.hr-tabs{display:flex;gap:2px;padding:0 20px;border-bottom:1px solid var(--line);background:var(--surface)}

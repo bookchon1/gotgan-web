@@ -160,7 +160,7 @@ export default function HR() {
       {/* 요약 KPI */}
       <div className="stats" style={{ marginBottom: 14 }}>
         <HrStat lbl="전체 인원" n={active.length} sub="재직" />
-        <HrStat lbl="부서" n={deptCount} sub="운영 중" />
+        <HrStat lbl="부서" n={deptCount} unit="개" sub="운영 중" />
         <HrStat lbl="정규직" n={regular} sub="재직" />
         <HrStat lbl="비정규직" n={nonRegular} sub="계약·일용 등" />
       </div>
@@ -273,14 +273,14 @@ export default function HR() {
   )
 }
 
-function HrStat({ lbl, n, sub }: { lbl: string; n: number; sub?: string }) {
+function HrStat({ lbl, n, sub, unit = '명' }: { lbl: string; n: number; sub?: string; unit?: string }) {
   return (
     <div className="stat">
       <div>
         <div className="lbl">{lbl}</div>
         <div className="val tnum">
           {n}
-          <small>명</small>
+          <small>{unit}</small>
         </div>
         {sub && <div className="stat-sub">{sub}</div>}
       </div>

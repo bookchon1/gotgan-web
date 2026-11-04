@@ -148,11 +148,6 @@ export default function Calendar() {
         eyebrow="OUR DAYS, TOGETHER"
         title="일정표"
         desc="부서별·개인별 일정을 색상으로 구분해 확인하세요."
-        actions={
-          <button className="btn pri" onClick={() => setAddOpen(true)}>
-            + 개인 일정 등록
-          </button>
-        }
       />
       <section className="panel">
         <ErrorBanner error={evQ.error} table="events" />
@@ -197,6 +192,13 @@ export default function Calendar() {
               )
             })}
           </div>
+          <button
+            className="btn txt"
+            style={{ marginLeft: 'auto', color: 'var(--brand-ink)', fontWeight: 700, whiteSpace: 'nowrap', padding: '4px 6px' }}
+            onClick={() => setAddOpen(true)}
+          >
+            + 개인 일정 등록
+          </button>
         </div>
 
         <div className="cal" id="cal-grid" style={{ marginTop: 14 }}>

@@ -95,7 +95,7 @@ export default function EduProgress() {
   )
 
   const topBtn = (
-    <button className="btn pri" onClick={() => setAddOpen(true)}>
+    <button className="btn txt add-txt" onClick={() => setAddOpen(true)}>
       + 학생 등록
     </button>
   )

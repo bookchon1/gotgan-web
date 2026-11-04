@@ -139,7 +139,7 @@ function AttView() {
           <button className="btn sec" onClick={() => setWkOpen(true)}>
             작업자 관리
           </button>
-          <button className="btn pri" onClick={() => setAddOpen(true)}>
+          <button className="btn txt add-txt" onClick={() => setAddOpen(true)}>
             + 근무 추가
           </button>
         </div>

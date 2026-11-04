@@ -56,7 +56,7 @@ export default function Promotion() {
   )
 
   const topBtn = (
-    <button className="btn pri" onClick={() => setAddOpen(true)}>
+    <button className="btn txt add-txt" onClick={() => setAddOpen(true)}>
       + 홍보 활동 등록
     </button>
   )

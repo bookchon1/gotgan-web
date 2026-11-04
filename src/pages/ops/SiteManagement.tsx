@@ -57,7 +57,7 @@ export default function SiteManagement() {
 
   const topBtn =
     tab === 'daily' ? (
-      <button className="btn pri" onClick={() => { setDraftFrom(null); setDraftOpen(true) }}>
+      <button className="btn txt add-txt" onClick={() => { setDraftFrom(null); setDraftOpen(true) }}>
         + 일일 기록 작성
       </button>
     ) : undefined
@@ -612,7 +612,7 @@ function WorkersTab({
           </svg>
           <input placeholder="작업자 이름 검색" value={q} onChange={(e) => setQ(e.target.value)} />
         </label>
-        <button className="btn pri" style={{ marginLeft: 'auto' }} onClick={() => setAddOpen(true)}>
+        <button className="btn txt add-txt" style={{ marginLeft: 'auto' }} onClick={() => setAddOpen(true)}>
           작업자 등록
         </button>
       </div>

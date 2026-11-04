@@ -156,7 +156,7 @@ export default function ArtList() {
                 {showDone ? '진행 사업만 보기' : `완료 사업 보기 (${hiddenDone})`}
               </button>
             )}
-            <button className="btn pri" onClick={() => setAddOpen(true)}>
+            <button className="btn txt add-txt" onClick={() => setAddOpen(true)}>
               + 사업 등록
             </button>
           </>

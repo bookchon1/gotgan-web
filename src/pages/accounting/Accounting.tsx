@@ -609,7 +609,7 @@ function LedgerView({
             <option value="수입">수입</option>
             <option value="지출">지출</option>
           </select>
-          <button className="btn pri" style={{ padding: '7px 13px' }} onClick={() => setAddOpen(true)}>
+          <button className="btn txt add-txt" onClick={() => setAddOpen(true)}>
             + 예외 전표
           </button>
         </div>

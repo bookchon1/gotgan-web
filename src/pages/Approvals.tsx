@@ -162,7 +162,7 @@ export default function Approvals() {
         title="전자결재"
         desc="기안을 작성하고, 결재선에 따라 승인과 반려를 처리하세요."
         actions={
-          <button className="btn pri" onClick={() => setDraftOpen(true)}>
+          <button className="btn txt add-txt" onClick={() => setDraftOpen(true)}>
             기안 작성
           </button>
         }

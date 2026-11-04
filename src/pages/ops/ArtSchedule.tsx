@@ -140,7 +140,7 @@ export default function ArtSchedule() {
               분기
             </button>
           </div>
-          <button className="btn pri" style={{ padding: '6px 13px', fontSize: 12.5 }} onClick={() => setAddOpen(true)}>
+          <button className="btn txt add-txt" style={{ fontSize: 12.5 }} onClick={() => setAddOpen(true)}>
             + 업무 등록
           </button>
         </div>

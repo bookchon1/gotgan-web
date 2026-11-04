@@ -90,7 +90,7 @@ export default function Users() {
         title="사용자관리"
         desc="구성원을 등록하고 역할과 기능별 접근 권한을 설정하세요."
         actions={
-          <button className="btn pri" onClick={() => setAddOpen(true)}>
+          <button className="btn txt add-txt" onClick={() => setAddOpen(true)}>
             사용자 등록
           </button>
         }

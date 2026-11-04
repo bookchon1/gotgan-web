@@ -83,7 +83,7 @@ export default function Tasks() {
         title={label}
         desc="부서별 업무를 한눈에 확인하세요."
         actions={
-          <button className="btn pri" onClick={() => setShowAdd(true)}>
+          <button className="btn txt add-txt" onClick={() => setShowAdd(true)}>
             + 업무 등록
           </button>
         }

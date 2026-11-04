@@ -76,7 +76,7 @@ export default function Documents() {
         title="문서보관"
         desc="필요한 자료를 정리하고, 정해진 범위 안에서 공유하세요."
         actions={
-          <button className="btn pri" onClick={() => setAddOpen(true)}>
+          <button className="btn txt add-txt" onClick={() => setAddOpen(true)}>
             문서 만들기
           </button>
         }

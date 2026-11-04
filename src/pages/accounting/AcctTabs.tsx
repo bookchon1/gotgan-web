@@ -319,7 +319,7 @@ export function PartnerView() {
             </svg>
             <input placeholder="업체명·담당자 검색" value={q} onChange={(e) => setQ(e.target.value)} />
           </label>
-          <button className="btn pri" style={{ padding: '7px 13px' }} onClick={() => setAddOpen(true)}>
+          <button className="btn txt add-txt" onClick={() => setAddOpen(true)}>
             + 업체 등록
           </button>
         </div>

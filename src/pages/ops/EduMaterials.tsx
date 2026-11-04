@@ -60,7 +60,7 @@ export default function EduMaterials() {
   )
 
   const topBtn = (
-    <button className="btn pri" onClick={() => setAddOpen(true)}>
+    <button className="btn txt add-txt" onClick={() => setAddOpen(true)}>
       + 수업자료 등록
     </button>
   )

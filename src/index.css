@@ -896,6 +896,6 @@ td>.hr-in{max-width:160px}
 .ph.ph-slim .eyebrow{margin-bottom:0}
 
 /* 배경·외곽선 없는 텍스트형 직원 등록 버튼 */
-.btn.txt.hr-add-btn{color:var(--brand-ink);font-weight:700;padding:8px 6px;background:none;border:0;cursor:pointer;white-space:nowrap}
-.btn.txt.hr-add-btn:hover{color:var(--brand)}
-.btn.txt.hr-add-btn:disabled{color:var(--muted);cursor:not-allowed}
+.btn.txt.hr-add-btn,.btn.txt.add-txt{color:var(--brand-ink);font-weight:700;padding:8px 6px;background:none;border:0;cursor:pointer;white-space:nowrap}
+.btn.txt.hr-add-btn:hover,.btn.txt.add-txt:hover{color:var(--brand)}
+.btn.txt.hr-add-btn:disabled,.btn.txt.add-txt:disabled{color:var(--muted);cursor:not-allowed}

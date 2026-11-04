@@ -1020,13 +1020,13 @@ function LeaveView({ empById }: { empById: Record<string, { name: string; dept: 
         const matched = records.filter((r) =>
           !kw || (empById[r.employee_id]?.name ?? '').toLowerCase().includes(kw),
         )
-        // 검색 중이면 전체, 아니면 최근 12건
-        const list = kw ? matched : matched.slice(0, 12)
+        // 검색 중이면 전체, 아니면 최근 5건
+        const list = kw ? matched : matched.slice(0, 5)
         return (
           <>
             <div className="toolbar" style={{ marginTop: 16 }}>
               <div className="t" style={{ fontWeight: 700 }}>
-                휴가 사용 내역 <span className="count">{kw ? matched.length : records.length}</span>
+                {kw ? <>검색 결과 <span className="count">{matched.length}</span></> : '최근 내역'}
               </div>
               <label className="search r" style={{ marginLeft: 'auto' }}>
                 <svg className="icon" width="16" height="16" viewBox="0 0 24 24">
@@ -1074,9 +1074,9 @@ function LeaveView({ empById }: { empById: Record<string, { name: string; dept: 
                 </tbody>
               </table>
             </div>
-            {!kw && matched.length > 12 && (
+            {!kw && matched.length > 5 && (
               <p className="sec-mini" style={{ marginTop: 8 }}>
-                최근 12건만 표시 중 · 이름을 검색하면 그 직원의 전체 휴가 내역을 볼 수 있어요.
+                최근 5건만 표시 중 · 이름을 검색하면 그 직원의 전체 휴가 내역을 볼 수 있어요.
               </p>
             )}
           </>

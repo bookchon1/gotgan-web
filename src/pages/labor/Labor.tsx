@@ -20,14 +20,20 @@ type Tab = 'att' | 'pay' | 'leave'
 export default function Labor() {
   const [tab, setTab] = useState<Tab>('att')
 
-  // 직원 명부 (이름·부서 표시용)
-  const empQ = useQuery<Pick<Employee, 'id' | 'name' | 'dept_key'>[]>(
-    async () => await supabase.from('employees').select('id,name,dept_key').eq('status', '재직'),
+  // 직원 명부 (이름·부서·입사일 — 연차 자동계산용)
+  const empQ = useQuery<Pick<Employee, 'id' | 'name' | 'dept_key' | 'join_date' | 'join_ym'>[]>(
+    async () => await supabase.from('employees').select('id,name,dept_key,join_date,join_ym').eq('status', '재직'),
     [],
   )
   const empById = useMemo(() => {
-    const m: Record<string, { name: string; dept: string }> = {}
-    for (const e of empQ.data ?? []) m[e.id] = { name: e.name, dept: deptLabel(e.dept_key) }
+    const m: Record<string, { name: string; dept: string; join: string | null }> = {}
+    for (const e of empQ.data ?? []) {
+      // join_date 우선, 없으면 join_ym('YYYY.MM')→'YYYY-MM-01'
+      const join =
+        e.join_date ??
+        (e.join_ym && /^\d{4}\.\d{2}$/.test(e.join_ym) ? e.join_ym.replace('.', '-') + '-01' : null)
+      m[e.id] = { name: e.name, dept: deptLabel(e.dept_key), join }
+    }
     return m
   }, [empQ.data])
 
@@ -870,24 +876,52 @@ function PaySubmitModal({
 // 연차에서 차감되는 유형(연차 소진). 대체휴무·대체반차·병가·생일휴무·경조사·공가·출장은 차감 안 함.
 const ANNUAL_DEDUCT = new Set(['연차', '반차', '월차', '휴가'])
 
-function LeaveView({ empById }: { empById: Record<string, { name: string; dept: string }> }) {
+/** 연차 자동 부여 계산 (근로기준법 기준, 기준일=오늘)
+ *  - 입사 1년 미만: 매월 1개 발생(최대 11). 다음 해 1월 1일 되면 소멸 → 15개 전환
+ *  - 입사 1년(만 1년) 이상: 기본 15개
+ *  - 입사 2년 이후부터 2년마다 +1 (3년차 16, 5년차 17 …) = 15 + floor((만근속연수-1)/2)
+ *  반환: { granted, basis } basis 는 표시용 설명
+ */
+function grantedAnnual(joinISO: string | null, today = new Date()): { granted: number; basis: string } {
+  if (!joinISO) return { granted: 0, basis: '입사일 미등록' }
+  const join = new Date(joinISO)
+  if (isNaN(+join)) return { granted: 0, basis: '입사일 오류' }
+
+  // 만 근속 연수(완성 연수)
+  let years = today.getFullYear() - join.getFullYear()
+  const anniv = new Date(join)
+  anniv.setFullYear(join.getFullYear() + years)
+  if (anniv > today) years -= 1 // 아직 이번 주기 생일(입사일) 전이면 1 빼기
+
+  if (years < 1) {
+    // 입사 1년 미만: 경과 월수(완성 월) 1개월당 1개, 최대 11
+    let months = (today.getFullYear() - join.getFullYear()) * 12 + (today.getMonth() - join.getMonth())
+    if (today.getDate() < join.getDate()) months -= 1
+    const g = Math.max(0, Math.min(11, months))
+    return { granted: g, basis: `입사 1년 미만 · 월 ${g}개(최대11)` }
+  }
+  // 1년 이상: 15 + 2년마다 1 가산
+  const g = 15 + Math.floor((years - 1) / 2)
+  return { granted: g, basis: `근속 ${years}년 · 기본15${g > 15 ? `+가산${g - 15}` : ''}` }
+}
+
+function LeaveView({ empById }: { empById: Record<string, { name: string; dept: string; join: string | null }> }) {
   const leaveQ = useQuery<LeaveRecord[]>(
     async () => await supabase.from('leave_records').select('*').order('start_date', { ascending: false }),
     [],
   )
   const records = leaveQ.data ?? []
 
-  // 직원별 집계
-  //  - 이월(carry_over), 부여(granted): 직원당 1개 값이므로 레코드 중 최대값 사용(합산하지 않음)
+  // 직원별 사용 집계
+  //  - 이월(carry_over): 직원당 1개 값이므로 레코드 중 최대값 사용(합산하지 않음)
   //  - 연차사용: '승인'된 연차 차감 유형(연차/반차/월차/휴가)의 days 합
   //  - 대체 등 비차감: 승인된 대체휴무/대체반차/병가/생일휴무 등의 days 합(참고 표시)
   const byEmp = useMemo(() => {
-    const m: Record<string, { carry: number; granted: number; annualUsed: number; otherUsed: number }> = {}
+    const m: Record<string, { carry: number; annualUsed: number; otherUsed: number }> = {}
     for (const r of records) {
-      if (!m[r.employee_id]) m[r.employee_id] = { carry: 0, granted: 0, annualUsed: 0, otherUsed: 0 }
+      if (!m[r.employee_id]) m[r.employee_id] = { carry: 0, annualUsed: 0, otherUsed: 0 }
       const slot = m[r.employee_id]
       slot.carry = Math.max(slot.carry, Number(r.carry_over) || 0)
-      slot.granted = Math.max(slot.granted, Number(r.granted) || 0)
       if (r.status === '승인') {
         const d = Number(r.days) || 0
         if (ANNUAL_DEDUCT.has(r.leave_type)) slot.annualUsed += d
@@ -898,11 +932,11 @@ function LeaveView({ empById }: { empById: Record<string, { name: string; dept: 
   }, [records])
 
   // 재직 직원 전체를 표시(휴가 기록 없는 직원도 0으로). 부서·이름순 정렬.
-  const emptySlot = { carry: 0, granted: 0, annualUsed: 0, otherUsed: 0 }
+  const emptySlot = { carry: 0, annualUsed: 0, otherUsed: 0 }
   const allEmps = useMemo(
     () =>
       Object.entries(empById)
-        .map(([id, e]) => ({ id, name: e.name, dept: e.dept }))
+        .map(([id, e]) => ({ id, name: e.name, dept: e.dept, join: e.join }))
         .sort((a, b) => a.dept.localeCompare(b.dept) || a.name.localeCompare(b.name)),
     [empById],
   )
@@ -935,7 +969,8 @@ function LeaveView({ empById }: { empById: Record<string, { name: string; dept: 
             {!leaveQ.loading &&
               allEmps.map((e) => {
                 const a = byEmp[e.id] ?? emptySlot
-                const rem = a.carry + a.granted - a.annualUsed
+                const { granted, basis } = grantedAnnual(e.join)
+                const rem = a.carry + granted - a.annualUsed
                 return (
                   <tr key={e.id}>
                     <td className="t-title">{e.name}</td>
@@ -943,13 +978,13 @@ function LeaveView({ empById }: { empById: Record<string, { name: string; dept: 
                     <td className="tnum" style={{ textAlign: 'right' }}>
                       {a.carry}
                     </td>
-                    <td className="tnum" style={{ textAlign: 'right' }}>
-                      {a.granted}
+                    <td className="tnum" style={{ textAlign: 'right' }} title={basis}>
+                      {granted}
                     </td>
                     <td className="tnum" style={{ textAlign: 'right' }}>
                       {a.annualUsed}
                     </td>
-                    <td className="tnum" style={{ textAlign: 'right', fontWeight: 800, color: 'var(--brand)' }}>
+                    <td className="tnum" style={{ textAlign: 'right', fontWeight: 800, color: rem < 0 ? 'var(--danger)' : 'var(--brand)' }}>
                       {rem}
                     </td>
                     <td className="tnum" style={{ textAlign: 'right', color: 'var(--muted)' }}>
@@ -965,8 +1000,8 @@ function LeaveView({ empById }: { empById: Record<string, { name: string; dept: 
         </table>
       </div>
       <p className="sec-mini" style={{ marginTop: 10 }}>
-        연차 사용 = 연차·반차·월차 등 연차 차감 유형의 승인 일수. <b>대체휴무·대체반차·병가·생일휴무는 연차에서 차감되지 않습니다</b>(대체·기타 열에 표시).
-        잔여 = 이월 + 부여 − 연차 사용.
+        <b>부여</b>는 입사일 기준 자동 계산: 입사 1년 미만은 월 1개(최대 11), 1년 이상은 15개 + 입사 2년 이후 2년마다 +1. (숫자에 마우스를 올리면 산정 근거 표시)
+        <br />연차 사용 = 연차·반차·월차 등 연차 차감 유형의 승인 일수. <b>대체휴무·대체반차·병가·생일휴무는 연차에서 차감되지 않습니다</b>(대체·기타 열). 잔여 = 이월 + 부여 − 연차 사용.
       </p>
       {/* 최근 신청 내역 */}
       {records.length > 0 && (

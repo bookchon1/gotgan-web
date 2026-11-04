@@ -450,13 +450,13 @@ function EmpCardModal({
         <div className="hr-card-head">
           <div className="hr-card-id">
             <div className="hr-card-name">
-              {form.name}
-              <span className={`badge ${statusBadge(form.status)}`}>{form.status}</span>
-            </div>
-            <div className="hr-card-meta">
-              {[form.emp_no ?? '사번 미지정', deptLabel(form.dept_key), roleLabel(form.title, form.position)]
-                .filter((x) => x && x !== '—')
-                .join('  ·  ')}
+              <strong>{form.name}</strong>
+              <span className={`hr-status ${statusBadge(form.status)}`}>{form.status}</span>
+              <span className="hr-card-meta">
+                {[form.emp_no ?? '사번 미지정', deptLabel(form.dept_key), roleLabel(form.title, form.position)]
+                  .filter((x) => x && x !== '—')
+                  .join('  ·  ')}
+              </span>
             </div>
           </div>
           <button className="x" onClick={onClose} aria-label="닫기">

@@ -106,6 +106,7 @@ nav{display:flex;flex-direction:column;gap:2px;padding:0 10px}
 .dept-toggle .chev{margin-left:auto;width:13px;height:13px;transition:transform .2s;color:var(--muted)}
 .dept-toggle .chev.ex{transform:rotate(180deg)}
 .dept-views{display:flex;flex-direction:column;gap:1px;padding:1px 0 4px 20px}
+.dept-views[hidden]{display:none}
 .dept-views button{display:flex;align-items:center;gap:7px;padding:6px 10px;border-radius:7px;background:none;border:0;color:var(--muted);font-size:12px;font-weight:600;text-align:left;width:100%}
 .dept-views button:hover{background:var(--surface-2);color:var(--ink-soft)}
 .dept-views button.on{color:var(--brand-ink);background:var(--brand-soft);font-weight:700}

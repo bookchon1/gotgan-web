@@ -13,6 +13,15 @@ export function thisMonth(today = new Date()): string {
   return fmt(today.getFullYear(), today.getMonth())
 }
 
+/** 'YYYY-MM' → 그 달의 조회 범위. start=그 달 1일, endExclusive=다음 달 1일.
+ *  (말일을 -31 로 고정하면 11월·2월 등에서 'date out of range' 오류가 나므로 사용) */
+export function monthRange(ym: string): { start: string; endExclusive: string } {
+  const [y, m] = ym.split('-').map(Number)
+  const start = fmt(y, m - 1) + '-01' // m-1: 0-based
+  const endExclusive = fmt(y, m) + '-01' // 다음 달 1일
+  return { start, endExclusive }
+}
+
 /** 전월 (YYYY-MM) — 급여 기본 귀속월 */
 export function prevMonth(today = new Date()): string {
   return fmt(today.getFullYear(), today.getMonth() - 1)

@@ -459,5 +459,6 @@ export interface LaborAttendance {
   next_day: boolean
   break_min: number
   project_id: string | null
-  place: string | null
+  dept_key: string | null // 근무 부서
+  place: string | null // 업무 내용(무슨 일)
 }

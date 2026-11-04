@@ -6,7 +6,7 @@ import { useQuery } from '../../lib/useQuery'
 import { useAuth } from '../../lib/auth'
 import { won, dateOnly, mmdd } from '../../lib/format'
 import { ANNUAL_DEDUCT, grantedAnnual } from './leave'
-import { prevMonth, recentMonths, payrollMonths } from './month'
+import { prevMonth, recentMonths, payrollMonths, monthRange } from './month'
 import Certificates from './Certificates'
 import type {
   Employee,
@@ -15,7 +15,6 @@ import type {
   LeaveRecord,
   LaborWorker,
   LaborAttendance,
-  ArtProject,
 } from '../../types/db'
 
 type Tab = 'pay' | 'att' | 'leave' | 'cert'
@@ -93,17 +92,13 @@ function AttView() {
     async () => await supabase.from('labor_workers').select('*').order('name'),
     [],
   )
-  const projQ = useQuery<Pick<ArtProject, 'id' | 'name'>[]>(
-    async () => await supabase.from('art_projects').select('id,name'),
-    [],
-  )
   const attQ = useQuery<LaborAttendance[]>(
     async () =>
       await supabase
         .from('labor_attendance')
         .select('*')
-        .gte('work_date', `${ym}-01`)
-        .lte('work_date', `${ym}-31`)
+        .gte('work_date', monthRange(ym).start)
+        .lt('work_date', monthRange(ym).endExclusive)
         .order('work_date', { ascending: true }),
     [ym],
   )
@@ -111,10 +106,6 @@ function AttView() {
   const workerById = useMemo(
     () => Object.fromEntries((workerQ.data ?? []).map((w) => [w.id, w])),
     [workerQ.data],
-  )
-  const projById = useMemo(
-    () => Object.fromEntries((projQ.data ?? []).map((p) => [p.id, p.name])),
-    [projQ.data],
   )
   const rows = attQ.data ?? []
 
@@ -179,7 +170,7 @@ function AttView() {
               <th>출근 · 퇴근</th>
               <th style={{ textAlign: 'right' }}>휴게</th>
               <th style={{ textAlign: 'right' }}>실근무</th>
-              <th>근무 장소</th>
+              <th>부서 · 업무</th>
             </tr>
           </thead>
           <tbody>
@@ -188,7 +179,8 @@ function AttView() {
               rows.map((r) => {
                 const w = workerById[r.worker_id]
                 const h = workHours(r.check_in, r.check_out, r.next_day, r.break_min)
-                const place = r.place || (r.project_id ? projById[r.project_id] : '') || '—'
+                const dept = deptLabel(r.dept_key)
+                const task = r.place || ''
                 return (
                   <tr key={r.id}>
                     <td className="tnum">{mmdd(r.work_date)}</td>
@@ -203,7 +195,10 @@ function AttView() {
                     <td className="tnum" style={{ textAlign: 'right', fontWeight: 700 }}>
                       {h == null ? '—' : `${h.toFixed(1)}시간`}
                     </td>
-                    <td>{place}</td>
+                    <td>
+                      {dept && <span className="badge" style={{ marginRight: 6, fontSize: 10 }}>{dept}</span>}
+                      {task || (dept ? '' : '—')}
+                    </td>
                   </tr>
                 )
               })}
@@ -220,7 +215,6 @@ function AttView() {
       {addOpen && (
         <AttAddModal
           workers={workerQ.data ?? []}
-          projects={projQ.data ?? []}
           ym={ym}
           onClose={() => setAddOpen(false)}
           onSaved={() => {
@@ -243,13 +237,11 @@ function AttView() {
 /** 근무추가 모달 */
 function AttAddModal({
   workers,
-  projects,
   ym,
   onClose,
   onSaved,
 }: {
   workers: LaborWorker[]
-  projects: Pick<ArtProject, 'id' | 'name'>[]
   ym: string
   onClose: () => void
   onSaved: () => void
@@ -261,8 +253,8 @@ function AttAddModal({
     check_out: '18:00',
     next_day: false,
     break_min: 60,
-    project_id: projects[0]?.id ?? '',
-    place: '',
+    dept_key: '',
+    task: '', // 업무 내용(무슨 일) — place 컬럼에 저장
   })
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -279,8 +271,8 @@ function AttAddModal({
       check_out: f.check_out || null,
       next_day: f.next_day,
       break_min: Number(f.break_min) || 0,
-      project_id: f.project_id || null,
-      place: f.place || null,
+      dept_key: f.dept_key || null,
+      place: f.task || null, // 업무 내용
     })
     setBusy(false)
     if (error) setErr(error.message)
@@ -340,28 +332,20 @@ function AttAddModal({
             </span>
           </label>
           <div style={{ display: 'flex', gap: 10 }}>
-            <div className="mfield" style={{ flex: 1 }}>
-              <label>사업 현장</label>
-              <select
-                className="ctl"
-                value={f.project_id}
-                onChange={(e) => {
-                  const pid = e.target.value
-                  const pname = projects.find((p) => p.id === pid)?.name ?? ''
-                  setF({ ...f, project_id: pid, place: f.place || (pname ? `${pname} 현장` : '') })
-                }}
-              >
+            <div className="mfield" style={{ width: 150 }}>
+              <label>부서</label>
+              <select className="ctl" value={f.dept_key} onChange={(e) => setF({ ...f, dept_key: e.target.value })}>
                 <option value="">선택 안 함</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
+                {DEPT_WORK_OPTS.map(([k, v]) => (
+                  <option key={k} value={k}>
+                    {v}
                   </option>
                 ))}
               </select>
             </div>
             <div className="mfield" style={{ flex: 1 }}>
-              <label>근무 장소</label>
-              <input className="ctl" value={f.place} onChange={(e) => setF({ ...f, place: e.target.value })} placeholder="예: 삼국유사 현장" />
+              <label>업무 내용</label>
+              <input className="ctl" value={f.task} onChange={(e) => setF({ ...f, task: e.target.value })} placeholder="예: 유물 포장 보조, 전시 설치" />
             </div>
           </div>
         </div>
@@ -531,15 +515,16 @@ function WorkerModal({
   )
 }
 
+const DEPT_WORK_OPTS: [string, string][] = [
+  ['art', '미술'],
+  ['management', '경영'],
+  ['product', '상품'],
+  ['promotion', '홍보'],
+  ['experience', '체험'],
+  ['education', '교육'],
+]
 function deptLabel(key: string | null): string {
-  const m: Record<string, string> = {
-    art: '미술',
-    management: '경영',
-    product: '상품',
-    promotion: '홍보',
-    experience: '체험',
-    education: '교육',
-  }
+  const m: Record<string, string> = Object.fromEntries(DEPT_WORK_OPTS)
   return key ? m[key] ?? '' : ''
 }
 

@@ -143,16 +143,9 @@ export default function Certificates() {
           <div className="mfield">
             <label>증명서 종류</label>
             <select className="ctl" value={kind} onChange={(e) => setKind(e.target.value as CertKind)}>
-              <option value="재직증명서" disabled={!!selected && !isActive}>
-                재직증명서{!!selected && !isActive ? ' (퇴직자 불가)' : ''}
-              </option>
+              <option value="재직증명서" disabled={!!selected && !isActive}>재직증명서</option>
               <option value="경력증명서">경력증명서</option>
             </select>
-            {!!selected && !isActive && (
-              <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 4 }}>
-                퇴직한 직원은 경력증명서만 발급할 수 있어요.
-              </div>
-            )}
           </div>
           <div className="mfield">
             <label>발급 사유 (용도)</label>

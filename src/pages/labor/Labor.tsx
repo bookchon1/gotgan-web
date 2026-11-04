@@ -20,19 +20,19 @@ type Tab = 'att' | 'pay' | 'leave'
 export default function Labor() {
   const [tab, setTab] = useState<Tab>('att')
 
-  // 직원 명부 (이름·부서·입사일 — 연차 자동계산용)
-  const empQ = useQuery<Pick<Employee, 'id' | 'name' | 'dept_key' | 'join_date' | 'join_ym'>[]>(
-    async () => await supabase.from('employees').select('id,name,dept_key,join_date,join_ym').eq('status', '재직'),
+  // 직원 명부 (이름·부서·입사일·고용형태 — 연차 자동계산/정규직 필터용)
+  const empQ = useQuery<Pick<Employee, 'id' | 'name' | 'dept_key' | 'join_date' | 'join_ym' | 'employment_type'>[]>(
+    async () => await supabase.from('employees').select('id,name,dept_key,join_date,join_ym,employment_type').eq('status', '재직'),
     [],
   )
   const empById = useMemo(() => {
-    const m: Record<string, { name: string; dept: string; join: string | null }> = {}
+    const m: Record<string, { name: string; dept: string; join: string | null; empType: string | null }> = {}
     for (const e of empQ.data ?? []) {
       // join_date 우선, 없으면 join_ym('YYYY.MM')→'YYYY-MM-01'
       const join =
         e.join_date ??
         (e.join_ym && /^\d{4}\.\d{2}$/.test(e.join_ym) ? e.join_ym.replace('.', '-') + '-01' : null)
-      m[e.id] = { name: e.name, dept: deptLabel(e.dept_key), join }
+      m[e.id] = { name: e.name, dept: deptLabel(e.dept_key), join, empType: e.employment_type ?? null }
     }
     return m
   }, [empQ.data])
@@ -905,38 +905,43 @@ function grantedAnnual(joinISO: string | null, today = new Date()): { granted: n
   return { granted: g, basis: `근속 ${years}년 · 기본15${g > 15 ? `+가산${g - 15}` : ''}` }
 }
 
-function LeaveView({ empById }: { empById: Record<string, { name: string; dept: string; join: string | null }> }) {
+function LeaveView({ empById }: { empById: Record<string, { name: string; dept: string; join: string | null; empType: string | null }> }) {
+  const [q, setQ] = useState('')
   const leaveQ = useQuery<LeaveRecord[]>(
     async () => await supabase.from('leave_records').select('*').order('start_date', { ascending: false }),
     [],
   )
-  const records = leaveQ.data ?? []
+  // '이월' 전용 레코드는 집계/표시용이 아니라 이월값 저장용 → 내역 목록에서 제외
+  const records = (leaveQ.data ?? []).filter((r) => r.leave_type !== '이월')
 
-  // 직원별 사용 집계
-  //  - 이월(carry_over): 직원당 1개 값이므로 레코드 중 최대값 사용(합산하지 않음)
+  // 직원별 집계
+  //  - 이월(carry_over): 전체 레코드('이월' 전용 레코드 포함)의 최대값(직원당 1개 값)
   //  - 연차사용: '승인'된 연차 차감 유형(연차/반차/월차/휴가)의 days 합
   //  - 대체 등 비차감: 승인된 대체휴무/대체반차/병가/생일휴무 등의 days 합(참고 표시)
   const byEmp = useMemo(() => {
     const m: Record<string, { carry: number; annualUsed: number; otherUsed: number }> = {}
+    const ensure = (id: string) => (m[id] ??= { carry: 0, annualUsed: 0, otherUsed: 0 })
+    // 이월은 '이월' 레코드 포함 전체에서 계산
+    for (const r of leaveQ.data ?? []) {
+      ensure(r.employee_id).carry = Math.max(m[r.employee_id].carry, Number(r.carry_over) || 0)
+    }
+    // 사용은 '이월' 제외한 실제 휴가에서 계산
     for (const r of records) {
-      if (!m[r.employee_id]) m[r.employee_id] = { carry: 0, annualUsed: 0, otherUsed: 0 }
-      const slot = m[r.employee_id]
-      slot.carry = Math.max(slot.carry, Number(r.carry_over) || 0)
-      if (r.status === '승인') {
-        const d = Number(r.days) || 0
-        if (ANNUAL_DEDUCT.has(r.leave_type)) slot.annualUsed += d
-        else slot.otherUsed += d
-      }
+      if (r.status !== '승인') continue
+      const d = Number(r.days) || 0
+      if (ANNUAL_DEDUCT.has(r.leave_type)) ensure(r.employee_id).annualUsed += d
+      else ensure(r.employee_id).otherUsed += d
     }
     return m
-  }, [records])
+  }, [records, leaveQ.data])
 
-  // 재직 직원 전체를 표시(휴가 기록 없는 직원도 0으로). 입사 순서(입사일 빠른 순) 정렬.
+  // 연차는 정규직만 대상. 정규직 재직자만 표시(휴가 기록 없어도 0으로). 입사 순서 정렬.
   // 입사일 없는 직원은 뒤로, 같으면 이름순.
   const emptySlot = { carry: 0, annualUsed: 0, otherUsed: 0 }
   const allEmps = useMemo(
     () =>
       Object.entries(empById)
+        .filter(([, e]) => e.empType === '정규직')
         .map(([id, e]) => ({ id, name: e.name, dept: e.dept, join: e.join }))
         .sort((a, b) => {
           if (a.join && b.join) return a.join < b.join ? -1 : a.join > b.join ? 1 : a.name.localeCompare(b.name)
@@ -1009,47 +1014,74 @@ function LeaveView({ empById }: { empById: Record<string, { name: string; dept: 
         <b>부여</b>는 입사일 기준 자동 계산: 입사 1년 미만은 월 1개(최대 11), 1년 이상은 15개 + 입사 2년 이후 2년마다 +1. (숫자에 마우스를 올리면 산정 근거 표시)
         <br />연차 사용 = 연차·반차·월차 등 연차 차감 유형의 승인 일수. <b>대체휴무·대체반차·병가·생일휴무는 연차에서 차감되지 않습니다</b>(대체·기타 열). 잔여 = 이월 + 부여 − 연차 사용.
       </p>
-      {/* 최근 신청 내역 */}
-      {records.length > 0 && (
-        <>
-          <div className="bud-h" style={{ marginTop: 16 }}>
-            <div className="t">최근 신청 내역</div>
-          </div>
-          <div className="tbl-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>직원</th>
-                  <th>종류</th>
-                  <th>기간</th>
-                  <th style={{ textAlign: 'right' }}>일수</th>
-                  <th>상태</th>
-                </tr>
-              </thead>
-              <tbody>
-                {records.slice(0, 10).map((r) => (
-                  <tr key={r.id}>
-                    <td>{empById[r.employee_id]?.name ?? '—'}</td>
-                    <td>{r.leave_type}</td>
-                    <td className="tnum">
-                      {dateOnly(r.start_date)}
-                      {r.end_date && r.end_date !== r.start_date ? ` ~ ${dateOnly(r.end_date)}` : ''}
-                    </td>
-                    <td className="tnum" style={{ textAlign: 'right' }}>
-                      {r.days}
-                    </td>
-                    <td>
-                      <span className={`chip ${r.status === '승인' ? 'c-done' : r.status === '반려' ? 'set-hold' : 'c-wait'}`}>
-                        {r.status}
-                      </span>
-                    </td>
+      {/* 휴가 사용 내역 — 이름 검색 */}
+      {records.length > 0 && (() => {
+        const kw = q.trim().toLowerCase()
+        const matched = records.filter((r) =>
+          !kw || (empById[r.employee_id]?.name ?? '').toLowerCase().includes(kw),
+        )
+        // 검색 중이면 전체, 아니면 최근 12건
+        const list = kw ? matched : matched.slice(0, 12)
+        return (
+          <>
+            <div className="toolbar" style={{ marginTop: 16 }}>
+              <div className="t" style={{ fontWeight: 700 }}>
+                휴가 사용 내역 <span className="count">{kw ? matched.length : records.length}</span>
+              </div>
+              <label className="search r" style={{ marginLeft: 'auto' }}>
+                <svg className="icon" width="16" height="16" viewBox="0 0 24 24">
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="M21 21l-4-4" />
+                </svg>
+                <input
+                  placeholder="이름으로 검색 (예: 이윤정)"
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                />
+              </label>
+            </div>
+            <div className="tbl-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>직원</th>
+                    <th>종류</th>
+                    <th>기간</th>
+                    <th style={{ textAlign: 'right' }}>일수</th>
+                    <th>상태</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
+                </thead>
+                <tbody>
+                  {list.map((r) => (
+                    <tr key={r.id}>
+                      <td className="t-title">{empById[r.employee_id]?.name ?? '—'}</td>
+                      <td>{r.leave_type}</td>
+                      <td className="tnum">
+                        {dateOnly(r.start_date)}
+                        {r.end_date && r.end_date !== r.start_date ? ` ~ ${dateOnly(r.end_date)}` : ''}
+                      </td>
+                      <td className="tnum" style={{ textAlign: 'right' }}>
+                        {r.days}
+                      </td>
+                      <td>
+                        <span className={`chip ${r.status === '승인' ? 'c-done' : r.status === '반려' ? 'set-hold' : 'c-wait'}`}>
+                          {r.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                  {list.length === 0 && <EmptyRow cols={5} text="해당 이름의 휴가 내역이 없습니다." />}
+                </tbody>
+              </table>
+            </div>
+            {!kw && matched.length > 12 && (
+              <p className="sec-mini" style={{ marginTop: 8 }}>
+                최근 12건만 표시 중 · 이름을 검색하면 그 직원의 전체 휴가 내역을 볼 수 있어요.
+              </p>
+            )}
+          </>
+        )
+      })()}
     </section>
   )
 }

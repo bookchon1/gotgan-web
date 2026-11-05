@@ -10,6 +10,7 @@ import {
   sumTx,
   inPeriod,
   periodSum,
+  drillMatch,
   delta,
   type Drill,
   type Delta,
@@ -175,6 +176,13 @@ function FundView({
   const scope = allTx.filter((t) => inPeriod(t, year, month, drill))
   const s = sumTx(scope)
 
+  // 도넛은 '당월(실제 이번 달)' 구성만 — 상단 KPI(연간/선택기간)와 역할 분리
+  const donutYM = `${CUR_YEAR}-${String(NOW.getMonth() + 1).padStart(2, '0')}`
+  const donutMonthLabel = `${NOW.getMonth() + 1}월`
+  const donutS = sumTx(
+    allTx.filter((t) => t.date.slice(0, 7) === donutYM && drillMatch(t, drill)),
+  )
+
   // 전년대비 (같은 월범위)
   const monthMax = month === 'all' ? 12 : parseInt(month, 10)
   const curY = parseInt(year, 10)
@@ -296,10 +304,10 @@ function FundView({
           <div className="panel-h" style={{ marginBottom: 6 }}>
             <div>
               <h2 style={{ fontSize: 16 }}>수입 · 지출</h2>
-              <p>이 기간 구성</p>
+              <p>{donutMonthLabel} 구성</p>
             </div>
           </div>
-          <FundDonut s={s} />
+          <FundDonut s={donutS} />
         </section>
       </div>
 

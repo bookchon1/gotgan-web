@@ -538,10 +538,18 @@ function LedgerView({
 }) {
   const [biz, setBiz] = useState('all')
   const [type, setType] = useState('all')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [addOpen, setAddOpen] = useState(false)
   const [editTx, setEditTx] = useState<AcctTx | null>(null)
   const list = allTx
-    .filter((t) => (biz === 'all' || t.biz_code === biz) && (type === 'all' || t.tx_type === type))
+    .filter(
+      (t) =>
+        (biz === 'all' || t.biz_code === biz) &&
+        (type === 'all' || t.tx_type === type) &&
+        (!dateFrom || t.date >= dateFrom) &&
+        (!dateTo || t.date <= dateTo),
+    )
     .sort((a, b) => (a.date < b.date ? 1 : -1))
   let tInc = 0,
     tExp = 0
@@ -558,7 +566,29 @@ function LedgerView({
             전표 내역 <span className="count">{loading ? '…' : list.length}</span>
           </h2>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginLeft: 'auto' }}>
+          <input
+            className="sel"
+            type="date"
+            value={dateFrom}
+            max={dateTo || undefined}
+            onChange={(e) => setDateFrom(e.target.value)}
+            aria-label="시작일"
+          />
+          <span style={{ color: 'var(--muted)' }}>~</span>
+          <input
+            className="sel"
+            type="date"
+            value={dateTo}
+            min={dateFrom || undefined}
+            onChange={(e) => setDateTo(e.target.value)}
+            aria-label="종료일"
+          />
+          {(dateFrom || dateTo) && (
+            <button className="btn txt" onClick={() => { setDateFrom(''); setDateTo('') }} style={{ fontSize: 12 }}>
+              날짜 초기화
+            </button>
+          )}
           <select className="sel" value={biz} onChange={(e) => setBiz(e.target.value)}>
             <option value="all">전체 사업자</option>
             <option value="법인">법인</option>

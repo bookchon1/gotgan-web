@@ -719,10 +719,10 @@ function PayView({ empById }: { empById: Record<string, { name: string; dept: st
           {showCopy && (
             <>
               <button className="btn txt add-txt" onClick={copyPrev} disabled={busy}>
-                {busy ? '복사 중…' : '전월 급여 복사'}
+                {busy ? '복사 중…' : '복사'}
               </button>
               <button className="btn txt add-txt" onClick={() => setPayOpen(true)} disabled={busy}>
-                + 급여추가
+                + 등록
               </button>
             </>
           )}
@@ -753,7 +753,7 @@ function PayView({ empById }: { empById: Record<string, { name: string; dept: st
               slips.map((s) => {
                 const e = empById[s.employee_id]
                 return (
-                  <tr key={s.id} onClick={() => setDetailSlip(s)} style={{ cursor: 'pointer' }}>
+                  <tr key={s.id} onClick={() => (showCopy ? setEditSlip(s) : setDetailSlip(s))} style={{ cursor: 'pointer' }}>
                     <td className="t-title">{e?.name ?? '—'}</td>
                     <td>{e?.dept ?? '—'}</td>
                     <td className="tnum" style={{ textAlign: 'right' }}>
@@ -772,7 +772,7 @@ function PayView({ empById }: { empById: Record<string, { name: string; dept: st
                 )
               })}
             {!slipsQ.loading && slips.length === 0 && (
-              <EmptyRow cols={6} text="급여대장이 없습니다. '전월 급여 복사'로 시작하거나 '+급여추가'로 직접 입력하세요." />
+              <EmptyRow cols={6} text="급여대장이 없습니다. '복사'로 전월을 가져오거나 '+등록'으로 직접 입력하세요." />
             )}
           </tbody>
           {slips.length > 0 && (

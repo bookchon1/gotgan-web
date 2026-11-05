@@ -46,6 +46,34 @@ function statusBadge(s: string): string {
   return 'gray'
 }
 
+/** 입사일 기준 사번 자동 생성: {입사년월}_{순번3자리}. 예) 2012-02-27 → 201202_001
+ *  - 현재 사번이 이미 그 입사월 형식이면 그대로 유지(불필요한 재번호 방지)
+ *  - 아니면 같은 입사월의 기존 사번과 안 겹치는 가장 작은 순번을 할당(본인 제외) */
+async function computeEmpNo(joinISO: string | null, currentNo: string | null, selfId: string): Promise<string | null> {
+  if (!joinISO || !/^\d{4}-\d{2}/.test(joinISO)) return currentNo ?? null
+  const ym = joinISO.slice(0, 7).replace('-', '') // YYYYMM
+  const prefix = `${ym}_`
+  // 이미 해당 입사월 형식이면 유지
+  if (currentNo && currentNo.startsWith(prefix)) return currentNo
+  // 같은 입사월의 기존 사번들(본인 제외) 조회 → 사용 중 순번 집합
+  const { data } = await supabase
+    .from('employees')
+    .select('id,emp_no')
+    .like('emp_no', `${prefix}%`)
+    .neq('id', selfId)
+  const used = new Set(
+    (data ?? [])
+      .map((r) => {
+        const m = /_(\d+)$/.exec(r.emp_no ?? '')
+        return m ? parseInt(m[1], 10) : NaN
+      })
+      .filter((n) => !isNaN(n)),
+  )
+  let seq = 1
+  while (used.has(seq)) seq += 1
+  return `${prefix}${String(seq).padStart(3, '0')}`
+}
+
 /** 직급·직책을 한 명칭으로 묶음. 같으면 한 번만, 다르면 "직급 · 직책", 한쪽만 있으면 그것만. */
 function roleLabel(title: string | null | undefined, position: string | null | undefined): string {
   const t = (title ?? '').trim()
@@ -310,10 +338,13 @@ function EmpCardModal({
     if (!isConfigured) return
     setSaving(true)
     setMsg(null)
+    // 입사일 기준 사번 자동 생성(입사월이 바뀌면 사번도 갱신)
+    const newEmpNo = await computeEmpNo(form.join_date || null, form.emp_no ?? null, form.id)
     const { error } = await supabase
       .from('employees')
       .update({
         name: form.name,
+        emp_no: newEmpNo,
         dept_key: form.dept_key || null,
         extra_depts: (form.extra_depts ?? []).filter((x) => x !== (form.dept_key ?? '')),
         title: form.title,
@@ -376,7 +407,9 @@ function EmpCardModal({
 
     setSaving(false)
     setMsg('저장되었습니다.')
-    onSaved(form)
+    const saved = { ...form, emp_no: newEmpNo }
+    setForm(saved)
+    onSaved(saved)
   }
 
   async function retire() {

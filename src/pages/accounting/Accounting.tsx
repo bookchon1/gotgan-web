@@ -4,7 +4,7 @@ import { ErrorBanner, LoadingRow, EmptyRow } from '../../components/States'
 import { supabase } from '../../lib/supabase'
 import { useQuery } from '../../lib/useQuery'
 import { eok, dateOnly } from '../../lib/format'
-import { bizLabel, ACCT_ORG } from '../../data/areas'
+import { bizLabel, bizShort, deptLabel, ACCT_ORG } from '../../data/areas'
 import type { AcctTx, ArtProject } from '../../types/db'
 import {
   sumTx,
@@ -618,14 +618,14 @@ function LedgerView({
         <table>
           <thead>
             <tr>
-              <th>일자</th>
-              <th>사업자·부서</th>
-              <th>구분</th>
-              <th>계정</th>
-              <th>거래처</th>
+              <th style={{ whiteSpace: 'nowrap', minWidth: 96 }}>일자</th>
+              <th style={{ whiteSpace: 'nowrap', minWidth: 120 }}>사업자·부서</th>
+              <th style={{ whiteSpace: 'nowrap' }}>구분</th>
+              <th style={{ whiteSpace: 'nowrap', minWidth: 120 }}>계정</th>
+              <th style={{ whiteSpace: 'nowrap', minWidth: 140 }}>거래처</th>
               <th>적요</th>
-              <th style={{ textAlign: 'right' }}>금액</th>
-              <th>출처</th>
+              <th style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>금액</th>
+              <th style={{ whiteSpace: 'nowrap' }}>출처</th>
             </tr>
           </thead>
           <tbody>
@@ -633,19 +633,17 @@ function LedgerView({
             {!loading &&
               list.map((t) => (
                 <tr key={t.id}>
-                  <td className="tnum" style={{ color: 'var(--muted)' }}>
+                  <td style={{ color: 'var(--muted)', whiteSpace: 'nowrap' }}>
                     {dateOnly(t.date)}
                   </td>
-                  <td>
-                    <span className="chip inc" style={{ fontSize: 10 }}>
-                      {t.biz_code} · {t.dept_key}
-                    </span>
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    {[bizShort(t.biz_code), deptLabel(t.dept_key)].filter(Boolean).join(' · ')}
                   </td>
-                  <td>
-                    <span className={`chip ${t.tx_type === '수입' ? 'inc' : 'exp'}`}>{t.tx_type}</span>
+                  <td style={{ whiteSpace: 'nowrap', color: t.tx_type === '수입' ? 'var(--ok)' : 'var(--expense)', fontWeight: 600 }}>
+                    {t.tx_type}
                   </td>
-                  <td>{t.account}</td>
-                  <td className="t-sub">{t.partner || '—'}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>{t.account}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>{t.partner || ''}</td>
                   <td>
                     {t.memo}
                     {t.project_id && (

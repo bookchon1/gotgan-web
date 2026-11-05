@@ -107,6 +107,21 @@ export function bizLabel(biz: string): string {
   return b ? `${b.name} (${b.kind})` : biz
 }
 
+/** 사업자 코드 → 짧은 한글명 (법인/개인/더북촌). 미지정은 공란. */
+export function bizShort(biz: string | null | undefined): string {
+  if (!biz) return ''
+  return BIZ[biz]?.kind ?? biz
+}
+
+/** 부서 키 → 한글 라벨 (art→미술 …). 매칭 없으면 키 그대로, 없으면 공란. */
+const DEPT_LABEL: Record<string, string> = Object.fromEntries(
+  AREAS.map((a) => [a.id, a.label]),
+)
+export function deptLabel(key: string | null | undefined): string {
+  if (!key) return ''
+  return DEPT_LABEL[key] ?? key
+}
+
 /** 사업자별 소속 부서 — 시안 ACCT_ORG */
 export const ACCT_ORG: Record<string, string[]> = {
   법인: ['경영', '미술'],

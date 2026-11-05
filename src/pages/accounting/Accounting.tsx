@@ -571,6 +571,7 @@ function LedgerView({
   const [biz, setBiz] = useState('all')
   const [type, setType] = useState('all')
   const [addOpen, setAddOpen] = useState(false)
+  const [editTx, setEditTx] = useState<AcctTx | null>(null)
   const list = allTx
     .filter((t) => (biz === 'all' || t.biz_code === biz) && (type === 'all' || t.tx_type === type))
     .sort((a, b) => (a.date < b.date ? 1 : -1))
@@ -624,7 +625,7 @@ function LedgerView({
             {loading && <LoadingRow cols={8} />}
             {!loading &&
               list.map((t) => (
-                <tr key={t.id}>
+                <tr key={t.id} onClick={() => setEditTx(t)} style={{ cursor: 'pointer' }}>
                   <td style={{ color: 'var(--muted)', whiteSpace: 'nowrap' }}>
                     {dateOnly(t.date)}
                   </td>
@@ -675,22 +676,34 @@ function LedgerView({
           }}
         />
       )}
+      {editTx && (
+        <LedgerAddModal
+          key={editTx.id}
+          editTx={editTx}
+          onClose={() => setEditTx(null)}
+          onPosted={() => {
+            onPosted()
+            setEditTx(null)
+          }}
+        />
+      )}
     </section>
   )
 }
 
-// 예외 전표 직접 입력 — 이자수입·잡수입·소액·정정 등 결의서로 안 잡히는 거래
-function LedgerAddModal({ onClose, onPosted }: { onClose: () => void; onPosted: () => void }) {
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
-  const [biz, setBiz] = useState('법인')
-  const [dept, setDept] = useState('management')
-  const [txType, setTxType] = useState<'수입' | '지출'>('지출')
-  const [account, setAccount] = useState('')
-  const [partner, setPartner] = useState('')
-  const [amount, setAmount] = useState(0)
-  const [memo, setMemo] = useState('')
+// 전표 직접 입력/수정 — 이자수입·잡수입·소액·정정 등. editTx 가 있으면 수정 모드.
+function LedgerAddModal({ onClose, onPosted, editTx }: { onClose: () => void; onPosted: () => void; editTx?: AcctTx }) {
+  const [date, setDate] = useState(editTx?.date ?? new Date().toISOString().slice(0, 10))
+  const [biz, setBiz] = useState(editTx?.biz_code ?? '법인')
+  const [dept, setDept] = useState(editTx?.dept_key ?? 'management')
+  const [txType, setTxType] = useState<'수입' | '지출'>(editTx?.tx_type ?? '지출')
+  const [account, setAccount] = useState(editTx?.account ?? '')
+  const [partner, setPartner] = useState(editTx?.partner ?? '')
+  const [amount, setAmount] = useState(editTx ? Number(editTx.amount) || 0 : 0)
+  const [memo, setMemo] = useState(editTx?.memo ?? '')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const isEdit = !!editTx
 
   async function save() {
     if (!account.trim()) {
@@ -703,7 +716,7 @@ function LedgerAddModal({ onClose, onPosted }: { onClose: () => void; onPosted: 
     }
     setBusy(true)
     setErr(null)
-    const { error } = await supabase.from('acct_tx').insert({
+    const payload = {
       date,
       biz_code: biz,
       dept_key: dept,
@@ -712,9 +725,24 @@ function LedgerAddModal({ onClose, onPosted }: { onClose: () => void; onPosted: 
       amount: Number(amount),
       partner: partner || null,
       memo: memo || null,
-      src: '직접',
       year: new Date(date).getFullYear(),
-    })
+    }
+    const { error } = isEdit
+      ? await supabase.from('acct_tx').update(payload).eq('id', editTx!.id)
+      : await supabase.from('acct_tx').insert({ ...payload, src: '직접' })
+    setBusy(false)
+    if (error) {
+      setErr(error.message)
+      return
+    }
+    onPosted()
+  }
+
+  async function remove() {
+    if (!editTx) return
+    if (!window.confirm(`이 전표를 삭제하시겠습니까?\n${editTx.account ?? ''} ${Number(editTx.amount).toLocaleString('ko-KR')}원`)) return
+    setBusy(true)
+    const { error } = await supabase.from('acct_tx').delete().eq('id', editTx.id)
     setBusy(false)
     if (error) {
       setErr(error.message)
@@ -728,8 +756,8 @@ function LedgerAddModal({ onClose, onPosted }: { onClose: () => void; onPosted: 
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="mh">
           <div>
-            <div className="eyebrow">예외 전표</div>
-            <h3>전표 직접 입력</h3>
+            <div className="eyebrow">{isEdit ? '전표 수정' : '예외 전표'}</div>
+            <h3>{isEdit ? '전표 수정' : '전표 직접 입력'}</h3>
           </div>
           <button className="x" onClick={onClose}>
             ✕
@@ -799,11 +827,16 @@ function LedgerAddModal({ onClose, onPosted }: { onClose: () => void; onPosted: 
           {err && <div className="login-alert err" style={{ margin: 0 }}>{err}</div>}
         </div>
         <div className="mf">
+          {isEdit && (
+            <button className="btn danger-txt" onClick={remove} disabled={busy} style={{ marginRight: 'auto' }}>
+              삭제
+            </button>
+          )}
           <button className="btn sec" onClick={onClose} disabled={busy}>
             취소
           </button>
           <button className="btn pri" onClick={save} disabled={busy}>
-            {busy ? '저장 중…' : '전표 등록'}
+            {busy ? '저장 중…' : isEdit ? '수정 저장' : '전표 등록'}
           </button>
         </div>
       </div>

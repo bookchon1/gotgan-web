@@ -182,12 +182,12 @@ export function CardView({ onPosted }: { onPosted: () => void }) {
           </h2>
           <p>카드사 엑셀 업로드 → 결제일·가맹점·금액 발췌 → 계정 설정 → 전표 처리</p>
         </div>
-        <div className="r" style={{ display: 'flex', gap: 8 }}>
-          <button className="btn sec" onClick={downloadCardTemplate}>
-            양식 다운로드
+        <div className="r" style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <button className="btn txt" onClick={downloadCardTemplate}>
+            양식 내려받기
           </button>
-          <button className="btn pri" onClick={() => setUploadOpen(true)}>
-            내역 업로드
+          <button className="btn txt add-txt" onClick={() => setUploadOpen(true)}>
+            내역 올리기
           </button>
         </div>
       </div>

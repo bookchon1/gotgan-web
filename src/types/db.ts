@@ -202,6 +202,18 @@ export interface Partner {
   address: string | null     // 주소
 }
 
+/** F'cast 계획(예산) — 계정과목별 월별 계획금액 (acct_budget_plan) */
+export interface BudgetPlan {
+  id: string
+  biz_code: string | null
+  dept_key: string | null
+  tx_type: '수입' | '지출'
+  account: string
+  year: number
+  month: number           // 1~12
+  plan_amount: number
+}
+
 export interface PayrollRun {
   id: string
   ym: string

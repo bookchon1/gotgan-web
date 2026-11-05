@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { PageHead } from '../../components/PageHead'
 import { ErrorBanner, LoadingRow, EmptyRow } from '../../components/States'
 import { supabase } from '../../lib/supabase'
@@ -20,7 +20,6 @@ import { InboxView, CardView, PartnerView } from './AcctTabs'
 
 const NOW = new Date()
 const CUR_YEAR = NOW.getFullYear()
-const CUR_MONTH = String(NOW.getMonth() + 1).padStart(2, '0')
 const YEARS = [String(CUR_YEAR), String(CUR_YEAR - 1)]
 // 월 선택: 연간 + 1~12월
 const MONTHS: readonly (readonly [string, string])[] = [
@@ -75,7 +74,7 @@ function Kpi({
 export default function Accounting() {
   const [tab, setTab] = useState<Tab>('fund')
   const [year, setYear] = useState(String(CUR_YEAR))
-  const [month, setMonth] = useState(CUR_MONTH) // 시안처럼 당월 기본
+  const [month, setMonth] = useState('all') // 기본 = 연간
   const [drill, setDrill] = useState<Drill>({ level: 'company' })
 
   const txQ = useQuery<AcctTx[]>(
@@ -98,21 +97,6 @@ export default function Accounting() {
     for (const p of projQ.data ?? []) m[p.id] = p.name
     return m
   }, [projQ.data])
-
-  // 데이터 로드 후 1회: 당월에 전표가 없으면 '당해연도 전표가 있는 가장 최근 월'로 맞춤
-  const snapped = useRef(false)
-  useEffect(() => {
-    if (snapped.current || allTx.length === 0) return
-    snapped.current = true
-    const curYearMonths = allTx
-      .filter((t) => t.date.slice(0, 4) === String(CUR_YEAR))
-      .map((t) => t.date.slice(5, 7))
-    if (curYearMonths.length === 0) return
-    if (!curYearMonths.includes(CUR_MONTH)) {
-      const sorted = curYearMonths.sort()
-      setMonth(sorted[sorted.length - 1])
-    }
-  }, [allTx])
 
   const periodText = month === 'all' ? `${year}년 연간` : `${year}년 ${parseInt(month, 10)}월`
 

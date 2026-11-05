@@ -1,5 +1,6 @@
 // 자금현황 계산 로직 (시안 sumTx / periodSum / deltaBadge 등)
 import type { AcctTx } from '../../types/db'
+import { deptLabel } from '../../data/areas'
 
 export interface Sums {
   income: number
@@ -25,10 +26,12 @@ export interface Drill {
   project?: string // project id
 }
 
-/** drill 범위에 맞는지 */
+/** drill 범위에 맞는지.
+ *  부서는 전표가 영문키('art')로, drill 은 한글라벨('미술')로 들어와 서로 다르므로
+ *  deptLabel 로 양쪽을 정규화해 비교한다(키/라벨 혼용 안전). */
 export function drillMatch(t: AcctTx, d: Drill): boolean {
   if (d.biz && t.biz_code !== d.biz) return false
-  if (d.dept && t.dept_key !== d.dept) return false
+  if (d.dept && deptLabel(t.dept_key) !== deptLabel(d.dept)) return false
   if (d.project && t.project_id !== d.project) return false
   return true
 }

@@ -193,36 +193,6 @@ function FundView({
   // drill 이동
   const go = (d: Drill) => setDrill(d)
 
-  // 엑셀(CSV) 내보내기 — 현재 기간+drill 전표
-  function exportCsv() {
-    const head = ['일자', '사업자', '부서', '구분', '계정', '거래처', '적요', '금액', '출처']
-    const lines = [...scope]
-      .sort((a, b) => (a.date < b.date ? 1 : -1))
-      .map((t) =>
-        [
-          dateOnly(t.date),
-          t.biz_code ?? '',
-          t.dept_key ?? '',
-          t.tx_type,
-          t.account ?? '',
-          t.partner ?? '',
-          (t.memo ?? '').replace(/"/g, '""'),
-          String(Number(t.amount) || 0),
-          t.src ?? '',
-        ]
-          .map((c) => `"${c}"`)
-          .join(','),
-      )
-    const csv = '﻿' + [head.map((h) => `"${h}"`).join(','), ...lines].join('\r\n')
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `자금현황_${year}_${month === 'all' ? '연간' : month + '월'}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
   return (
     <>
       {/* 기간 + breadcrumb */}
@@ -273,9 +243,6 @@ function FundView({
                 </option>
               ))}
             </select>
-            <button className="btn sec" onClick={exportCsv} disabled={scope.length === 0}>
-              엑셀 내보내기
-            </button>
           </div>
         </div>
 

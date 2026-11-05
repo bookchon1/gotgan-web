@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { PageHead } from '../../components/PageHead'
 import { ErrorBanner, LoadingRow, EmptyRow } from '../../components/States'
 import { supabase } from '../../lib/supabase'
@@ -561,6 +561,7 @@ function PayView({ empById }: { empById: Record<string, { name: string; dept: st
   const [submitOpen, setSubmitOpen] = useState(false)
   const [payOpen, setPayOpen] = useState(false)
   const [editSlip, setEditSlip] = useState<Payslip | null>(null)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const runQ = useQuery<PayrollRun[]>(
     async () => await supabase.from('payroll_runs').select('*').eq('ym', ym),
@@ -697,7 +698,7 @@ function PayView({ empById }: { empById: Record<string, { name: string; dept: st
             {ym} 귀속(익월 지급) · {payStatusBadge(status)} · 전월 복사 또는 직접 추가·수정 후 지출결의서로 상신
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div className="r" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <select className="sel" value={ym} onChange={(e) => setYm(e.target.value)}>
             {payMonths.map((m) => (
               <option key={m} value={m}>
@@ -734,45 +735,74 @@ function PayView({ empById }: { empById: Record<string, { name: string; dept: st
               <th style={{ textAlign: 'right' }}>수당</th>
               <th style={{ textAlign: 'right' }}>공제</th>
               <th style={{ textAlign: 'right' }}>실지급액</th>
-              {showCopy && <th style={{ textAlign: 'right', width: 92 }}>관리</th>}
             </tr>
           </thead>
           <tbody>
-            {slipsQ.loading && <LoadingRow cols={showCopy ? 7 : 6} />}
+            {slipsQ.loading && <LoadingRow cols={6} />}
             {!slipsQ.loading &&
               slips.map((s) => {
                 const e = empById[s.employee_id]
+                const open = expandedId === s.id
                 return (
-                  <tr key={s.id}>
-                    <td className="t-title">{e?.name ?? '—'}</td>
-                    <td>{e?.dept ?? '—'}</td>
-                    <td className="tnum" style={{ textAlign: 'right' }}>
-                      {won(s.base_pay)}
-                    </td>
-                    <td className="tnum" style={{ textAlign: 'right' }}>
-                      {won(s.allowances)}
-                    </td>
-                    <td className="tnum" style={{ textAlign: 'right', color: 'var(--expense)' }}>
-                      {won(s.deductions)}
-                    </td>
-                    <td className="tnum" style={{ textAlign: 'right', fontWeight: 700 }}>
-                      {won(s.net_pay)}
-                    </td>
-                    {showCopy && (
-                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                        <button className="btn sec" style={{ padding: '4px 7px', fontSize: 11 }} onClick={() => setEditSlip(s)} disabled={busy}>
-                          수정
-                        </button>
-                        <button className="btn danger-txt" style={{ padding: '4px 5px', fontSize: 11, marginLeft: 2 }} onClick={() => removeSlip(s)} disabled={busy}>
-                          삭제
-                        </button>
+                  <Fragment key={s.id}>
+                    <tr
+                      onClick={() => setExpandedId(open ? null : s.id)}
+                      style={{ cursor: 'pointer', background: open ? 'var(--surface-2)' : undefined }}
+                    >
+                      <td className="t-title">
+                        <span style={{ display: 'inline-block', width: 12, color: 'var(--muted)' }}>{open ? '▾' : '▸'}</span>
+                        {e?.name ?? '—'}
                       </td>
+                      <td>{e?.dept ?? '—'}</td>
+                      <td className="tnum" style={{ textAlign: 'right' }}>
+                        {won(s.base_pay)}
+                      </td>
+                      <td className="tnum" style={{ textAlign: 'right' }}>
+                        {won(s.allowances)}
+                      </td>
+                      <td className="tnum" style={{ textAlign: 'right', color: 'var(--expense)' }}>
+                        {won(s.deductions)}
+                      </td>
+                      <td className="tnum" style={{ textAlign: 'right', fontWeight: 700 }}>
+                        {won(s.net_pay)}
+                      </td>
+                    </tr>
+                    {open && (
+                      <tr>
+                        <td colSpan={6} style={{ background: 'var(--surface-2)', padding: '6px 12px 14px' }}>
+                          <div className="pay-detail">
+                            <div className="pay-detail-grid">
+                              <span><b>기본급</b> {won(s.base_pay)}</span>
+                              <span><b>수당</b> {won(s.allowances)}</span>
+                              <span><b>국민연금</b> {won(s.d_pension)}</span>
+                              <span><b>건강보험</b> {won(s.d_health)}</span>
+                              <span><b>장기요양</b> {won(s.d_ltc)}</span>
+                              <span><b>고용보험</b> {won(s.d_employment)}</span>
+                              <span><b>소득세</b> {won(s.d_income_tax)}</span>
+                              <span><b>지방소득세</b> {won(s.d_local_tax)}</span>
+                              <span><b>기타공제</b> {won(s.d_other)}</span>
+                              <span style={{ color: 'var(--expense)' }}><b>공제 합계</b> {won(s.deductions)}</span>
+                              <span style={{ fontWeight: 800 }}><b>실지급액</b> {won(s.net_pay)}원</span>
+                            </div>
+                            {showCopy && (
+                              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                                <button className="btn txt add-txt" onClick={() => setEditSlip(s)} disabled={busy}>
+                                  수정
+                                </button>
+                                <button className="btn danger-txt" onClick={() => removeSlip(s)} disabled={busy}>
+                                  삭제
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
                     )}
-                  </tr>
+                  </Fragment>
                 )
               })}
             {!slipsQ.loading && slips.length === 0 && (
-              <EmptyRow cols={showCopy ? 7 : 6} text="급여대장이 없습니다. '전월 급여 복사'로 시작하거나 '+급여추가'로 직접 입력하세요." />
+              <EmptyRow cols={6} text="급여대장이 없습니다. '전월 급여 복사'로 시작하거나 '+급여추가'로 직접 입력하세요." />
             )}
           </tbody>
           {slips.length > 0 && (
@@ -791,7 +821,6 @@ function PayView({ empById }: { empById: Record<string, { name: string; dept: st
                 <td className="tnum" style={{ textAlign: 'right' }}>
                   {won(tNet)}
                 </td>
-                {showCopy && <td />}
               </tr>
             </tfoot>
           )}

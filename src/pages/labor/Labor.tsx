@@ -24,17 +24,19 @@ export default function Labor() {
 
   // 직원 명부 (이름·부서·입사일·고용형태 — 연차 자동계산/정규직 필터용)
   const empQ = useQuery<Pick<Employee, 'id' | 'name' | 'dept_key' | 'join_date' | 'join_ym' | 'employment_type'>[]>(
-    async () => await supabase.from('employees').select('id,name,dept_key,join_date,join_ym,employment_type').eq('status', '재직'),
+    // 전 직원(퇴사자 포함) — 급여대장·지출결의서 등 '연결된 데이터'에 이름이 빠지지 않도록.
+    //  (재직 여부는 status 로 구분해, 선택 드롭다운·휴가현황에서만 재직자로 거른다)
+    async () => await supabase.from('employees').select('id,name,dept_key,join_date,join_ym,employment_type,status'),
     [],
   )
   const empById = useMemo(() => {
-    const m: Record<string, { name: string; dept: string; join: string | null; empType: string | null }> = {}
+    const m: Record<string, { name: string; dept: string; join: string | null; empType: string | null; status: string | null }> = {}
     for (const e of empQ.data ?? []) {
       // join_date 우선, 없으면 join_ym('YYYY.MM')→'YYYY-MM-01'
       const join =
         e.join_date ??
         (e.join_ym && /^\d{4}\.\d{2}$/.test(e.join_ym) ? e.join_ym.replace('.', '-') + '-01' : null)
-      m[e.id] = { name: e.name, dept: deptLabel(e.dept_key), join, empType: e.employment_type ?? null }
+      m[e.id] = { name: e.name, dept: deptLabel(e.dept_key), join, empType: e.employment_type ?? null, status: (e as { status?: string }).status ?? null }
     }
     return m
   }, [empQ.data])
@@ -552,7 +554,7 @@ function payStatusBadge(status: string) {
   return <span className={cls} style={{ fontSize: 10 }}>{status}</span>
 }
 
-function PayView({ empById }: { empById: Record<string, { name: string; dept: string }> }) {
+function PayView({ empById }: { empById: Record<string, { name: string; dept: string; join: string | null; status: string | null }> }) {
   // 급여는 전월분을 이번 달에 지급 → 기본 귀속월 = 전월 (예: 11월이면 10월 급여)
   const [ym, setYm] = useState(prevMonth())
   const payMonths = useMemo(() => payrollMonths(6), [])
@@ -576,7 +578,15 @@ function PayView({ empById }: { empById: Record<string, { name: string; dept: st
         : { data: [], error: null },
     [run?.id],
   )
-  const slips = slipsQ.data ?? []
+  // 입사일 빠른 순 정렬(입사일 없으면 뒤로). 같으면 이름순.
+  const slips = [...(slipsQ.data ?? [])].sort((a, b) => {
+    const ja = empById[a.employee_id]?.join ?? null
+    const jb = empById[b.employee_id]?.join ?? null
+    if (ja && jb) return ja < jb ? -1 : ja > jb ? 1 : 0
+    if (ja && !jb) return -1
+    if (!ja && jb) return 1
+    return (empById[a.employee_id]?.name ?? '').localeCompare(empById[b.employee_id]?.name ?? '')
+  })
 
   let tBase = 0,
     tAllow = 0,
@@ -1293,7 +1303,7 @@ function PaySubmitModal({
 // 연차 소진 계산(ANNUAL_DEDUCT)·입사일 기준 자동 부여(grantedAnnual)는 ./leave 로 분리.
 // (노무 대시보드와 동일 로직을 공유 — 이 뷰의 집계 규칙은 변경하지 않는다.)
 
-function LeaveView({ empById }: { empById: Record<string, { name: string; dept: string; join: string | null; empType: string | null }> }) {
+function LeaveView({ empById }: { empById: Record<string, { name: string; dept: string; join: string | null; empType: string | null; status: string | null }> }) {
   const [q, setQ] = useState('')
   const leaveQ = useQuery<LeaveRecord[]>(
     async () => await supabase.from('leave_records').select('*').order('start_date', { ascending: false }),
@@ -1329,7 +1339,7 @@ function LeaveView({ empById }: { empById: Record<string, { name: string; dept: 
   const allEmps = useMemo(
     () =>
       Object.entries(empById)
-        .filter(([, e]) => e.empType === '정규직')
+        .filter(([, e]) => e.empType === '정규직' && e.status === '재직')
         .map(([id, e]) => ({ id, name: e.name, dept: e.dept, join: e.join }))
         .sort((a, b) => {
           if (a.join && b.join) return a.join < b.join ? -1 : a.join > b.join ? 1 : a.name.localeCompare(b.name)

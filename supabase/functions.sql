@@ -13,6 +13,8 @@ declare
   v_run_id uuid;
   v_prev_run uuid;
   v_me uuid := public.app_me();
+  v_start date := (p_target_ym || '-01')::date;
+  v_end   date := ((p_target_ym || '-01')::date + interval '1 month - 1 day')::date;
 begin
   if not public.app_is_payroll_mgr() then
     raise exception '급여 담당 권한이 없습니다.' using errcode='42501';
@@ -27,7 +29,7 @@ begin
     raise exception '이미 상신/지급된 대장입니다.' using errcode='P0001';
   end if;
 
-  -- 이미 명세가 있으면 중단
+  -- 이미 명세가 있으면 중단 (프론트에서 삭제 후 호출)
   if exists(select 1 from public.payslips where run_id = v_run_id) then
     raise exception '이미 명세가 작성된 대장입니다.' using errcode='P0001';
   end if;
@@ -37,18 +39,25 @@ begin
   where ym < p_target_ym order by ym desc limit 1;
 
   if v_prev_run is not null then
+    -- 전월 명세에서 '귀속월에 재직한' 사람만 복사 (퇴사일 기준)
     insert into public.payslips
       (run_id, employee_id, base_pay, allowances,
        d_pension, d_health, d_ltc, d_employment, d_income_tax, d_local_tax, d_other)
     select v_run_id, p.employee_id, p.base_pay, p.allowances,
        p.d_pension, p.d_health, p.d_ltc, p.d_employment, p.d_income_tax, p.d_local_tax, p.d_other
     from public.payslips p
-    join public.employees e on e.id = p.employee_id and e.status = '재직'
-    where p.run_id = v_prev_run;
+    join public.employees e on e.id = p.employee_id
+    where p.run_id = v_prev_run
+      and (e.join_date is null  or e.join_date  <= v_end)
+      and (e.leave_date is null or e.leave_date >= v_start)
+      and (e.leave_date is not null or e.status <> '퇴직');
   else
-    -- 직전 대장이 없으면 재직자 빈 명세 생성
+    -- 직전 대장이 없으면 귀속월 재직자 빈 명세 생성 (퇴사일 기준)
     insert into public.payslips (run_id, employee_id)
-    select v_run_id, e.id from public.employees e where e.status = '재직';
+    select v_run_id, e.id from public.employees e
+    where (e.join_date is null  or e.join_date  <= v_end)
+      and (e.leave_date is null or e.leave_date >= v_start)
+      and (e.leave_date is not null or e.status <> '퇴직');
   end if;
 
   return v_run_id;

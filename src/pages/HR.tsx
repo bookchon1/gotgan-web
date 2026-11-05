@@ -26,7 +26,7 @@ const DEPT_CLS: Record<string, string> = {
   experience: 'ar-exp',
   education: 'ar-edu',
 }
-const EMP_TYPES = ['정규직', '계약직', '일용직', '파견', '프리랜서']
+const EMP_TYPES = ['정규직', '상용직', '계약직', '일용직', '파견', '프리랜서']
 const STATUS_OPTS: Emp['status'][] = ['재직', '휴직', '퇴직']
 const ASSIGN_KINDS = ['입사', '승진', '부서이동', '보직변경', '휴직', '복직', '퇴직', '기타']
 

@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { PageHead } from '../../components/PageHead'
 import { ErrorBanner, LoadingRow, EmptyRow } from '../../components/States'
 import { supabase } from '../../lib/supabase'
@@ -561,7 +561,7 @@ function PayView({ empById }: { empById: Record<string, { name: string; dept: st
   const [submitOpen, setSubmitOpen] = useState(false)
   const [payOpen, setPayOpen] = useState(false)
   const [editSlip, setEditSlip] = useState<Payslip | null>(null)
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [detailSlip, setDetailSlip] = useState<Payslip | null>(null)
 
   const runQ = useQuery<PayrollRun[]>(
     async () => await supabase.from('payroll_runs').select('*').eq('ym', ym),
@@ -742,63 +742,23 @@ function PayView({ empById }: { empById: Record<string, { name: string; dept: st
             {!slipsQ.loading &&
               slips.map((s) => {
                 const e = empById[s.employee_id]
-                const open = expandedId === s.id
                 return (
-                  <Fragment key={s.id}>
-                    <tr
-                      onClick={() => setExpandedId(open ? null : s.id)}
-                      style={{ cursor: 'pointer', background: open ? 'var(--surface-2)' : undefined }}
-                    >
-                      <td className="t-title">
-                        <span style={{ display: 'inline-block', width: 12, color: 'var(--muted)' }}>{open ? '▾' : '▸'}</span>
-                        {e?.name ?? '—'}
-                      </td>
-                      <td>{e?.dept ?? '—'}</td>
-                      <td className="tnum" style={{ textAlign: 'right' }}>
-                        {won(s.base_pay)}
-                      </td>
-                      <td className="tnum" style={{ textAlign: 'right' }}>
-                        {won(s.allowances)}
-                      </td>
-                      <td className="tnum" style={{ textAlign: 'right', color: 'var(--expense)' }}>
-                        {won(s.deductions)}
-                      </td>
-                      <td className="tnum" style={{ textAlign: 'right', fontWeight: 700 }}>
-                        {won(s.net_pay)}
-                      </td>
-                    </tr>
-                    {open && (
-                      <tr>
-                        <td colSpan={6} style={{ background: 'var(--surface-2)', padding: '6px 12px 14px' }}>
-                          <div className="pay-detail">
-                            <div className="pay-detail-grid">
-                              <span><b>기본급</b> {won(s.base_pay)}</span>
-                              <span><b>수당</b> {won(s.allowances)}</span>
-                              <span><b>국민연금</b> {won(s.d_pension)}</span>
-                              <span><b>건강보험</b> {won(s.d_health)}</span>
-                              <span><b>장기요양</b> {won(s.d_ltc)}</span>
-                              <span><b>고용보험</b> {won(s.d_employment)}</span>
-                              <span><b>소득세</b> {won(s.d_income_tax)}</span>
-                              <span><b>지방소득세</b> {won(s.d_local_tax)}</span>
-                              <span><b>기타공제</b> {won(s.d_other)}</span>
-                              <span style={{ color: 'var(--expense)' }}><b>공제 합계</b> {won(s.deductions)}</span>
-                              <span style={{ fontWeight: 800 }}><b>실지급액</b> {won(s.net_pay)}원</span>
-                            </div>
-                            {showCopy && (
-                              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                                <button className="btn txt add-txt" onClick={() => setEditSlip(s)} disabled={busy}>
-                                  수정
-                                </button>
-                                <button className="btn danger-txt" onClick={() => removeSlip(s)} disabled={busy}>
-                                  삭제
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </Fragment>
+                  <tr key={s.id} onClick={() => setDetailSlip(s)} style={{ cursor: 'pointer' }}>
+                    <td className="t-title">{e?.name ?? '—'}</td>
+                    <td>{e?.dept ?? '—'}</td>
+                    <td className="tnum" style={{ textAlign: 'right' }}>
+                      {won(s.base_pay)}
+                    </td>
+                    <td className="tnum" style={{ textAlign: 'right' }}>
+                      {won(s.allowances)}
+                    </td>
+                    <td className="tnum" style={{ textAlign: 'right', color: 'var(--expense)' }}>
+                      {won(s.deductions)}
+                    </td>
+                    <td className="tnum" style={{ textAlign: 'right', fontWeight: 700 }}>
+                      {won(s.net_pay)}
+                    </td>
+                  </tr>
                 )
               })}
             {!slipsQ.loading && slips.length === 0 && (
@@ -890,7 +850,107 @@ function PayView({ empById }: { empById: Record<string, { name: string; dept: st
           }}
         />
       )}
+      {detailSlip && (
+        <PaySlipDetailModal
+          slip={detailSlip}
+          emp={empById[detailSlip.employee_id]}
+          canEdit={showCopy}
+          onClose={() => setDetailSlip(null)}
+          onEdit={() => {
+            setEditSlip(detailSlip)
+            setDetailSlip(null)
+          }}
+          onDelete={async () => {
+            await removeSlip(detailSlip)
+            setDetailSlip(null)
+          }}
+        />
+      )}
     </section>
+  )
+}
+
+// ===================== 급여 상세 보기 모달 =====================
+function PaySlipDetailModal({
+  slip,
+  emp,
+  canEdit,
+  onClose,
+  onEdit,
+  onDelete,
+}: {
+  slip: Payslip
+  emp?: { name: string; dept: string }
+  canEdit: boolean
+  onClose: () => void
+  onEdit: () => void
+  onDelete: () => void
+}) {
+  const ROWS: [string, number][] = [
+    ['기본급', slip.base_pay],
+    ['수당', slip.allowances],
+    ['국민연금', slip.d_pension],
+    ['건강보험', slip.d_health],
+    ['장기요양', slip.d_ltc],
+    ['고용보험', slip.d_employment],
+    ['소득세', slip.d_income_tax],
+    ['지방소득세', slip.d_local_tax],
+    ['기타공제', slip.d_other],
+  ]
+  return (
+    <div className="modal-bg" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
+        <div className="mh">
+          <div>
+            <div className="eyebrow">급여 상세</div>
+            <h3>
+              {emp?.name ?? '—'}
+              {emp?.dept ? <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginLeft: 8 }}>{emp.dept}</span> : null}
+            </h3>
+          </div>
+          <button className="x" onClick={onClose}>
+            ✕
+          </button>
+        </div>
+        <div className="mb">
+          <table style={{ fontSize: 13 }}>
+            <tbody>
+              {ROWS.map(([lbl, v]) => (
+                <tr key={lbl}>
+                  <td style={{ color: 'var(--ink-soft)' }}>{lbl}</td>
+                  <td className="tnum" style={{ textAlign: 'right', color: lbl !== '기본급' && lbl !== '수당' ? 'var(--expense)' : undefined }}>
+                    {won(v)}
+                  </td>
+                </tr>
+              ))}
+              <tr style={{ borderTop: '1px solid var(--line)' }}>
+                <td style={{ fontWeight: 700, color: 'var(--expense)' }}>공제 합계</td>
+                <td className="tnum" style={{ textAlign: 'right', fontWeight: 700, color: 'var(--expense)' }}>{won(slip.deductions)}</td>
+              </tr>
+              <tr style={{ background: 'var(--brand-soft)' }}>
+                <td style={{ fontWeight: 800 }}>실지급액</td>
+                <td className="tnum" style={{ textAlign: 'right', fontWeight: 800 }}>{won(slip.net_pay)}원</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div className="mf">
+          {canEdit && (
+            <button className="btn danger-txt" onClick={onDelete} style={{ marginRight: 'auto' }}>
+              삭제
+            </button>
+          )}
+          <button className="btn sec" onClick={onClose}>
+            닫기
+          </button>
+          {canEdit && (
+            <button className="btn pri" onClick={onEdit}>
+              수정
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
   )
 }
 

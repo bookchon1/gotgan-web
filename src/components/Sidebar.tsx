@@ -103,10 +103,10 @@ export default function Sidebar({
   //  - 화면 이동 시 그 부서만 열기, - 업무관리 접기 시 전부 닫기(다시 펴도 닫힌 채)
   const [openArea, setOpenArea] = useState<string | null>(() => areaOfPath(loc.pathname))
 
-  // 화면(경로) 이동 시: 해당 부서 열기. 접기/펴기로는 경로가 안 바뀌므로 다시 열리지 않음.
+  // 화면(경로) 이동 시: 업무관리(부서) 화면이면 해당 부서 열기,
+  //  전자결재·문서보관 등 업무관리 밖으로 이동하면 열린 부서를 접는다.
   useEffect(() => {
-    const target = areaOfPath(loc.pathname)
-    if (target) setOpenArea(target)
+    setOpenArea(areaOfPath(loc.pathname))
   }, [loc.pathname])
 
   // 업무관리 토글: 접을 때 열린 부서 전부 닫기(시안). 펴기는 openArea 그대로.

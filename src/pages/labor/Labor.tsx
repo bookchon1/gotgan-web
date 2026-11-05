@@ -600,21 +600,35 @@ function PayView({ empById }: { empById: Record<string, { name: string; dept: st
   }
 
   async function copyPrev() {
-    // 기존 대장(명세 있음)이면 덮어쓰기 경고
+    // 기존 대장에 명세가 있으면 "전부 삭제 후 다시 불러오기" 경고
     if (slips.length > 0) {
       const ok = window.confirm(
-        `${ym} 급여대장이 이미 ${slips.length}명 작성되어 있습니다.\n전월 복사는 작성중 대장이 비어 있을 때만 가능합니다. 계속하시겠습니까?`,
+        `${ym} 급여대장에 이미 ${slips.length}명이 작성되어 있습니다.\n\n` +
+          `지금 다시 불러오면 기존 작성 내용이 모두 삭제되고 전월 급여로 새로 채워집니다.\n` +
+          `계속하시겠습니까?`,
       )
       if (!ok) return
+      setBusy(true)
+      setMsg(null)
+      // 기존 명세 전부 삭제(작성중 대장만 — 상신/지급 대장은 copyPrev 버튼 자체가 숨겨짐)
+      if (run?.id) {
+        const { error: delErr } = await supabase.from('payslips').delete().eq('run_id', run.id)
+        if (delErr) {
+          setBusy(false)
+          setMsg(delErr.message)
+          return
+        }
+      }
+    } else {
+      setBusy(true)
+      setMsg(null)
     }
-    setBusy(true)
-    setMsg(null)
     const { error } = await supabase.rpc('copy_prev_payroll', { p_target_ym: ym })
     setBusy(false)
     if (error) {
       setMsg(error.message)
     } else {
-      setMsg('전월 급여를 복사했습니다.')
+      setMsg('전월 급여를 다시 불러왔습니다.')
       runQ.reload()
       slipsQ.reload()
     }

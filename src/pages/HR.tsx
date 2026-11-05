@@ -586,8 +586,8 @@ function EmpCardModal({
               <Field label="최종학력" full>
                 <input className="ctl" placeholder="예: OO대학교 미술사학과 졸업" value={form.education ?? ''} onChange={(e) => set('education', e.target.value)} />
               </Field>
-              <Field label="경력 요약" full>
-                <textarea className="ctl" rows={3} placeholder="이전 근무처·담당 업무 등" value={form.career ?? ''} onChange={(e) => set('career', e.target.value)} />
+              <Field label="현재 담당업무" full>
+                <textarea className="ctl" rows={3} placeholder="현재 담당업무" value={form.career ?? ''} onChange={(e) => set('career', e.target.value)} />
               </Field>
               <Field label="자격증" full>
                 <textarea className="ctl" rows={2} placeholder="예: 문화재수리기술자(보존과학), 박물관 1급 정학예사" value={form.certifications ?? ''} onChange={(e) => set('certifications', e.target.value)} />

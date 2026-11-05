@@ -118,9 +118,9 @@ export default function Approvals() {
     if (decision === '반려') {
       await supabase.from('approvals').update({ status: '반려' }).eq('id', a.id)
     } else {
-      // 승인: 남은 승인 단계(회계접수 제외)가 있나?
+      // 승인: 남은 검토·승인 단계(회계접수 제외)가 있나?
       const remainApproval = lines.some(
-        (l) => l.id !== myLine.id && l.role === '승인' && l.decided === '대기',
+        (l) => l.id !== myLine.id && (l.role === '검토' || l.role === '승인') && l.decided === '대기',
       )
       const isAcctStep = myLine.role === '회계접수'
       let newStatus: Approval['status'] = a.status

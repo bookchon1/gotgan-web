@@ -277,7 +277,7 @@ export interface ApprovalLine {
   approval_id: string
   seq: number
   approver_id: string | null
-  role: '기안' | '승인' | '회계접수'
+  role: '기안' | '검토' | '승인' | '회계접수'
   decided: '대기' | '승인' | '반려'
   decided_at: string | null
 }

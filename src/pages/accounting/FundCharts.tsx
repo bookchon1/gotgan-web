@@ -1,17 +1,11 @@
 // 자금현황 막대/도넛 차트 — 시안 renderFundBar / renderFundDonut 그대로 SVG 이식
-import { sumTx, type Drill, type Sums } from './fund'
+import { sumTx, drillMatch, type Drill, type Sums } from './fund'
 import { eok } from '../../lib/format'
 import type { AcctTx } from '../../types/db'
 
 /** 월별 수입/지출 막대 (만원 단위, 금액은 막대 위). 전체 12개월. */
 export function FundBar({ rows, year, drill }: { rows: AcctTx[]; year: string; drill: Drill }) {
-  const base = rows.filter((t) => {
-    if (t.date.slice(0, 4) !== year) return false
-    if (drill.biz && t.biz_code !== drill.biz) return false
-    if (drill.dept && t.dept_key !== drill.dept) return false
-    if (drill.project && t.project_id !== drill.project) return false
-    return true
-  })
+  const base = rows.filter((t) => t.date.slice(0, 4) === year && drillMatch(t, drill))
   const mo: { m: number; inc: number; exp: number }[] = []
   for (let m = 1; m <= 12; m++) {
     const mm = String(m).padStart(2, '0')

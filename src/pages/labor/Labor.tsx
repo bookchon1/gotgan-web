@@ -1199,7 +1199,7 @@ function PaySubmitModal({
     const approver = byName['김도래']?.id ?? null
     const lns = [
       { approval_id: appr.id, seq: 1, approver_id: drafter, role: '기안' as const, decided: '승인' },
-      { approval_id: appr.id, seq: 2, approver_id: reviewer, role: '승인' as const, decided: '대기' },
+      { approval_id: appr.id, seq: 2, approver_id: reviewer, role: '검토' as const, decided: '대기' },
       { approval_id: appr.id, seq: 3, approver_id: approver, role: '승인' as const, decided: '대기' },
       { approval_id: appr.id, seq: 4, approver_id: null, role: '회계접수' as const, decided: '대기' },
     ]

@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { won } from '../../lib/format'
 import { useAuth } from '../../lib/auth'
-import type { Advisor } from '../../types/db'
+import type { Advisor, Employee } from '../../types/db'
 
 /** 자문비 차수 일괄 상신 — 참석 위원 선택 + 차수 + 위원별 자문비 → 전자결재(지출결의서) 상신 */
 export function AdvisorFeeModal({
@@ -28,6 +28,19 @@ export function AdvisorFeeModal({
   )
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const [reviewerId, setReviewerId] = useState('')
+  const [approverId, setApproverId] = useState('')
+
+  // 검토자·승인자 후보 (관리자, 본인 제외)
+  const [admins, setAdmins] = useState<Pick<Employee, 'id' | 'name' | 'title'>[]>([])
+  useEffect(() => {
+    supabase
+      .from('employees')
+      .select('id,name,title')
+      .eq('role', 'admin')
+      .eq('status', '재직')
+      .then(({ data }) => setAdmins((data ?? []).filter((e) => e.id !== me?.id)))
+  }, [me?.id])
 
   const shortName = projectName.split(' ')[0] // 약칭
   const docTitle = `${shortName} ${round}차 자문회의 자문비`
@@ -83,18 +96,17 @@ export function AdvisorFeeModal({
       setErr(error?.message ?? '상신 실패')
       return
     }
-    // 결재선: 기안(본인 승인됨) → 승인(실장) → 회계접수
+    // 결재선: 기안(본인 승인됨) → 검토(선택) → 승인(선택) → 회계접수
     const lines: {
       approval_id: string
       seq: number
       approver_id: string | null
-      role: '기안' | '승인' | '회계접수'
+      role: '기안' | '검토' | '승인' | '회계접수'
       decided: '대기' | '승인' | '반려'
-    }[] = [
-      { approval_id: appr.id, seq: 1, approver_id: me?.id ?? null, role: '기안', decided: '승인' },
-      { approval_id: appr.id, seq: 2, approver_id: null, role: '승인', decided: '대기' },
-      { approval_id: appr.id, seq: 3, approver_id: null, role: '회계접수', decided: '대기' },
-    ]
+    }[] = [{ approval_id: appr.id, seq: 1, approver_id: me?.id ?? null, role: '기안', decided: '승인' }]
+    if (reviewerId) lines.push({ approval_id: appr.id, seq: lines.length + 1, approver_id: reviewerId, role: '검토', decided: '대기' })
+    lines.push({ approval_id: appr.id, seq: lines.length + 1, approver_id: approverId || null, role: '승인', decided: '대기' })
+    lines.push({ approval_id: appr.id, seq: lines.length + 1, approver_id: null, role: '회계접수', decided: '대기' })
     const { error: lineErr } = await supabase.from('approval_lines').insert(lines)
     setBusy(false)
     if (lineErr) {
@@ -209,11 +221,35 @@ export function AdvisorFeeModal({
 
           {/* 결재선 */}
           <div className="mfield">
-            <label>결재선</label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontSize: 11.5 }}>
+            <label>검토자 · 승인자</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <select className="ctl" value={reviewerId} onChange={(e) => setReviewerId(e.target.value)} style={{ flex: 1 }}>
+                <option value="">검토자 선택 (생략 가능)</option>
+                {admins.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.name} {e.title}
+                  </option>
+                ))}
+              </select>
+              <select className="ctl" value={approverId} onChange={(e) => setApproverId(e.target.value)} style={{ flex: 1 }}>
+                <option value="">승인자 선택 (실장)</option>
+                {admins.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.name} {e.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontSize: 11.5, marginTop: 8 }}>
               <span className="badge">기안 {me?.name ?? '—'}</span>
+              {reviewerId && (
+                <>
+                  <span style={{ color: 'var(--muted)' }}>›</span>
+                  <span className="badge">검토 {admins.find((a) => a.id === reviewerId)?.name ?? ''}</span>
+                </>
+              )}
               <span style={{ color: 'var(--muted)' }}>›</span>
-              <span className="badge">승인 실장</span>
+              <span className="badge">승인 {admins.find((a) => a.id === approverId)?.name ?? '실장'}</span>
               <span style={{ color: 'var(--muted)' }}>›</span>
               <span className="badge green">회계접수 담당</span>
             </div>

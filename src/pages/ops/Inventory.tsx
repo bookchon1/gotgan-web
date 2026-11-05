@@ -311,6 +311,7 @@ function OrderExpenseModal({
   )
   const [memo, setMemo] = useState('재고 부족 품목 발주 (최소재고 기준 보충)')
   const [account, setAccount] = useState('상품·재료 매입')
+  const [reviewerId, setReviewerId] = useState('')
   const [approverId, setApproverId] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -368,15 +369,16 @@ function OrderExpenseModal({
       return
     }
 
-    // 2) 결재선: 기안(본인 승인) → 승인(선택) → 회계접수
+    // 2) 결재선: 기안(본인 승인) → 검토(선택) → 승인(선택) → 회계접수
     const lns: {
       approval_id: string
       seq: number
       approver_id: string | null
-      role: '기안' | '승인' | '회계접수'
+      role: '기안' | '검토' | '승인' | '회계접수'
       decided: string
     }[] = [{ approval_id: appr.id, seq: 1, approver_id: me?.id ?? null, role: '기안', decided: '승인' }]
-    if (approverId) lns.push({ approval_id: appr.id, seq: 2, approver_id: approverId, role: '승인', decided: '대기' })
+    if (reviewerId) lns.push({ approval_id: appr.id, seq: lns.length + 1, approver_id: reviewerId, role: '검토', decided: '대기' })
+    if (approverId) lns.push({ approval_id: appr.id, seq: lns.length + 1, approver_id: approverId, role: '승인', decided: '대기' })
     lns.push({ approval_id: appr.id, seq: lns.length + 1, approver_id: null, role: '회계접수', decided: '대기' })
     await supabase.from('approval_lines').insert(lns)
 
@@ -518,17 +520,33 @@ function OrderExpenseModal({
             </select>
           </div>
           <div className="mfield">
-            <label>승인자</label>
-            <select className="ctl" value={approverId} onChange={(e) => setApproverId(e.target.value)}>
-              <option value="">선택 (없으면 바로 회계접수)</option>
-              {admins.map((e) => (
-                <option key={e.id} value={e.id}>
-                  {e.name} {e.title}
-                </option>
-              ))}
-            </select>
+            <label>검토자 · 승인자</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <select className="ctl" value={reviewerId} onChange={(e) => setReviewerId(e.target.value)} style={{ flex: 1 }}>
+                <option value="">검토자 선택 (생략 가능)</option>
+                {admins.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.name} {e.title}
+                  </option>
+                ))}
+              </select>
+              <select className="ctl" value={approverId} onChange={(e) => setApproverId(e.target.value)} style={{ flex: 1 }}>
+                <option value="">승인자 선택 (생략 가능)</option>
+                {admins.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.name} {e.title}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontSize: 11.5, marginTop: 8 }}>
               <span className="badge">기안 {me?.name ?? '—'}</span>
+              {reviewerId && (
+                <>
+                  <span style={{ color: 'var(--muted)' }}>›</span>
+                  <span className="badge">검토 {admins.find((a) => a.id === reviewerId)?.name ?? ''}</span>
+                </>
+              )}
               {approverId && (
                 <>
                   <span style={{ color: 'var(--muted)' }}>›</span>

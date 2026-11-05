@@ -121,12 +121,6 @@ function AttView() {
     attQ.reload()
   }
 
-  // 월 요약 — 총 근무 건수 / 총 실근무시간 합계
-  const totalHours = rows.reduce((a, r) => {
-    const h = workHours(r.check_in, r.check_out, r.next_day, r.break_min)
-    return a + (h ?? 0)
-  }, 0)
-
   // 월 선택지 (당월 포함 최근 6개월, 최신순)
   const months = useMemo(() => recentMonths(6), [])
 
@@ -148,28 +142,12 @@ function AttView() {
               </option>
             ))}
           </select>
-          <button className="btn sec" onClick={() => setWkOpen(true)}>
+          <button className="btn txt add-txt" onClick={() => setWkOpen(true)}>
             작업자 관리
           </button>
           <button className="btn txt add-txt" onClick={() => setAddOpen(true)}>
             + 근무추가
           </button>
-        </div>
-      </div>
-
-      {/* 월 요약 */}
-      <div className="ops-stats">
-        <div className="s">
-          <small>이번 달 근무 건수</small>
-          <b className="tnum">{attQ.loading ? '…' : `${rows.length}건`}</b>
-        </div>
-        <div className="s">
-          <small>총 실근무시간</small>
-          <b className="tnum">{attQ.loading ? '…' : `${totalHours.toFixed(1)}시간`}</b>
-        </div>
-        <div className="s">
-          <small>평균 1건당</small>
-          <b className="tnum">{rows.length > 0 ? `${(totalHours / rows.length).toFixed(1)}시간` : '—'}</b>
         </div>
       </div>
 

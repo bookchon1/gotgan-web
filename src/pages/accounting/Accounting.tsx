@@ -176,11 +176,10 @@ function FundView({
   const scope = allTx.filter((t) => inPeriod(t, year, month, drill))
   const s = sumTx(scope)
 
-  // 도넛은 '당월' 구성만 — 상단 KPI(연간/선택기간)와 역할 분리.
-  // 연도는 선택한 year 를 따르고(2025 선택 시 2025년 그 달), 월은 실제 이번 달.
-  const curMM = String(NOW.getMonth() + 1).padStart(2, '0')
-  const donutYM = `${year}-${curMM}`
-  const donutMonthLabel = `${year}년 ${NOW.getMonth() + 1}월`
+  // 도넛 구성 기준 월: 연간('all') 선택이면 당월, 특정 월 선택이면 그 월. 연도는 선택 year.
+  const donutMM = month === 'all' ? String(NOW.getMonth() + 1).padStart(2, '0') : month
+  const donutYM = `${year}-${donutMM}`
+  const donutMonthLabel = `${year}년 ${parseInt(donutMM, 10)}월`
   const donutS = sumTx(
     allTx.filter((t) => t.date.slice(0, 7) === donutYM && drillMatch(t, drill)),
   )

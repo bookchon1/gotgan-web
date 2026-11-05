@@ -48,7 +48,7 @@ export default function Labor() {
       />
       <div className="subtabs">
         {([
-          ['pay', '급여기록'],
+          ['pay', '급여대장'],
           ['att', '근무기록'],
           ['leave', '휴가현황'],
           ['cert', '증명서'],
@@ -559,6 +559,8 @@ function PayView({ empById }: { empById: Record<string, { name: string; dept: st
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [submitOpen, setSubmitOpen] = useState(false)
+  const [payOpen, setPayOpen] = useState(false)
+  const [editSlip, setEditSlip] = useState<Payslip | null>(null)
 
   const runQ = useQuery<PayrollRun[]>(
     async () => await supabase.from('payroll_runs').select('*').eq('ym', ym),
@@ -605,6 +607,32 @@ function PayView({ empById }: { empById: Record<string, { name: string; dept: st
       runQ.reload()
       slipsQ.reload()
     }
+  }
+
+  // 급여대장(payroll_runs) 이 없으면 생성하고 run_id 반환
+  async function ensureRunId(): Promise<string | null> {
+    if (run?.id) return run.id
+    const { data, error } = await supabase
+      .from('payroll_runs')
+      .insert({ ym, status: '작성중' })
+      .select('id')
+      .single()
+    if (error) {
+      // 이미 있으면(유니크 충돌) 다시 조회
+      const { data: ex } = await supabase.from('payroll_runs').select('id').eq('ym', ym).single()
+      return ex?.id ?? null
+    }
+    return data?.id ?? null
+  }
+
+  async function removeSlip(s: Payslip) {
+    const e = empById[s.employee_id]
+    const ok = window.confirm(`${e?.name ?? ''} 급여 행을 삭제하시겠습니까?`)
+    if (!ok) return
+    setBusy(true)
+    await supabase.from('payslips').delete().eq('id', s.id)
+    setBusy(false)
+    slipsQ.reload()
   }
 
   // 전 직원 명세서 발송 — 각 급여 행을 payslips 에 발급(발송)하고 지급완료로.
@@ -666,7 +694,7 @@ function PayView({ empById }: { empById: Record<string, { name: string; dept: st
             급여대장 <span className="count">{slipsQ.loading ? '…' : slips.length}</span>
           </h2>
           <p>
-            {ym} 귀속(익월 지급) · {payStatusBadge(status)} · 전 직원 급여를 한 표로 관리 · 지출결의서 일괄 상신
+            {ym} 귀속(익월 지급) · {payStatusBadge(status)} · 전월 복사 또는 직접 추가·수정 후 지출결의서로 상신
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -678,9 +706,14 @@ function PayView({ empById }: { empById: Record<string, { name: string; dept: st
             ))}
           </select>
           {showCopy && (
-            <button className="btn sec" onClick={copyPrev} disabled={busy}>
-              {busy ? '복사 중…' : '전월 급여 복사'}
-            </button>
+            <>
+              <button className="btn txt add-txt" onClick={copyPrev} disabled={busy}>
+                {busy ? '복사 중…' : '전월 급여 복사'}
+              </button>
+              <button className="btn txt add-txt" onClick={() => setPayOpen(true)} disabled={busy}>
+                + 급여추가
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -701,10 +734,11 @@ function PayView({ empById }: { empById: Record<string, { name: string; dept: st
               <th style={{ textAlign: 'right' }}>수당</th>
               <th style={{ textAlign: 'right' }}>공제</th>
               <th style={{ textAlign: 'right' }}>실지급액</th>
+              {showCopy && <th style={{ textAlign: 'right', width: 92 }}>관리</th>}
             </tr>
           </thead>
           <tbody>
-            {slipsQ.loading && <LoadingRow cols={6} />}
+            {slipsQ.loading && <LoadingRow cols={showCopy ? 7 : 6} />}
             {!slipsQ.loading &&
               slips.map((s) => {
                 const e = empById[s.employee_id]
@@ -724,11 +758,21 @@ function PayView({ empById }: { empById: Record<string, { name: string; dept: st
                     <td className="tnum" style={{ textAlign: 'right', fontWeight: 700 }}>
                       {won(s.net_pay)}
                     </td>
+                    {showCopy && (
+                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <button className="btn sec" style={{ padding: '4px 7px', fontSize: 11 }} onClick={() => setEditSlip(s)} disabled={busy}>
+                          수정
+                        </button>
+                        <button className="btn danger-txt" style={{ padding: '4px 5px', fontSize: 11, marginLeft: 2 }} onClick={() => removeSlip(s)} disabled={busy}>
+                          삭제
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 )
               })}
             {!slipsQ.loading && slips.length === 0 && (
-              <EmptyRow cols={6} text="급여대장이 없습니다. '전월 급여 복사'로 시작하세요." />
+              <EmptyRow cols={showCopy ? 7 : 6} text="급여대장이 없습니다. '전월 급여 복사'로 시작하거나 '+급여추가'로 직접 입력하세요." />
             )}
           </tbody>
           {slips.length > 0 && (
@@ -747,6 +791,7 @@ function PayView({ empById }: { empById: Record<string, { name: string; dept: st
                 <td className="tnum" style={{ textAlign: 'right' }}>
                   {won(tNet)}
                 </td>
+                {showCopy && <td />}
               </tr>
             </tfoot>
           )}
@@ -797,7 +842,189 @@ function PayView({ empById }: { empById: Record<string, { name: string; dept: st
           }}
         />
       )}
+      {(payOpen || editSlip) && (
+        <PaySlipModal
+          ym={ym}
+          empById={empById}
+          existingEmpIds={slips.map((s) => s.employee_id)}
+          editSlip={editSlip ?? undefined}
+          ensureRunId={ensureRunId}
+          onClose={() => {
+            setPayOpen(false)
+            setEditSlip(null)
+          }}
+          onSaved={() => {
+            setPayOpen(false)
+            setEditSlip(null)
+            runQ.reload()
+            slipsQ.reload()
+          }}
+        />
+      )}
     </section>
+  )
+}
+
+// ===================== 급여 행 추가/수정 모달 =====================
+function PaySlipModal({
+  ym,
+  empById,
+  existingEmpIds,
+  editSlip,
+  ensureRunId,
+  onClose,
+  onSaved,
+}: {
+  ym: string
+  empById: Record<string, { name: string; dept: string }>
+  existingEmpIds: string[]
+  editSlip?: Payslip
+  ensureRunId: () => Promise<string | null>
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const isEdit = !!editSlip
+  // 수정이면 그 직원 고정, 추가면 아직 대장에 없는 직원만 선택 가능
+  const empOptions = Object.entries(empById).filter(
+    ([id]) => (isEdit && id === editSlip!.employee_id) || !existingEmpIds.includes(id),
+  )
+  const [f, setF] = useState({
+    employee_id: editSlip?.employee_id ?? empOptions[0]?.[0] ?? '',
+    base_pay: editSlip?.base_pay ?? 0,
+    allowances: editSlip?.allowances ?? 0,
+    d_pension: editSlip?.d_pension ?? 0,
+    d_health: editSlip?.d_health ?? 0,
+    d_ltc: editSlip?.d_ltc ?? 0,
+    d_employment: editSlip?.d_employment ?? 0,
+    d_income_tax: editSlip?.d_income_tax ?? 0,
+    d_local_tax: editSlip?.d_local_tax ?? 0,
+    d_other: editSlip?.d_other ?? 0,
+  })
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  const ded =
+    Number(f.d_pension) + Number(f.d_health) + Number(f.d_ltc) + Number(f.d_employment) +
+    Number(f.d_income_tax) + Number(f.d_local_tax) + Number(f.d_other)
+  const net = Number(f.base_pay) + Number(f.allowances) - ded
+
+  function num(k: keyof typeof f, v: string) {
+    setF({ ...f, [k]: Number(v) || 0 })
+  }
+
+  async function save() {
+    if (!f.employee_id) {
+      setErr('직원을 선택하세요.')
+      return
+    }
+    setBusy(true)
+    setErr(null)
+    const payload = {
+      employee_id: f.employee_id,
+      base_pay: Number(f.base_pay) || 0,
+      allowances: Number(f.allowances) || 0,
+      d_pension: Number(f.d_pension) || 0,
+      d_health: Number(f.d_health) || 0,
+      d_ltc: Number(f.d_ltc) || 0,
+      d_employment: Number(f.d_employment) || 0,
+      d_income_tax: Number(f.d_income_tax) || 0,
+      d_local_tax: Number(f.d_local_tax) || 0,
+      d_other: Number(f.d_other) || 0,
+    }
+    if (isEdit) {
+      const { error } = await supabase.from('payslips').update(payload).eq('id', editSlip!.id)
+      setBusy(false)
+      if (error) setErr(error.message)
+      else onSaved()
+      return
+    }
+    // 추가: 대장(run) 없으면 생성 후 insert
+    const runId = await ensureRunId()
+    if (!runId) {
+      setBusy(false)
+      setErr('급여대장을 만들지 못했습니다.')
+      return
+    }
+    const { error } = await supabase.from('payslips').insert({ run_id: runId, ...payload })
+    setBusy(false)
+    if (error) setErr(error.message)
+    else onSaved()
+  }
+
+  const DED_FIELDS: [keyof typeof f, string][] = [
+    ['d_pension', '국민연금'],
+    ['d_health', '건강보험'],
+    ['d_ltc', '장기요양'],
+    ['d_employment', '고용보험'],
+    ['d_income_tax', '소득세'],
+    ['d_local_tax', '지방소득세'],
+    ['d_other', '기타공제'],
+  ]
+
+  return (
+    <div className="modal-bg" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 520 }}>
+        <div className="mh">
+          <div>
+            <div className="eyebrow">{ym} 급여대장</div>
+            <h3>급여 {isEdit ? '수정' : '추가'}</h3>
+          </div>
+          <button className="x" onClick={onClose}>
+            ✕
+          </button>
+        </div>
+        <div className="mb">
+          {err && <div className="login-alert err" style={{ margin: '0 0 10px' }}>{err}</div>}
+          <div style={{ display: 'flex', gap: 10 }}>
+            <div className="mfield" style={{ flex: 1 }}>
+              <label>직원</label>
+              <select className="ctl" value={f.employee_id} onChange={(e) => setF({ ...f, employee_id: e.target.value })} disabled={isEdit}>
+                {empOptions.length === 0 && <option value="">추가할 직원이 없습니다</option>}
+                {empOptions.map(([id, e]) => (
+                  <option key={id} value={id}>
+                    {e.name}
+                    {e.dept ? ` · ${e.dept}` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <div className="mfield" style={{ flex: 1 }}>
+              <label>기본급</label>
+              <input type="number" className="ctl" value={f.base_pay} onChange={(e) => num('base_pay', e.target.value)} />
+            </div>
+            <div className="mfield" style={{ flex: 1 }}>
+              <label>수당</label>
+              <input type="number" className="ctl" value={f.allowances} onChange={(e) => num('allowances', e.target.value)} />
+            </div>
+          </div>
+          <div className="mfield" style={{ margin: '4px 0 0' }}>
+            <label style={{ color: 'var(--expense)' }}>공제 항목</label>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            {DED_FIELDS.map(([k, lbl]) => (
+              <div className="mfield" key={k} style={{ margin: 0 }}>
+                <label>{lbl}</label>
+                <input type="number" className="ctl" value={f[k]} onChange={(e) => num(k, e.target.value)} />
+              </div>
+            ))}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12, padding: '10px 12px', background: 'var(--brand-soft)', borderRadius: 8, fontWeight: 800 }}>
+            <span>공제 합계 <span style={{ color: 'var(--expense)' }}>{won(ded)}</span></span>
+            <span>실지급액 {won(net)}원</span>
+          </div>
+        </div>
+        <div className="mf">
+          <button className="btn sec" onClick={onClose} disabled={busy}>
+            취소
+          </button>
+          <button className="btn pri" onClick={save} disabled={busy || !f.employee_id}>
+            {busy ? '저장 중…' : '저장'}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 

@@ -1160,24 +1160,25 @@ function PaySubmitModal({
   const { me } = useAuth()
   const [title, setTitle] = useState(`${ym} 급여 지급`)
   const [account, setAccount] = useState('급여 (판매관리비)')
+  const [reviewerId, setReviewerId] = useState('')
+  const [approverId, setApproverId] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
-  // 결재선 안내용 담당자 이름 (기안 이윤정 → 검토 김성헌 → 승인 김도래). 실제 id 는 null 허용.
+  // 검토자·승인자 후보 (관리자, 본인 제외)
   const lineQ = useQuery<Pick<Employee, 'id' | 'name' | 'title'>[]>(
     async () =>
       await supabase
         .from('employees')
         .select('id,name,title')
-        .in('name', ['이윤정', '김성헌', '김도래'])
+        .eq('role', 'admin')
         .eq('status', '재직'),
     [],
   )
-  const byName = useMemo(() => {
-    const m: Record<string, { id: string; name: string }> = {}
-    for (const e of lineQ.data ?? []) m[e.name] = { id: e.id, name: e.name }
-    return m
-  }, [lineQ.data])
+  const admins = useMemo(
+    () => (lineQ.data ?? []).filter((e) => e.id !== me?.id),
+    [lineQ.data, me?.id],
+  )
 
   async function submit() {
     setBusy(true)
@@ -1207,16 +1208,17 @@ function PaySubmitModal({
       return
     }
 
-    // 2) 결재선: 기안(이윤정/본인, 승인) → 검토(김성헌) → 승인(김도래) → 회계접수. id 는 null 허용.
-    const drafter = byName['이윤정']?.id ?? me?.id ?? null
-    const reviewer = byName['김성헌']?.id ?? null
-    const approver = byName['김도래']?.id ?? null
-    const lns = [
-      { approval_id: appr.id, seq: 1, approver_id: drafter, role: '기안' as const, decided: '승인' },
-      { approval_id: appr.id, seq: 2, approver_id: reviewer, role: '검토' as const, decided: '대기' },
-      { approval_id: appr.id, seq: 3, approver_id: approver, role: '승인' as const, decided: '대기' },
-      { approval_id: appr.id, seq: 4, approver_id: null, role: '회계접수' as const, decided: '대기' },
-    ]
+    // 2) 결재선: 기안(작성자 본인, 승인) → 검토(지정) → 승인(지정) → 회계접수.
+    const lns: {
+      approval_id: string
+      seq: number
+      approver_id: string | null
+      role: '기안' | '검토' | '승인' | '회계접수'
+      decided: string
+    }[] = [{ approval_id: appr.id, seq: 1, approver_id: me?.id ?? null, role: '기안', decided: '승인' }]
+    if (reviewerId) lns.push({ approval_id: appr.id, seq: lns.length + 1, approver_id: reviewerId, role: '검토', decided: '대기' })
+    if (approverId) lns.push({ approval_id: appr.id, seq: lns.length + 1, approver_id: approverId, role: '승인', decided: '대기' })
+    lns.push({ approval_id: appr.id, seq: lns.length + 1, approver_id: null, role: '회계접수', decided: '대기' })
     await supabase.from('approval_lines').insert(lns)
 
     // 3) payroll_runs.status = '상신완료'
@@ -1280,13 +1282,39 @@ function PaySubmitModal({
             </select>
           </div>
           <div className="mfield">
-            <label>결재선</label>
-            <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', alignItems: 'center' }}>
-              <span className="badge">기안 이윤정</span>
-              <span style={{ color: 'var(--muted)' }}>→</span>
-              <span className="badge">검토 김성헌</span>
-              <span style={{ color: 'var(--muted)' }}>→</span>
-              <span className="badge gold">승인 김도래</span>
+            <label>검토자 · 승인자</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <select className="ctl" value={reviewerId} onChange={(e) => setReviewerId(e.target.value)} style={{ flex: 1 }}>
+                <option value="">검토자 선택</option>
+                {admins.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.name} {e.title}
+                  </option>
+                ))}
+              </select>
+              <select className="ctl" value={approverId} onChange={(e) => setApproverId(e.target.value)} style={{ flex: 1 }}>
+                <option value="">승인자 선택</option>
+                {admins.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.name} {e.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', alignItems: 'center', marginTop: 8 }}>
+              <span className="badge">기안 {me?.name ?? '—'}</span>
+              {reviewerId && (
+                <>
+                  <span style={{ color: 'var(--muted)' }}>→</span>
+                  <span className="badge">검토 {admins.find((a) => a.id === reviewerId)?.name ?? ''}</span>
+                </>
+              )}
+              {approverId && (
+                <>
+                  <span style={{ color: 'var(--muted)' }}>→</span>
+                  <span className="badge gold">승인 {admins.find((a) => a.id === approverId)?.name ?? ''}</span>
+                </>
+              )}
               <span style={{ color: 'var(--muted)' }}>→</span>
               <span className="badge green">회계접수 담당</span>
             </div>

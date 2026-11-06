@@ -182,7 +182,7 @@ function FundView({
   // 도넛 구성 기준 월: 연간('all') 선택이면 당월, 특정 월 선택이면 그 월. 연도는 선택 year.
   const donutMM = month === 'all' ? String(NOW.getMonth() + 1).padStart(2, '0') : month
   const donutYM = `${year}-${donutMM}`
-  const donutMonthLabel = `${year}년 ${parseInt(donutMM, 10)}월`
+  const donutMonthLabel = `${year}년 ${parseInt(donutMM, 10)}월${month === 'all' ? ' (당월)' : ''}`
   const donutS = sumTx(
     allTx.filter((t) => t.date.slice(0, 7) === donutYM && drillMatch(t, drill)),
   )

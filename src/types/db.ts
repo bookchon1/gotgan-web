@@ -304,9 +304,19 @@ export interface GotganDocument {
   category: string | null
   owner_id: string | null
   share_scope: '개인' | '선택' | '전사'
+  folder_id: string | null      // 소속 폴더(없으면 미분류)
   from_approval_id: string | null
   created_at: string
   updated_at: string | null
+}
+
+/** 문서보관함 폴더(섹션) */
+export interface DocumentFolder {
+  id: string
+  name: string
+  sort: number
+  created_by: string | null
+  created_at: string
 }
 
 export interface GotganEvent {

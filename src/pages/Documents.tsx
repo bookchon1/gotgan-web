@@ -6,9 +6,7 @@ import { supabase } from '../lib/supabase'
 import { useQuery } from '../lib/useQuery'
 import { mmdd } from '../lib/format'
 import { useAuth } from '../lib/auth'
-import type { GotganDocument, Employee } from '../types/db'
-
-type Folder = 'all' | '개인' | '전사' | '선택'
+import type { GotganDocument, Employee, DocumentFolder } from '../types/db'
 
 const SCOPE_BADGE: Record<string, string> = {
   전사: 'badge green',
@@ -26,15 +24,44 @@ function fmtSize(n: number | null): string {
 
 export default function Documents() {
   const { me } = useAuth()
-  const [folder, setFolder] = useState<Folder>('all')
   const [q, setQ] = useState('')
   const [editDoc, setEditDoc] = useState<GotganDocument | 'new' | null>(null)
   const [detail, setDetail] = useState<GotganDocument | null>(null)
+  const [folderId, setFolderId] = useState<string | 'all' | 'none'>('all') // 사용자 폴더 필터
+  const isAdmin = me?.role === 'admin'
 
   const docQ = useQuery<GotganDocument[]>(
     async () => await supabase.from('documents').select('*').order('created_at', { ascending: false }),
     [],
   )
+  const folderQ = useQuery<DocumentFolder[]>(
+    async () => await supabase.from('document_folders').select('*').order('sort').order('name'),
+    [],
+  )
+  const folders = folderQ.data ?? []
+
+  async function addFolder() {
+    const name = window.prompt('새 폴더 이름')?.trim()
+    if (!name) return
+    const sort = folders.length ? Math.max(...folders.map((f) => f.sort)) + 1 : 0
+    const { error } = await supabase.from('document_folders').insert({ name, sort, created_by: me?.id ?? null })
+    if (error) { alert(error.message); return }
+    folderQ.reload()
+  }
+  async function renameFolder(f: DocumentFolder) {
+    const name = window.prompt('폴더 이름 변경', f.name)?.trim()
+    if (!name || name === f.name) return
+    const { error } = await supabase.from('document_folders').update({ name }).eq('id', f.id)
+    if (error) { alert(error.message); return }
+    folderQ.reload()
+  }
+  async function removeFolder(f: DocumentFolder) {
+    if (!window.confirm(`'${f.name}' 폴더를 삭제하시겠습니까?\n(폴더 안 문서는 '미분류'로 이동합니다)`)) return
+    const { error } = await supabase.from('document_folders').delete().eq('id', f.id)
+    if (error) { alert(error.message); return }
+    if (folderId === f.id) setFolderId('all')
+    folderQ.reload(); docQ.reload()
+  }
   const empQ = useQuery<Pick<Employee, 'id' | 'name'>[]>(
     async () => await supabase.from('employees').select('id,name'),
     [],
@@ -46,15 +73,9 @@ export default function Documents() {
   }, [empQ.data])
 
   const all = docQ.data ?? []
-  const counts = {
-    all: all.length,
-    개인: all.filter((d) => d.share_scope === '개인').length,
-    전사: all.filter((d) => d.share_scope === '전사').length,
-    선택: all.filter((d) => d.share_scope === '선택').length,
-  }
 
   const list = all
-    .filter((d) => folder === 'all' || d.share_scope === folder)
+    .filter((d) => folderId === 'all' || (folderId === 'none' ? !d.folder_id : d.folder_id === folderId))
     .filter((d) => {
       if (!q) return true
       const owner = d.owner_id ? empName[d.owner_id] ?? '' : ''
@@ -77,17 +98,32 @@ export default function Documents() {
       />
 
       <div className="folders">
-        <Fold k="all" cur={folder} set={setFolder} icon="doc" title="모든 문서" n={counts.all} />
-        <Fold k="개인" cur={folder} set={setFolder} icon="lock" title="개인 보관" n={counts.개인} />
-        <Fold k="전사" cur={folder} set={setFolder} icon="home" title="전사 공유" n={counts.전사} />
-        <Fold k="선택" cur={folder} set={setFolder} icon="users" title="선택 공유" n={counts.선택} />
+        <FolderChip active={folderId === 'all'} icon="doc" title="모든 문서" onClick={() => setFolderId('all')} />
+        <FolderChip active={folderId === 'none'} icon="folder" title="미분류" onClick={() => setFolderId('none')} />
+        {folders.map((f) => (
+          <FolderChip
+            key={f.id}
+            active={folderId === f.id}
+            icon="folder"
+            title={f.name}
+            onClick={() => setFolderId(f.id)}
+            onRename={isAdmin ? () => renameFolder(f) : undefined}
+            onDelete={isAdmin ? () => removeFolder(f) : undefined}
+          />
+        ))}
+        {isAdmin && (
+          <button className="folder" onClick={addFolder} style={{ borderStyle: 'dashed', opacity: 0.85 }}>
+            <span className="fi"><Icon name="plus" size={20} /></span>
+            <div><strong>폴더 추가</strong><small>새 섹션</small></div>
+          </button>
+        )}
       </div>
 
       <section className="panel">
         <ErrorBanner error={docQ.error} table="documents" />
         <div className="toolbar">
           <h2 style={{ fontSize: 15, fontWeight: 800 }}>
-            {folder === 'all' ? '모든 문서' : folder === '개인' ? '개인 보관' : folder === '전사' ? '전사 공유' : '선택 공유'}{' '}
+            {folderId === 'all' ? '모든 문서' : folderId === 'none' ? '미분류' : (folders.find((f) => f.id === folderId)?.name ?? '문서')}{' '}
             <span className="count">{docQ.loading ? '…' : list.length}</span>
           </h2>
           <label className="search r" style={{ marginLeft: 'auto' }}>
@@ -147,6 +183,8 @@ export default function Documents() {
         <DocEditModal
           doc={editDoc === 'new' ? null : editDoc}
           meId={me?.id ?? null}
+          folders={folders}
+          defaultFolderId={folderId !== 'all' && folderId !== 'none' ? folderId : null}
           onClose={() => setEditDoc(null)}
           onSaved={() => { docQ.reload(); setEditDoc(null); setDetail(null) }}
         />
@@ -166,11 +204,15 @@ export default function Documents() {
 }
 
 // ===== 등록/수정 모달 =====
-function DocEditModal({ doc, meId, onClose, onSaved }: { doc: GotganDocument | null; meId: string | null; onClose: () => void; onSaved: () => void }) {
+function DocEditModal({ doc, meId, folders, defaultFolderId, onClose, onSaved }: {
+  doc: GotganDocument | null; meId: string | null; folders: DocumentFolder[]
+  defaultFolderId: string | null; onClose: () => void; onSaved: () => void
+}) {
   const isEdit = !!doc
   const [title, setTitle] = useState(doc?.title ?? '')
   const [category, setCategory] = useState(doc?.category ?? '')
   const [scope, setScope] = useState<'개인' | '선택' | '전사'>(doc?.share_scope ?? '개인')
+  const [folderId, setFolderId] = useState<string>(doc?.folder_id ?? defaultFolderId ?? '')
   const [body, setBody] = useState(doc?.body ?? '')
   const [file, setFile] = useState<File | null>(null)
   const [removeFile, setRemoveFile] = useState(false)
@@ -185,7 +227,7 @@ function DocEditModal({ doc, meId, onClose, onSaved }: { doc: GotganDocument | n
       let docId = doc?.id
       const base = {
         title: title.trim(), category: category || null, share_scope: scope,
-        body: body || null, updated_at: new Date().toISOString(),
+        folder_id: folderId || null, body: body || null, updated_at: new Date().toISOString(),
       }
       if (!isEdit) {
         const { data, error } = await supabase.from('documents')
@@ -244,13 +286,22 @@ function DocEditModal({ doc, meId, onClose, onSaved }: { doc: GotganDocument | n
               <input className="ctl" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="계약/규정/보고서" />
             </div>
           </div>
-          <div className="mfield">
-            <label>공유 범위</label>
-            <select className="ctl" value={scope} onChange={(e) => setScope(e.target.value as typeof scope)}>
-              <option value="개인">개인 보관</option>
-              <option value="선택">선택 공유</option>
-              <option value="전사">전사 공유</option>
-            </select>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <div className="mfield" style={{ flex: 1 }}>
+              <label>공유 범위</label>
+              <select className="ctl" value={scope} onChange={(e) => setScope(e.target.value as typeof scope)}>
+                <option value="개인">개인 보관</option>
+                <option value="선택">선택 공유</option>
+                <option value="전사">전사 공유</option>
+              </select>
+            </div>
+            <div className="mfield" style={{ flex: 1 }}>
+              <label>폴더</label>
+              <select className="ctl" value={folderId} onChange={(e) => setFolderId(e.target.value)}>
+                <option value="">미분류</option>
+                {folders.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+              </select>
+            </div>
           </div>
           <div className="mfield">
             <label>내용</label>
@@ -345,16 +396,34 @@ function DocDetailModal({ doc, ownerName, canEdit, onClose, onEdit, onDeleted }:
   )
 }
 
-function Fold({ k, cur, set, icon, title, n }: {
-  k: Folder; cur: Folder; set: (f: Folder) => void; icon: string; title: string; n: number
+function FolderChip({ active, icon, title, onClick, onRename, onDelete }: {
+  active: boolean; icon: string; title: string; onClick: () => void
+  onRename?: () => void; onDelete?: () => void
 }) {
   return (
-    <button className={`folder${cur === k ? ' on' : ''}`} onClick={() => set(k)}>
+    <div
+      className={`folder${active ? ' on' : ''}`}
+      onClick={onClick}
+      onDoubleClick={onRename}
+      role="button"
+      tabIndex={0}
+      style={{ position: 'relative', cursor: 'pointer' }}
+      title={onRename ? '더블클릭하여 이름 변경' : undefined}
+    >
       <span className="fi"><Icon name={icon} size={20} /></span>
-      <div>
-        <strong>{title}</strong>
-        <small>{n}개</small>
+      <div style={{ minWidth: 0 }}>
+        <strong style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>{title}</strong>
+        {onRename && <small>더블클릭 이름변경</small>}
       </div>
-    </button>
+      {onDelete && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onDelete() }}
+          title="폴더 삭제"
+          style={{ position: 'absolute', top: 6, right: 6, border: 0, background: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: 2 }}
+        >
+          ✕
+        </button>
+      )}
+    </div>
   )
 }

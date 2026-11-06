@@ -24,19 +24,35 @@ const EXPENSE_ACCOUNTS = ['인건비', '재료비', '임대료', '관리비', '�
 type Line = { prev: number[]; plan: number[]; act: number[] } // 각 12개월
 const empty = (): Line => ({ prev: Array(12).fill(0), plan: Array(12).fill(0), act: Array(12).fill(0) })
 
-function rateColor(txType: string, rate: number): string {
-  if (!rate) return 'var(--muted)'
-  if (txType === '수입') return rate >= 100 ? 'var(--ok)' : rate >= 80 ? 'var(--brand-ink)' : 'var(--expense)'
-  return rate <= 100 ? 'var(--ok)' : 'var(--expense)'
+// 수입=달성률(실적/계획), 지출=절감률((계획-실적)/계획). 계획 초과 시 지출은 음수(-%).
+function calcRate(txType: string, plan: number, actual: number): number | null {
+  if (plan <= 0) return null
+  if (txType === '수입') return Math.round((actual / plan) * 100)
+  return Math.round(((plan - actual) / plan) * 100) // 지출: 남으면 +, 초과하면 -
 }
+// 색상: 수입은 100%↑ 초록(목표달성)·미달 빨강, 지출은 0%↑ 초록(예산내)·음수 빨강(초과)
+function rateColor(txType: string, rate: number | null): string {
+  if (rate === null) return 'var(--muted)'
+  if (txType === '수입') return rate >= 100 ? 'var(--ok)' : rate >= 80 ? 'var(--brand-ink)' : 'var(--expense)'
+  return rate >= 0 ? 'var(--ok)' : 'var(--expense)'
+}
+const rateText = (r: number | null) => (r === null ? '—' : `${r}%`)
 const qsum = (arr: number[], months: number[]) => months.reduce((s, m) => s + arr[m - 1], 0)
 const ysum = (arr: number[]) => arr.reduce((a, b) => a + b, 0)
 
 export function ForecastView() {
   const [year, setYear] = useState(String(CUR_YEAR))
   const [biz, setBiz] = useState('all')
+  const [view, setView] = useState<'quarter' | 'month'>('quarter')
   const [planOpen, setPlanOpen] = useState(false)
   const prevYear = Number(year) - 1
+
+  // 열 구성: 분기(1Q~4Q) 또는 월(1~12월)
+  const cols: [string, number[]][] =
+    view === 'month'
+      ? Array.from({ length: 12 }, (_, i) => [`${i + 1}월`, [i + 1]] as [string, number[]])
+      : QUARTERS
+  const avgDiv = view === 'month' ? 12 : 4 // 평균 분모
 
   const planQ = useQuery<BudgetPlan[]>(
     async () => await supabase.from('acct_budget_plan').select('*').eq('year', Number(year)),
@@ -107,6 +123,10 @@ export function ForecastView() {
           <p>{prevYear}년 분기 실적을 토대로 {year}년 계획을 세우고 실적을 비교합니다. 수입은 부서별, 지출은 계정과목별.</p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginLeft: 'auto' }}>
+          <div className="subtabs" style={{ margin: 0 }}>
+            <button className={view === 'quarter' ? 'on' : ''} onClick={() => setView('quarter')}>분기별</button>
+            <button className={view === 'month' ? 'on' : ''} onClick={() => setView('month')}>월별</button>
+          </div>
           <select className="sel" value={year} onChange={(e) => setYear(e.target.value)}>
             {YEARS.map((y) => <option key={y} value={y}>{y}년</option>)}
           </select>
@@ -124,34 +144,34 @@ export function ForecastView() {
             <tr>
               <th style={{ whiteSpace: 'nowrap', minWidth: 72 }}>구분</th>
               <th style={{ whiteSpace: 'nowrap', minWidth: 92 }}>항목</th>
-              {QUARTERS.map(([lbl]) => (
-                <th key={lbl} style={{ textAlign: 'right', whiteSpace: 'nowrap', minWidth: 104 }}>{lbl}</th>
+              {cols.map(([lbl]) => (
+                <th key={lbl} style={{ textAlign: 'right', whiteSpace: 'nowrap', minWidth: view === 'month' ? 88 : 104 }}>{lbl}</th>
               ))}
               <th style={{ textAlign: 'right', whiteSpace: 'nowrap', minWidth: 112, background: 'var(--brand-soft)' }}>합계</th>
-              <th style={{ textAlign: 'right', whiteSpace: 'nowrap', minWidth: 104, background: 'var(--brand-soft)' }}>평균</th>
+              <th style={{ textAlign: 'right', whiteSpace: 'nowrap', minWidth: 104, background: 'var(--brand-soft)' }}>{view === 'month' ? '월평균' : '분기평균'}</th>
             </tr>
           </thead>
           <tbody>
-            {loading && <LoadingRow cols={8} />}
+            {loading && <LoadingRow cols={cols.length + 4} />}
             {!loading && (
               <>
-                <SectionHeader label="수입" color="var(--ok)" />
-                {incomeRows.length === 0 && <NoData label="수입 데이터가 없습니다." />}
-                {incomeRows.map((r) => <ItemBlock key={r.key} label={r.label} line={r.line!} txType="수입" />)}
-                {incomeRows.length > 0 && <TotalBlock label="수입 합계" rows={incomeRows.map((r) => r.line!)} txType="수입" />}
+                <SectionHeader label="수입" color="var(--ok)" span={cols.length + 4} />
+                {incomeRows.length === 0 && <NoData label="수입 데이터가 없습니다." span={cols.length + 4} />}
+                {incomeRows.map((r) => <ItemBlock key={r.key} label={r.label} line={r.line!} txType="수입" cols={cols} avgDiv={avgDiv} />)}
+                {incomeRows.length > 0 && <TotalBlock label="수입 합계" rows={incomeRows.map((r) => r.line!)} txType="수입" cols={cols} avgDiv={avgDiv} />}
 
-                <SectionHeader label="지출" color="var(--expense)" />
-                {expenseRows.length === 0 && <NoData label="지출 데이터가 없습니다." />}
-                {expenseRows.map((r) => <ItemBlock key={r.key} label={r.label} line={r.line!} txType="지출" />)}
-                {expenseRows.length > 0 && <TotalBlock label="지출 합계" rows={expenseRows.map((r) => r.line!)} txType="지출" />}
+                <SectionHeader label="지출" color="var(--expense)" span={cols.length + 4} />
+                {expenseRows.length === 0 && <NoData label="지출 데이터가 없습니다." span={cols.length + 4} />}
+                {expenseRows.map((r) => <ItemBlock key={r.key} label={r.label} line={r.line!} txType="지출" cols={cols} avgDiv={avgDiv} />)}
+                {expenseRows.length > 0 && <TotalBlock label="지출 합계" rows={expenseRows.map((r) => r.line!)} txType="지출" cols={cols} avgDiv={avgDiv} />}
               </>
             )}
           </tbody>
         </table>
       </div>
       <div className="sec-mini" style={{ marginTop: 10 }}>
-        한 항목은 <b>전년도 실적 · 당해년도 계획 · 당해년도 실적 · 달성률</b> 4줄입니다. 평균은 분기 평균(합계÷4).
-        달성률 = 실적÷계획×100 (수입 100%↑ 초록, 지출 100%↓ 초록).
+        한 항목은 <b>전년도 실적 · 당해년도 계획 · 당해년도 실적 · 달성률/절감률</b> 4줄. 평균은 {view === 'month' ? '월' : '분기'}평균(합계÷{avgDiv}).
+        <b> 수입 달성률</b> = 실적÷계획×100 (100%↑ 초록). <b>지출 절감률</b> = (계획−실적)÷계획×100 (예산 내 +%·초록, 초과 시 −%·빨강).
       </div>
 
       {planOpen && (
@@ -165,29 +185,29 @@ export function ForecastView() {
   )
 }
 
-function SectionHeader({ label, color }: { label: string; color: string }) {
+function SectionHeader({ label, color, span }: { label: string; color: string; span: number }) {
   return (
     <tr style={{ background: 'var(--line-1, #f1f1f1)' }}>
-      <td colSpan={8} style={{ fontWeight: 800, color }}>{label}</td>
+      <td colSpan={span} style={{ fontWeight: 800, color }}>{label}</td>
     </tr>
   )
 }
-function NoData({ label }: { label: string }) {
-  return <tr><td colSpan={8} style={{ color: 'var(--muted)', padding: '10px 12px' }}>{label}</td></tr>
+function NoData({ label, span }: { label: string; span: number }) {
+  return <tr><td colSpan={span} style={{ color: 'var(--muted)', padding: '10px 12px' }}>{label}</td></tr>
 }
 
-// 한 항목 = 4행(전년실적/계획/실적/달성률)
-function ItemBlock({ label, line, txType }: { label: string; line: Line; txType: string }) {
-  const q = (arr: number[]) => QUARTERS.map(([, ms]) => qsum(arr, ms))
-  const prevQ = q(line.prev), planQ_ = q(line.plan), actQ = q(line.act)
+// 한 항목 = 4행(전년실적/계획/실적/달성률). cols = 분기 또는 월 열.
+function ItemBlock({ label, line, txType, cols, avgDiv }: { label: string; line: Line; txType: string; cols: [string, number[]][]; avgDiv: number }) {
+  const bucket = (arr: number[]) => cols.map(([, ms]) => qsum(arr, ms))
+  const prevQ = bucket(line.prev), planQ_ = bucket(line.plan), actQ = bucket(line.act)
   const cell = (v: number) => (v ? won(v) : '—')
-  const avg = (arr: number[]) => Math.round(ysum(arr) / 4)
+  const avg = (arr: number[]) => Math.round(ysum(arr) / avgDiv)
   const rowStyle = { borderTop: 'none' } as const
   return (
     <>
       <tr>
-        <td rowSpan={4} style={{ fontWeight: 700, verticalAlign: 'top', borderRight: '1px solid var(--line, #eee)' }}>{label}</td>
-        <td style={{ color: 'var(--muted)' }}>전년도 실적</td>
+        <td rowSpan={4} style={{ fontWeight: 700, verticalAlign: 'top', borderRight: '1px solid var(--line, #eee)', whiteSpace: 'nowrap' }}>{label}</td>
+        <td style={{ color: 'var(--muted)', whiteSpace: 'nowrap' }}>전년도 실적</td>
         {prevQ.map((v, i) => <td key={i} className="tnum" style={{ textAlign: 'right', color: 'var(--muted)' }}>{cell(v)}</td>)}
         <td className="tnum" style={{ textAlign: 'right', background: 'var(--brand-soft)', color: 'var(--muted)' }}>{cell(ysum(line.prev))}</td>
         <td className="tnum" style={{ textAlign: 'right', background: 'var(--brand-soft)', color: 'var(--muted)' }}>{cell(avg(line.prev))}</td>
@@ -205,14 +225,14 @@ function ItemBlock({ label, line, txType }: { label: string; line: Line; txType:
         <td className="tnum" style={{ textAlign: 'right', background: 'var(--brand-soft)' }}>{cell(avg(line.act))}</td>
       </tr>
       <tr style={rowStyle}>
-        <td style={{ color: 'var(--muted)' }}>달성률</td>
-        {QUARTERS.map(([, ], i) => {
-          const p = planQ_[i], a = actQ[i], rate = p > 0 ? Math.round((a / p) * 100) : 0
-          return <td key={i} className="tnum" style={{ textAlign: 'right', fontWeight: 700, color: rateColor(txType, rate) }}>{rate ? `${rate}%` : '—'}</td>
+        <td style={{ color: 'var(--muted)' }}>{txType === '수입' ? '달성률' : '절감률'}</td>
+        {cols.map((_, i) => {
+          const rate = calcRate(txType, planQ_[i], actQ[i])
+          return <td key={i} className="tnum" style={{ textAlign: 'right', fontWeight: 700, color: rateColor(txType, rate) }}>{rateText(rate)}</td>
         })}
         {(() => {
-          const p = ysum(line.plan), a = ysum(line.act), rate = p > 0 ? Math.round((a / p) * 100) : 0
-          return <td className="tnum" style={{ textAlign: 'right', background: 'var(--brand-soft)', fontWeight: 800, color: rateColor(txType, rate) }}>{rate ? `${rate}%` : '—'}</td>
+          const rate = calcRate(txType, ysum(line.plan), ysum(line.act))
+          return <td className="tnum" style={{ textAlign: 'right', background: 'var(--brand-soft)', fontWeight: 800, color: rateColor(txType, rate) }}>{rateText(rate)}</td>
         })()}
         <td style={{ background: 'var(--brand-soft)' }} />
       </tr>
@@ -221,20 +241,11 @@ function ItemBlock({ label, line, txType }: { label: string; line: Line; txType:
 }
 
 // 섹션 합계(수입/지출 전체) — 동일 4행 구조
-function TotalBlock({ label, rows, txType }: { label: string; rows: Line[]; txType: string }) {
+function TotalBlock({ label, rows, txType, cols, avgDiv }: { label: string; rows: Line[]; txType: string; cols: [string, number[]][]; avgDiv: number }) {
   const sum = (sel: (l: Line) => number[]) => Array(12).fill(0).map((_, i) => rows.reduce((s, l) => s + sel(l)[i], 0))
   const agg: Line = { prev: sum((l) => l.prev), plan: sum((l) => l.plan), act: sum((l) => l.act) }
   return (
-    <tr>
-      <td colSpan={2} style={{ display: 'none' }} />
-      <td colSpan={8} style={{ padding: 0 }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, background: 'var(--brand-soft)' }}>
-          <tbody>
-            <ItemBlock label={label} line={agg} txType={txType} />
-          </tbody>
-        </table>
-      </td>
-    </tr>
+    <ItemBlock label={label} line={agg} txType={txType} cols={cols} avgDiv={avgDiv} />
   )
 }
 

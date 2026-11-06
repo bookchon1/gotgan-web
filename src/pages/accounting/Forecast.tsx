@@ -46,7 +46,7 @@ export function ForecastView() {
   const [view, setView] = useState<'quarter' | 'month'>('quarter')
   const [planOpen, setPlanOpen] = useState(false)
   const prevYear = Number(year) - 1
-  const curYY = `'${year.slice(2)}` // 예: '26
+  const curYY = `'${year.slice(2)}` // 예: '26 (표준 표기: 생략된 앞자리 대신 앞에 ')
   const prevYY = `'${String(prevYear).slice(2)}` // 예: '25
 
   // 열 구성: 분기(1Q~4Q) 또는 월(1~12월)

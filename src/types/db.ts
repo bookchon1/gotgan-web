@@ -297,12 +297,16 @@ export interface ApprovalLine {
 export interface GotganDocument {
   id: string
   title: string
-  file_path: string | null
+  body: string | null           // 본문(내용)
+  file_path: string | null      // Storage 경로
+  file_name: string | null      // 원본 파일명
+  file_size: number | null      // 바이트
   category: string | null
   owner_id: string | null
   share_scope: '개인' | '선택' | '전사'
   from_approval_id: string | null
   created_at: string
+  updated_at: string | null
 }
 
 export interface GotganEvent {

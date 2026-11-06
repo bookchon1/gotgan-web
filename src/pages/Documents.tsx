@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { PageHead } from '../components/PageHead'
-import { Icon } from '../components/Icon'
 import { ErrorBanner, LoadingRow, EmptyRow } from '../components/States'
 import { supabase } from '../lib/supabase'
 import { useQuery } from '../lib/useQuery'
@@ -75,7 +74,7 @@ export default function Documents() {
   const all = docQ.data ?? []
 
   const list = all
-    .filter((d) => folderId === 'all' || (folderId === 'none' ? !d.folder_id : d.folder_id === folderId))
+    .filter((d) => (folderId === 'all' || folderId === 'none') ? !d.folder_id : d.folder_id === folderId)
     .filter((d) => {
       if (!q) return true
       const owner = d.owner_id ? empName[d.owner_id] ?? '' : ''
@@ -91,33 +90,21 @@ export default function Documents() {
         title="문서보관"
         desc="내용을 적고 파일을 올려 보관하고, 정해진 범위 안에서 공유하세요."
         actions={
-          <button className="btn txt add-txt" onClick={() => setEditDoc('new')}>
-            문서 등록
-          </button>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {isAdmin && (
+              <>
+                <button className="btn txt" onClick={addFolder} title="새 폴더 만들기">＋ 폴더</button>
+                {folderId !== 'all' && folderId !== 'none' && (
+                  <button className="btn txt" style={{ color: 'var(--danger)' }}
+                    onClick={() => { const f = folders.find((x) => x.id === folderId); if (f) removeFolder(f) }}
+                    title="현재 폴더 삭제">－ 폴더</button>
+                )}
+              </>
+            )}
+            <button className="btn txt add-txt" onClick={() => setEditDoc('new')}>문서 등록</button>
+          </div>
         }
       />
-
-      <div className="folders">
-        <FolderChip active={folderId === 'all'} icon="doc" title="모든 문서" onClick={() => setFolderId('all')} />
-        <FolderChip active={folderId === 'none'} icon="folder" title="미분류" onClick={() => setFolderId('none')} />
-        {folders.map((f) => (
-          <FolderChip
-            key={f.id}
-            active={folderId === f.id}
-            icon="folder"
-            title={f.name}
-            onClick={() => setFolderId(f.id)}
-            onRename={isAdmin ? () => renameFolder(f) : undefined}
-            onDelete={isAdmin ? () => removeFolder(f) : undefined}
-          />
-        ))}
-        {isAdmin && (
-          <button className="folder" onClick={addFolder} style={{ borderStyle: 'dashed', opacity: 0.85 }}>
-            <span className="fi"><Icon name="plus" size={20} /></span>
-            <div><strong>폴더 추가</strong><small>새 섹션</small></div>
-          </button>
-        )}
-      </div>
 
       <section className="panel">
         <ErrorBanner error={docQ.error} table="documents" />
@@ -134,6 +121,46 @@ export default function Documents() {
             <input placeholder="제목·작성자·분류 검색" value={q} onChange={(e) => setQ(e.target.value)} />
           </label>
         </div>
+
+        {/* 경로(브레드크럼) — 폴더 안에 들어와 있을 때 */}
+        {folderId !== 'all' && (
+          <div className="doc-crumb" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, padding: '2px 2px 12px' }}>
+            <button className="btn txt" style={{ padding: 0 }} onClick={() => setFolderId('all')}>📁 모든 문서</button>
+            <span style={{ color: 'var(--muted)' }}>›</span>
+            <strong>{folderId === 'none' ? '미분류' : (folders.find((f) => f.id === folderId)?.name ?? '폴더')}</strong>
+          </div>
+        )}
+
+        {/* 폴더 디렉터리 — '모든 문서'에서만, 하위 폴더로 들어가는 느낌 */}
+        {folderId === 'all' && (folders.length > 0 || true) && (
+          <div className="doc-dirs" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 8, marginBottom: 14 }}>
+            {folders.map((f) => {
+              const n = all.filter((d) => d.folder_id === f.id).length
+              return (
+                <div key={f.id} className="doc-dir" onClick={() => setFolderId(f.id)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', border: '1px solid var(--line, #eee)', borderRadius: 9, cursor: 'pointer', position: 'relative', background: 'var(--card, #fff)' }}>
+                  <span style={{ fontSize: 20 }}>📁</span>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <strong style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</strong>
+                    <small style={{ color: 'var(--muted)' }}>{n}개</small>
+                  </div>
+                  {isAdmin && (
+                    <span style={{ display: 'flex', gap: 2 }} onClick={(e) => e.stopPropagation()}>
+                      <button title="이름 변경" onClick={() => renameFolder(f)} style={{ border: 0, background: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 2, fontSize: 12 }}>✎</button>
+                      <button title="삭제" onClick={() => removeFolder(f)} style={{ border: 0, background: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 2, fontSize: 12 }}>✕</button>
+                    </span>
+                  )}
+                </div>
+              )
+            })}
+            <div className="doc-dir" onClick={() => setFolderId('none')}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', border: '1px dashed var(--line, #ddd)', borderRadius: 9, cursor: 'pointer', background: 'transparent' }}>
+              <span style={{ fontSize: 20, opacity: 0.6 }}>🗂️</span>
+              <div><strong style={{ display: 'block' }}>미분류</strong><small style={{ color: 'var(--muted)' }}>{all.filter((d) => !d.folder_id).length}개</small></div>
+            </div>
+          </div>
+        )}
+
         <div className="tbl-wrap">
           <table>
             <thead>
@@ -396,34 +423,3 @@ function DocDetailModal({ doc, ownerName, canEdit, onClose, onEdit, onDeleted }:
   )
 }
 
-function FolderChip({ active, icon, title, onClick, onRename, onDelete }: {
-  active: boolean; icon: string; title: string; onClick: () => void
-  onRename?: () => void; onDelete?: () => void
-}) {
-  return (
-    <div
-      className={`folder${active ? ' on' : ''}`}
-      onClick={onClick}
-      onDoubleClick={onRename}
-      role="button"
-      tabIndex={0}
-      style={{ position: 'relative', cursor: 'pointer' }}
-      title={onRename ? '더블클릭하여 이름 변경' : undefined}
-    >
-      <span className="fi"><Icon name={icon} size={20} /></span>
-      <div style={{ minWidth: 0 }}>
-        <strong style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>{title}</strong>
-        {onRename && <small>더블클릭 이름변경</small>}
-      </div>
-      {onDelete && (
-        <button
-          onClick={(e) => { e.stopPropagation(); onDelete() }}
-          title="폴더 삭제"
-          style={{ position: 'absolute', top: 6, right: 6, border: 0, background: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: 2 }}
-        >
-          ✕
-        </button>
-      )}
-    </div>
-  )
-}

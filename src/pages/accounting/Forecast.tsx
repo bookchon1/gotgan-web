@@ -46,6 +46,8 @@ export function ForecastView() {
   const [view, setView] = useState<'quarter' | 'month'>('quarter')
   const [planOpen, setPlanOpen] = useState(false)
   const prevYear = Number(year) - 1
+  const curYY = `'${year.slice(2)}` // 예: '26
+  const prevYY = `'${String(prevYear).slice(2)}` // 예: '25
 
   // 열 구성: 분기(1Q~4Q) 또는 월(1~12월)
   const cols: [string, number[]][] =
@@ -157,20 +159,20 @@ export function ForecastView() {
               <>
                 <SectionHeader label="수입" color="var(--ok)" span={cols.length + 4} />
                 {incomeRows.length === 0 && <NoData label="수입 데이터가 없습니다." span={cols.length + 4} />}
-                {incomeRows.map((r) => <ItemBlock key={r.key} label={r.label} line={r.line!} txType="수입" cols={cols} avgDiv={avgDiv} />)}
-                {incomeRows.length > 0 && <TotalBlock label="수입 합계" rows={incomeRows.map((r) => r.line!)} txType="수입" cols={cols} avgDiv={avgDiv} />}
+                {incomeRows.map((r) => <ItemBlock key={r.key} label={r.label} line={r.line!} txType="수입" cols={cols} avgDiv={avgDiv} prevYY={prevYY} curYY={curYY} />)}
+                {incomeRows.length > 0 && <TotalBlock label="수입 합계" rows={incomeRows.map((r) => r.line!)} txType="수입" cols={cols} avgDiv={avgDiv} prevYY={prevYY} curYY={curYY} />}
 
                 <SectionHeader label="지출" color="var(--expense)" span={cols.length + 4} />
                 {expenseRows.length === 0 && <NoData label="지출 데이터가 없습니다." span={cols.length + 4} />}
-                {expenseRows.map((r) => <ItemBlock key={r.key} label={r.label} line={r.line!} txType="지출" cols={cols} avgDiv={avgDiv} />)}
-                {expenseRows.length > 0 && <TotalBlock label="지출 합계" rows={expenseRows.map((r) => r.line!)} txType="지출" cols={cols} avgDiv={avgDiv} />}
+                {expenseRows.map((r) => <ItemBlock key={r.key} label={r.label} line={r.line!} txType="지출" cols={cols} avgDiv={avgDiv} prevYY={prevYY} curYY={curYY} />)}
+                {expenseRows.length > 0 && <TotalBlock label="지출 합계" rows={expenseRows.map((r) => r.line!)} txType="지출" cols={cols} avgDiv={avgDiv} prevYY={prevYY} curYY={curYY} />}
               </>
             )}
           </tbody>
         </table>
       </div>
       <div className="sec-mini" style={{ marginTop: 10 }}>
-        한 항목은 <b>전년도 실적 · 당해년도 계획 · 당해년도 실적 · 달성률/절감률</b> 4줄. 평균은 {view === 'month' ? '월' : '분기'}평균(합계÷{avgDiv}).
+한 항목은 <b>{prevYY} 실적 · {curYY} 계획 · {curYY} 실적 · 달성률/절감률</b> 4줄. 평균은 {view === 'month' ? '월' : '분기'}평균(합계÷{avgDiv}).
         <b> 수입 달성률</b> = 실적÷계획×100 (100%↑ 초록). <b>지출 절감률</b> = (계획−실적)÷계획×100 (예산 내 +%·초록, 초과 시 −%·빨강).
       </div>
 
@@ -197,7 +199,7 @@ function NoData({ label, span }: { label: string; span: number }) {
 }
 
 // 한 항목 = 4행(전년실적/계획/실적/달성률). cols = 분기 또는 월 열.
-function ItemBlock({ label, line, txType, cols, avgDiv }: { label: string; line: Line; txType: string; cols: [string, number[]][]; avgDiv: number }) {
+function ItemBlock({ label, line, txType, cols, avgDiv, prevYY, curYY }: { label: string; line: Line; txType: string; cols: [string, number[]][]; avgDiv: number; prevYY: string; curYY: string }) {
   const bucket = (arr: number[]) => cols.map(([, ms]) => qsum(arr, ms))
   const prevQ = bucket(line.prev), planQ_ = bucket(line.plan), actQ = bucket(line.act)
   const cell = (v: number) => (v ? won(v) : '—')
@@ -207,19 +209,19 @@ function ItemBlock({ label, line, txType, cols, avgDiv }: { label: string; line:
     <>
       <tr>
         <td rowSpan={4} style={{ fontWeight: 700, verticalAlign: 'top', borderRight: '1px solid var(--line, #eee)', whiteSpace: 'nowrap' }}>{label}</td>
-        <td style={{ color: 'var(--muted)', whiteSpace: 'nowrap' }}>전년도 실적</td>
+        <td style={{ color: 'var(--muted)', whiteSpace: 'nowrap' }}>{prevYY} 실적</td>
         {prevQ.map((v, i) => <td key={i} className="tnum" style={{ textAlign: 'right', color: 'var(--muted)' }}>{cell(v)}</td>)}
         <td className="tnum" style={{ textAlign: 'right', background: 'var(--brand-soft)', color: 'var(--muted)' }}>{cell(ysum(line.prev))}</td>
         <td className="tnum" style={{ textAlign: 'right', background: 'var(--brand-soft)', color: 'var(--muted)' }}>{cell(avg(line.prev))}</td>
       </tr>
       <tr style={rowStyle}>
-        <td>당해년도 계획</td>
+        <td style={{ whiteSpace: 'nowrap' }}>{curYY} 계획</td>
         {planQ_.map((v, i) => <td key={i} className="tnum" style={{ textAlign: 'right' }}>{cell(v)}</td>)}
         <td className="tnum" style={{ textAlign: 'right', background: 'var(--brand-soft)', fontWeight: 700 }}>{cell(ysum(line.plan))}</td>
         <td className="tnum" style={{ textAlign: 'right', background: 'var(--brand-soft)' }}>{cell(avg(line.plan))}</td>
       </tr>
       <tr style={rowStyle}>
-        <td>당해년도 실적</td>
+        <td style={{ whiteSpace: 'nowrap' }}>{curYY} 실적</td>
         {actQ.map((v, i) => <td key={i} className="tnum" style={{ textAlign: 'right', fontWeight: 600 }}>{cell(v)}</td>)}
         <td className="tnum" style={{ textAlign: 'right', background: 'var(--brand-soft)', fontWeight: 700 }}>{cell(ysum(line.act))}</td>
         <td className="tnum" style={{ textAlign: 'right', background: 'var(--brand-soft)' }}>{cell(avg(line.act))}</td>
@@ -241,11 +243,11 @@ function ItemBlock({ label, line, txType, cols, avgDiv }: { label: string; line:
 }
 
 // 섹션 합계(수입/지출 전체) — 동일 4행 구조
-function TotalBlock({ label, rows, txType, cols, avgDiv }: { label: string; rows: Line[]; txType: string; cols: [string, number[]][]; avgDiv: number }) {
+function TotalBlock({ label, rows, txType, cols, avgDiv, prevYY, curYY }: { label: string; rows: Line[]; txType: string; cols: [string, number[]][]; avgDiv: number; prevYY: string; curYY: string }) {
   const sum = (sel: (l: Line) => number[]) => Array(12).fill(0).map((_, i) => rows.reduce((s, l) => s + sel(l)[i], 0))
   const agg: Line = { prev: sum((l) => l.prev), plan: sum((l) => l.plan), act: sum((l) => l.act) }
   return (
-    <ItemBlock label={label} line={agg} txType={txType} cols={cols} avgDiv={avgDiv} />
+    <ItemBlock label={label} line={agg} txType={txType} cols={cols} avgDiv={avgDiv} prevYY={prevYY} curYY={curYY} />
   )
 }
 

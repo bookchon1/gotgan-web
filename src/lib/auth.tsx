@@ -116,6 +116,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  // 비활동 자동 로그아웃: 1시간간 조작이 없으면 로그아웃 (탭 간 마지막 활동 시각 공유)
+  useEffect(() => {
+    if (!isConfigured || !session) return
+    const IDLE_MS = 60 * 60 * 1000 // 1시간
+    const KEY = 'gotgan_last_active'
+    let timer: ReturnType<typeof setTimeout>
+
+    const logout = () => {
+      supabase.auth.signOut()
+    }
+    const schedule = () => {
+      clearTimeout(timer)
+      const last = Number(localStorage.getItem(KEY) || Date.now())
+      const remain = Math.max(0, IDLE_MS - (Date.now() - last))
+      timer = setTimeout(() => {
+        // 다른 탭에서 활동했으면 연장, 아니면 로그아웃
+        const lastNow = Number(localStorage.getItem(KEY) || 0)
+        if (Date.now() - lastNow >= IDLE_MS) logout()
+        else schedule()
+      }, remain || IDLE_MS)
+    }
+    const bump = () => {
+      try { localStorage.setItem(KEY, String(Date.now())) } catch { /* 무시 */ }
+      schedule()
+    }
+
+    // 최초 기준 시각 설정 + 타이머 시작
+    bump()
+    const events: (keyof WindowEventMap)[] = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click']
+    events.forEach((e) => window.addEventListener(e, bump, { passive: true }))
+    // 다른 탭의 활동/로그아웃 감지
+    const onStorage = (e: StorageEvent) => { if (e.key === KEY) schedule() }
+    window.addEventListener('storage', onStorage)
+
+    return () => {
+      clearTimeout(timer)
+      events.forEach((e) => window.removeEventListener(e, bump))
+      window.removeEventListener('storage', onStorage)
+    }
+  }, [session])
+
   const value: AuthState = {
     loading,
     session,

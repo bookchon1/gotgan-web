@@ -93,9 +93,6 @@ export default function ArtList() {
   const navigate = useNavigate()
   const [showDone, setShowDone] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
-  // 수정 대상 사업 (null=닫힘)
-  const [editP, setEditP] = useState<ArtProject | null>(null)
-  const [rowBusy, setRowBusy] = useState(false)
 
   const projects = useQuery<ArtProject[]>(
     async () =>
@@ -141,23 +138,6 @@ export default function ArtList() {
   for (const p of list) {
     tCon += Number(p.contract_base) || 0
     tRec += receivedMap[p.id] || 0
-  }
-
-  async function removeProject(p: ArtProject) {
-    if (
-      !window.confirm(
-        `사업 "${p.name}" 을(를) 삭제할까요?\n예산·수금·세부진행 등 하위 데이터가 함께 삭제되며 되돌릴 수 없습니다.`,
-      )
-    )
-      return
-    setRowBusy(true)
-    const { error } = await supabase.from('art_projects').delete().eq('id', p.id)
-    setRowBusy(false)
-    if (error) {
-      alert('삭제 실패: ' + error.message)
-      return
-    }
-    projects.reload()
   }
 
   return (
@@ -209,11 +189,10 @@ export default function ArtList() {
                 <th style={{ textAlign: 'right' }}>수금</th>
                 <th style={{ textAlign: 'right' }}>잔금</th>
                 <th style={{ textAlign: 'center' }}>D-day</th>
-                <th style={{ textAlign: 'right' }}>관리</th>
               </tr>
             </thead>
             <tbody>
-              {projects.loading && <LoadingRow cols={9} />}
+              {projects.loading && <LoadingRow cols={8} />}
               {!projects.loading &&
                 list.map((p) => {
                   const recv = receivedMap[p.id] || 0
@@ -272,35 +251,11 @@ export default function ArtList() {
                       <td style={{ textAlign: 'center' }}>
                         <DdayBadge p={p} />
                       </td>
-                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                        <button
-                          className="btn txt"
-                          style={{ padding: '2px 6px', fontSize: 11.5 }}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setEditP(p)
-                          }}
-                          disabled={rowBusy}
-                        >
-                          수정
-                        </button>
-                        <button
-                          className="btn txt"
-                          style={{ padding: '2px 6px', fontSize: 11.5, color: 'var(--danger)' }}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            removeProject(p)
-                          }}
-                          disabled={rowBusy}
-                        >
-                          삭제
-                        </button>
-                      </td>
                     </tr>
                   )
                 })}
               {!projects.loading && list.length === 0 && !projects.error && (
-                <EmptyRow cols={9} text="표시할 사업이 없습니다." />
+                <EmptyRow cols={8} text="표시할 사업이 없습니다." />
               )}
             </tbody>
             {list.length > 0 && (
@@ -322,7 +277,7 @@ export default function ArtList() {
                   <td className="tnum" style={{ textAlign: 'right', color: 'var(--danger)' }}>
                     {bizEok(tCon - tRec)}
                   </td>
-                  <td colSpan={2} />
+                  <td />
                 </tr>
               </tfoot>
             )}
@@ -334,16 +289,12 @@ export default function ArtList() {
         </div>
       </section>
 
-      {(addOpen || editP) && (
+      {addOpen && (
         <ArtProjectModal
-          project={editP}
-          onClose={() => {
-            setAddOpen(false)
-            setEditP(null)
-          }}
+          project={null}
+          onClose={() => setAddOpen(false)}
           onSaved={() => {
             setAddOpen(false)
-            setEditP(null)
             projects.reload()
           }}
         />
@@ -358,7 +309,7 @@ const BID_METHODS = ['협상에의한계약', '수의계약', '일반경쟁', '�
 const PROJ_TYPES = ['서화', '조형', '건축', '기타']
 
 /** 미술 사업 등록·수정 — art_projects insert/update (시안 사업개요 + 입찰·계약 + 관계자) */
-function ArtProjectModal({
+export function ArtProjectModal({
   project,
   onClose,
   onSaved,

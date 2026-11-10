@@ -27,6 +27,7 @@ import {
 import { Step20Editor } from './Step20Editor'
 import { BudgetTxPopup } from './BudgetTxPopup'
 import { AdvisorFeeModal } from './AdvisorFeeModal'
+import { ArtProjectModal } from './ArtList'
 
 export default function ArtDetail() {
   const { id } = useParams()
@@ -42,6 +43,7 @@ export default function ArtDetail() {
   const [addStk, setAddStk] = useState(false)
   const [stkForm, setStkForm] = useState({ kind: '발주담당', name: '', org: '', phone: '' })
   const [stkBusy, setStkBusy] = useState(false)
+  const [editOpen, setEditOpen] = useState(false) // 사업개요 전체 수정 모달
 
   const projQ = useQuery<ArtProject[]>(
     async () => await supabase.from('art_projects').select('*').eq('id', id!),
@@ -151,6 +153,21 @@ export default function ArtDetail() {
     stkQ.reload()
   }
 
+  async function removeProject() {
+    if (
+      !window.confirm(
+        `사업 "${p?.name}" 을(를) 삭제할까요?\n예산·수금·세부진행 등 하위 데이터가 함께 삭제되며 되돌릴 수 없습니다.`,
+      )
+    )
+      return
+    const { error } = await supabase.from('art_projects').delete().eq('id', id!)
+    if (error) {
+      alert('삭제 실패: ' + error.message)
+      return
+    }
+    navigate('/ops/art')
+  }
+
   const contract = contractAmount(p?.contract_base ?? 0, changes)
   const received = receivedAmount(receipts)
   const balance = contract - received
@@ -191,9 +208,23 @@ export default function ArtDetail() {
     <div className="page on" id="p-ops-art-detail">
       {/* 상단 고정 헤더 */}
       <div className="proj-head">
-        <button className="btn txt" style={{ padding: 0, marginBottom: 8 }} onClick={() => navigate('/ops/art')}>
-          ‹ 사업 목록
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <button className="btn txt" style={{ padding: 0 }} onClick={() => navigate('/ops/art')}>
+            ‹ 사업 목록
+          </button>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button className="btn sec" style={{ padding: '4px 12px' }} onClick={() => setEditOpen(true)}>
+              사업 수정
+            </button>
+            <button
+              className="btn sec"
+              style={{ padding: '4px 12px', color: 'var(--danger)' }}
+              onClick={removeProject}
+            >
+              삭제
+            </button>
+          </div>
+        </div>
         <div className="pt">
           <h2>{p.name}</h2>
           <span className="pst">{p.status}</span>
@@ -642,6 +673,16 @@ export default function ArtDetail() {
           onSubmitted={() => {
             setAdvOpen(false)
             reloadAdvisors()
+          }}
+        />
+      )}
+      {editOpen && (
+        <ArtProjectModal
+          project={p}
+          onClose={() => setEditOpen(false)}
+          onSaved={() => {
+            setEditOpen(false)
+            projQ.reload()
           }}
         />
       )}

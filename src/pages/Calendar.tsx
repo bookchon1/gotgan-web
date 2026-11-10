@@ -30,6 +30,8 @@ interface CalItem {
   id: string
   area: string | null
   title: string
+  // 개인일정만: 원본 이벤트(수정·삭제용)
+  ev?: GotganEvent
 }
 
 export default function Calendar() {
@@ -38,6 +40,8 @@ export default function Calendar() {
   const [ym, setYm] = useState({ y: today.getFullYear(), m: today.getMonth() + 1 })
   const [filters, setFilters] = useState<string[]>([])
   const [addOpen, setAddOpen] = useState(false)
+  // 개인일정 수정 대상 (null=닫힘)
+  const [editEv, setEditEv] = useState<GotganEvent | null>(null)
 
   const lastDay = new Date(ym.y, ym.m, 0).getDate()
   const monthStart = `${ym.y}-${String(ym.m).padStart(2, '0')}-01`
@@ -90,7 +94,12 @@ export default function Calendar() {
     const m: Record<number, CalItem[]> = {}
     for (const e of events) {
       const d = parseInt(dateOnly(e.date).slice(8, 10), 10)
-      ;(m[d] ??= []).push({ id: e.id, area: e.area, title: e.title })
+      ;(m[d] ??= []).push({
+        id: e.id,
+        area: e.area,
+        title: e.title,
+        ev: e.area === 'personal' ? e : undefined,
+      })
     }
     // 부서별 업무현황: start_date~due_date 범위를 이번 달 안에서 하루씩 전개(영역 색상)
     for (const tk of taskQ.data ?? []) {
@@ -221,7 +230,12 @@ export default function Calendar() {
                   <span
                     key={e.id}
                     className="ev"
-                    style={{ background: e.area ? AREA_COLOR[e.area]?.c ?? 'var(--brand)' : 'var(--brand)' }}
+                    style={{
+                      background: e.area ? AREA_COLOR[e.area]?.c ?? 'var(--brand)' : 'var(--brand)',
+                      cursor: e.ev ? 'pointer' : 'default',
+                    }}
+                    title={e.ev ? '클릭하여 수정·삭제' : undefined}
+                    onClick={e.ev ? () => setEditEv(e.ev!) : undefined}
                   >
                     {e.title}
                   </span>
@@ -232,13 +246,18 @@ export default function Calendar() {
         </div>
       </section>
 
-      {addOpen && (
+      {(addOpen || editEv) && (
         <PersonalEventModal
+          event={editEv}
           employeeId={me?.id ?? null}
           defaultMonth={ym}
-          onClose={() => setAddOpen(false)}
-          onCreated={() => {
+          onClose={() => {
             setAddOpen(false)
+            setEditEv(null)
+          }}
+          onSaved={() => {
+            setAddOpen(false)
+            setEditEv(null)
             evQ.reload()
           }}
         />
@@ -247,18 +266,21 @@ export default function Calendar() {
   )
 }
 
-/** 개인일정 등록 — events 테이블에 area:'personal' 로 insert */
+/** 개인일정 등록·수정·삭제 — events 테이블(area:'personal') */
 function PersonalEventModal({
+  event,
   employeeId,
   defaultMonth,
   onClose,
-  onCreated,
+  onSaved,
 }: {
+  event: GotganEvent | null
   employeeId: string | null
   defaultMonth: { y: number; m: number }
   onClose: () => void
-  onCreated: () => void
+  onSaved: () => void
 }) {
+  const editing = !!event
   // 기본 날짜: 현재 보고 있는 달의 1일(또는 오늘이 그 달이면 오늘)
   const today = new Date()
   const isCur = defaultMonth.y === today.getFullYear() && defaultMonth.m === today.getMonth() + 1
@@ -266,8 +288,9 @@ function PersonalEventModal({
     ? `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
     : `${defaultMonth.y}-${String(defaultMonth.m).padStart(2, '0')}-01`
 
-  const [title, setTitle] = useState('')
-  const [date, setDate] = useState(defaultDate)
+  const [title, setTitle] = useState(event?.title ?? '')
+  const [date, setDate] = useState(event ? dateOnly(event.date) : defaultDate)
+  // 수정 시에는 제목에 메모가 합쳐져 저장돼 있어 메모칸은 비우고 제목 그대로 편집
   const [memo, setMemo] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -285,18 +308,33 @@ function PersonalEventModal({
     setErr(null)
     // 메모가 있으면 제목 뒤에 덧붙여 저장 (events 에는 memo 컬럼이 없으므로 제목에 합침)
     const fullTitle = memo.trim() ? `${title.trim()} · ${memo.trim()}` : title.trim()
-    const { error } = await supabase.from('events').insert({
-      date,
-      area: 'personal',
-      title: fullTitle,
-      employee_id: employeeId,
-    })
+    const { error } = editing
+      ? await supabase.from('events').update({ date, title: fullTitle }).eq('id', event!.id)
+      : await supabase.from('events').insert({
+          date,
+          area: 'personal',
+          title: fullTitle,
+          employee_id: employeeId,
+        })
     setBusy(false)
     if (error) {
       setErr(error.message)
       return
     }
-    onCreated()
+    onSaved()
+  }
+
+  async function remove() {
+    if (!event) return
+    if (!window.confirm(`개인일정 "${event.title}" 을(를) 삭제할까요?`)) return
+    setBusy(true)
+    const { error } = await supabase.from('events').delete().eq('id', event.id)
+    setBusy(false)
+    if (error) {
+      setErr(error.message)
+      return
+    }
+    onSaved()
   }
 
   return (
@@ -304,7 +342,7 @@ function PersonalEventModal({
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="mh">
           <div>
-            <div className="eyebrow">개인일정 등록</div>
+            <div className="eyebrow">개인일정 {editing ? '수정' : '등록'}</div>
             <h3>내 일정</h3>
           </div>
           <button className="x" onClick={onClose}>
@@ -326,27 +364,39 @@ function PersonalEventModal({
             <label>날짜</label>
             <input className="ctl" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
-          <div className="mfield">
-            <label>메모</label>
-            <input
-              className="ctl"
-              value={memo}
-              onChange={(e) => setMemo(e.target.value)}
-              placeholder="선택 입력"
-            />
-          </div>
+          {!editing && (
+            <div className="mfield">
+              <label>메모</label>
+              <input
+                className="ctl"
+                value={memo}
+                onChange={(e) => setMemo(e.target.value)}
+                placeholder="선택 입력"
+              />
+            </div>
+          )}
           {err && (
             <div className="login-alert err" style={{ margin: 0 }}>
               {err}
             </div>
           )}
         </div>
-        <div className="mf">
+        <div className="mf" style={{ display: 'flex', alignItems: 'center' }}>
+          {editing && (
+            <button
+              className="btn txt"
+              style={{ color: 'var(--danger)', fontWeight: 700, marginRight: 'auto' }}
+              onClick={remove}
+              disabled={busy}
+            >
+              삭제
+            </button>
+          )}
           <button className="btn sec" onClick={onClose} disabled={busy}>
             취소
           </button>
           <button className="btn pri" onClick={submit} disabled={busy || !title.trim()}>
-            {busy ? '등록 중…' : '등록'}
+            {busy ? '저장 중…' : editing ? '저장' : '등록'}
           </button>
         </div>
       </div>

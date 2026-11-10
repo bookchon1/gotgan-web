@@ -72,6 +72,13 @@ export default function Tasks() {
     return allTasks.filter((t) => regMonth(t) === curMonth)
   }, [allTasks, curMonth, isAll])
 
+  // 드래그 앤 드롭 상태 + 드롭 직후 깜빡임 방지용 낙관적 순서
+  const [dragId, setDragId] = useState<string | null>(null)
+  const [overId, setOverId] = useState<string | null>(null)
+  const [optimistic, setOptimistic] = useState<WorkTask[] | null>(null)
+  // 실제로 화면에 그릴 목록 (낙관적 순서가 있으면 우선)
+  const view = optimistic ?? tasks
+
   // 'YYYY-MM' 을 n개월 이동
   function shiftMonth(ym: string, n: number): string {
     const [y, m] = ym.split('-').map(Number)
@@ -147,28 +154,34 @@ export default function Tasks() {
     taskQ.reload()
   }
 
-  // 위/아래로 이동: 현재 보이는 목록에서 이웃과 sort_order 를 맞바꾼다
-  // dir: -1 = 위로(앞으로), +1 = 아래로(뒤로). 목록은 sort_order 내림차순이므로 위=더 큰 값.
-  async function move(t: WorkTask, dir: -1 | 1) {
-    const i = tasks.findIndex((x) => x.id === t.id)
-    const j = i + dir
-    if (i < 0 || j < 0 || j >= tasks.length) return
-    const other = tasks[j]
-    let so = t.sort_order ?? 0
-    let oo = other.sort_order ?? 0
-    // 두 값이 같으면(백필 전) 위 칸이 큰 값이 되도록 1 벌려준다
-    if (so === oo) {
-      if (dir === -1) oo = so - 1
-      else oo = so + 1
-    }
-    setBusy(true)
-    // 서로 값을 맞바꿈
-    await Promise.all([
-      supabase.from('work_tasks').update({ sort_order: oo }).eq('id', t.id),
-      supabase.from('work_tasks').update({ sort_order: so }).eq('id', other.id),
-    ])
-    setBusy(false)
-    taskQ.reload()
+  async function persistOrder(ordered: WorkTask[]) {
+    // 보이는 행들이 쓰던 sort_order 값 풀을 '그대로' 새 순서에 재배치 →
+    // 숨겨진(다른 월) 행과 충돌하지 않고, 내림차순 정렬이 새 순서를 그대로 반영.
+    const pool = ordered.map((t) => t.sort_order ?? 0).sort((x, y) => y - x) // 큰 값부터
+    const updates: { id: string; sort_order: number }[] = []
+    ordered.forEach((t, idx) => {
+      const want = pool[idx]
+      if ((t.sort_order ?? 0) !== want) updates.push({ id: t.id, sort_order: want })
+    })
+    if (updates.length === 0) return
+    setOptimistic(ordered)
+    await Promise.all(
+      updates.map((u) => supabase.from('work_tasks').update({ sort_order: u.sort_order }).eq('id', u.id)),
+    )
+    await taskQ.reload()
+    setOptimistic(null)
+  }
+
+  function onDrop(targetId: string) {
+    const from = view.findIndex((t) => t.id === dragId)
+    const to = view.findIndex((t) => t.id === targetId)
+    setDragId(null)
+    setOverId(null)
+    if (from < 0 || to < 0 || from === to) return
+    const next = view.slice()
+    const [moved] = next.splice(from, 1)
+    next.splice(to, 0, moved)
+    persistOrder(next)
   }
 
   return (
@@ -191,6 +204,7 @@ export default function Tasks() {
             <h2>
               {label} <span className="count">{taskQ.loading ? '…' : tasks.length}</span>
             </h2>
+            <span style={{ fontSize: 11, color: 'var(--muted)' }}>⠿ 끌어서 순서를 바꿀 수 있어요</span>
           </div>
           {/* 월 단위 이동 — 데이터는 그대로, 보기만 월별로 나눔 (달력 기준, 빈 달도 이동) */}
           <div className="month-nav" style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
@@ -227,6 +241,7 @@ export default function Tasks() {
           <table>
             <thead>
               <tr>
+                <th style={{ width: 28 }} />
                 <th>업무</th>
                 <th>담당자</th>
                 <th>등록</th>
@@ -237,13 +252,49 @@ export default function Tasks() {
               </tr>
             </thead>
             <tbody>
-              {taskQ.loading && <LoadingRow cols={7} />}
+              {taskQ.loading && <LoadingRow cols={8} />}
               {!taskQ.loading &&
-                tasks.map((t, i) => {
+                view.map((t) => {
                   const chk = t.status === 'done'
                   const sc = ST_CHIP[t.status] ?? ST_CHIP.plan
+                  const isDragging = dragId === t.id
+                  const isOver = overId === t.id && dragId !== t.id
                   return (
-                    <tr key={t.id}>
+                    <tr
+                      key={t.id}
+                      onDragOver={(e) => {
+                        if (!dragId) return
+                        e.preventDefault()
+                        if (overId !== t.id) setOverId(t.id)
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault()
+                        onDrop(t.id)
+                      }}
+                      style={{
+                        opacity: isDragging ? 0.4 : 1,
+                        boxShadow: isOver ? 'inset 0 2px 0 var(--brand)' : undefined,
+                        background: isOver ? 'var(--brand-soft)' : undefined,
+                      }}
+                    >
+                      <td
+                        draggable
+                        onDragStart={() => setDragId(t.id)}
+                        onDragEnd={() => {
+                          setDragId(null)
+                          setOverId(null)
+                        }}
+                        title="끌어서 순서 변경"
+                        style={{
+                          cursor: 'grab',
+                          color: 'var(--muted)',
+                          textAlign: 'center',
+                          userSelect: 'none',
+                          fontSize: 14,
+                        }}
+                      >
+                        ⠿
+                      </td>
                       <td>
                         <div className={`t-title${chk ? ' done-txt' : ''}`}>{t.title}</div>
                         {a && (
@@ -279,26 +330,8 @@ export default function Tasks() {
                       </td>
                       <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                         <button
-                          className="btn sec"
-                          style={{ padding: '2px 7px', fontSize: 12, lineHeight: 1 }}
-                          onClick={() => move(t, -1)}
-                          disabled={busy || i === 0}
-                          title="위로"
-                        >
-                          ↑
-                        </button>
-                        <button
-                          className="btn sec"
-                          style={{ padding: '2px 7px', fontSize: 12, lineHeight: 1, marginLeft: 3 }}
-                          onClick={() => move(t, 1)}
-                          disabled={busy || i === tasks.length - 1}
-                          title="아래로"
-                        >
-                          ↓
-                        </button>
-                        <button
                           className="btn txt"
-                          style={{ padding: '2px 6px', fontSize: 11.5, marginLeft: 4 }}
+                          style={{ padding: '2px 6px', fontSize: 11.5 }}
                           onClick={() => openEdit(t)}
                           disabled={busy}
                         >
@@ -318,7 +351,7 @@ export default function Tasks() {
                 })}
               {!taskQ.loading && tasks.length === 0 && !taskQ.error && (
                 <EmptyRow
-                  cols={7}
+                  cols={8}
                   text={isAll ? '등록된 업무가 없습니다.' : `${curMonth!.slice(0, 4)}년 ${+curMonth!.slice(5, 7)}월에 등록된 업무가 없습니다.`}
                 />
               )}

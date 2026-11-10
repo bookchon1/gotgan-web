@@ -59,27 +59,26 @@ export default function Tasks() {
 
   const allTasks = taskQ.data ?? []
 
-  // 월 단위 보기: 등록월 목록(최신순). 'all' = 전체 보기
-  const months = useMemo(() => {
-    const set = new Set<string>()
-    for (const t of allTasks) if (regMonth(t)) set.add(regMonth(t))
-    return Array.from(set).sort((x, y) => (x < y ? 1 : -1)) // 최신월 먼저
-  }, [allTasks])
-
-  // 선택된 월 (기본: 가장 최신월). 'all' 가능
-  const [month, setMonth] = useState<string | null>(null)
-  const curMonth = month ?? months[0] ?? null // 데이터 로드 전엔 null
+  // 월 단위 보기: 달력 기준으로 ◀ ▶ 이동 (데이터 없는 달도 이동 가능, 빈 목록 표시).
+  // 'all' = 전체 보기. 기본 = 이번 달.
+  const THIS_MONTH = new Date().toISOString().slice(0, 7)
+  const [month, setMonth] = useState<string>(THIS_MONTH)
   const isAll = month === 'all'
+  const curMonth = isAll ? null : month
 
   const tasks = useMemo(() => {
-    if (isAll || !curMonth) return allTasks
+    if (isAll) return allTasks
     return allTasks.filter((t) => regMonth(t) === curMonth)
   }, [allTasks, curMonth, isAll])
 
-  // ◀ ▶ 로 이웃 월 이동
-  const idx = curMonth ? months.indexOf(curMonth) : -1
-  const goPrev = () => { if (idx >= 0 && idx < months.length - 1) setMonth(months[idx + 1]) } // 과거(오른쪽=더 예전)
-  const goNext = () => { if (idx > 0) setMonth(months[idx - 1]) } // 미래(최신)
+  // 'YYYY-MM' 을 n개월 이동
+  function shiftMonth(ym: string, n: number): string {
+    const [y, m] = ym.split('-').map(Number)
+    const d = new Date(y, m - 1 + n, 1)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  }
+  const goPrev = () => setMonth((m) => shiftMonth(m === 'all' ? THIS_MONTH : m, -1)) // 과거로
+  const goNext = () => setMonth((m) => shiftMonth(m === 'all' ? THIS_MONTH : m, +1)) // 미래로
 
   const [busy, setBusy] = useState(false)
 
@@ -165,39 +164,36 @@ export default function Tasks() {
               {label} <span className="count">{taskQ.loading ? '…' : tasks.length}</span>
             </h2>
           </div>
-          {/* 월 단위 이동 — 데이터는 그대로, 보기만 월별로 나눔 */}
-          {!taskQ.loading && months.length > 0 && (
-            <div className="month-nav" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <button
-                className="btn sec"
-                style={{ padding: '4px 9px' }}
-                onClick={goPrev}
-                disabled={isAll || idx < 0 || idx >= months.length - 1}
-                title="이전 달"
-              >
-                ◀
-              </button>
-              <span style={{ fontWeight: 700, minWidth: 92, textAlign: 'center', fontSize: 13 }}>
-                {isAll ? '전체 기간' : curMonth ? `${curMonth.slice(0, 4)}년 ${+curMonth.slice(5, 7)}월` : '—'}
-              </span>
-              <button
-                className="btn sec"
-                style={{ padding: '4px 9px' }}
-                onClick={goNext}
-                disabled={isAll || idx <= 0}
-                title="다음 달"
-              >
-                ▶
-              </button>
-              <button
-                className={`btn ${isAll ? 'pri' : 'sec'}`}
-                style={{ padding: '4px 10px', marginLeft: 4 }}
-                onClick={() => setMonth(isAll ? (months[0] ?? 'all') : 'all')}
-              >
-                {isAll ? '월별 보기' : '전체'}
-              </button>
-            </div>
-          )}
+          {/* 월 단위 이동 — 데이터는 그대로, 보기만 월별로 나눔 (달력 기준, 빈 달도 이동) */}
+          <div className="month-nav" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <button
+              className="btn sec"
+              style={{ padding: '4px 11px' }}
+              onClick={goPrev}
+              title="이전 달"
+            >
+              ‹ 이전
+            </button>
+            <span style={{ fontWeight: 700, minWidth: 96, textAlign: 'center', fontSize: 13 }}>
+              {isAll ? '전체 기간' : `${curMonth!.slice(0, 4)}년 ${+curMonth!.slice(5, 7)}월`}
+            </span>
+            <button
+              className="btn sec"
+              style={{ padding: '4px 11px' }}
+              onClick={goNext}
+              disabled={!isAll && curMonth! >= THIS_MONTH}
+              title="다음 달"
+            >
+              다음 ›
+            </button>
+            <button
+              className={`btn ${isAll ? 'pri' : 'sec'}`}
+              style={{ padding: '4px 11px', marginLeft: 4 }}
+              onClick={() => setMonth(isAll ? THIS_MONTH : 'all')}
+            >
+              {isAll ? '월별 보기' : '전체 보기'}
+            </button>
+          </div>
         </div>
         <div className="tbl-wrap">
           <table>
@@ -275,7 +271,10 @@ export default function Tasks() {
                   )
                 })}
               {!taskQ.loading && tasks.length === 0 && !taskQ.error && (
-                <EmptyRow cols={7} text="등록된 업무가 없습니다." />
+                <EmptyRow
+                  cols={7}
+                  text={isAll ? '등록된 업무가 없습니다.' : `${curMonth!.slice(0, 4)}년 ${+curMonth!.slice(5, 7)}월에 등록된 업무가 없습니다.`}
+                />
               )}
             </tbody>
           </table>

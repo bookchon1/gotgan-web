@@ -218,7 +218,7 @@ export default function ArtDetail() {
             </button>
             <button
               className="btn sec"
-              style={{ padding: '4px 12px', color: 'var(--danger)' }}
+              style={{ padding: '4px 12px', color: '#ffd9d0', borderColor: 'rgba(255,170,150,.5)' }}
               onClick={removeProject}
             >
               삭제

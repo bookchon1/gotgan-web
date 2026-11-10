@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
 import { PageHead } from '../components/PageHead'
 import { ErrorBanner } from '../components/States'
 import { supabase } from '../lib/supabase'
@@ -32,6 +33,10 @@ interface CalItem {
   title: string
   // 개인일정만: 원본 이벤트(수정·삭제용)
   ev?: GotganEvent
+  // 업무일정만: 원본 업무(상세 팝업용)
+  task?: WorkTask
+  // 휴가만: 상세 표시용
+  leave?: { emp: string; type: string; start: string; end: string }
 }
 
 export default function Calendar() {
@@ -42,6 +47,8 @@ export default function Calendar() {
   const [addOpen, setAddOpen] = useState(false)
   // 개인일정 수정 대상 (null=닫힘)
   const [editEv, setEditEv] = useState<GotganEvent | null>(null)
+  // 일정 상세 팝업 대상 (업무·휴가 등 — 읽기전용)
+  const [detail, setDetail] = useState<CalItem | null>(null)
 
   const lastDay = new Date(ym.y, ym.m, 0).getDate()
   const monthStart = `${ym.y}-${String(ym.m).padStart(2, '0')}-01`
@@ -111,7 +118,7 @@ export default function Calendar() {
       if (+from > +to) continue
       for (let t = +from; t <= +to; t += 86_400_000) {
         const d = new Date(t).getDate()
-        ;(m[d] ??= []).push({ id: `tk-${tk.id}-${d}`, area: tk.area, title: tk.title })
+        ;(m[d] ??= []).push({ id: `tk-${tk.id}-${d}`, area: tk.area, title: tk.title, task: tk })
       }
     }
     // 승인된 휴가: start~end 범위를 이번 달 안에서 하루씩 전개
@@ -123,9 +130,10 @@ export default function Calendar() {
       const title = `${nm ? nm + ' ' : ''}${lv.leave_type || '휴가'}`
       const from = new Date(Math.max(+new Date(s), +new Date(monthStart)))
       const to = new Date(Math.min(+new Date(e), +new Date(monthEnd)))
+      const leaveInfo = { emp: nm, type: lv.leave_type || '휴가', start: s, end: e }
       for (let t = +from; t <= +to; t += 86_400_000) {
         const d = new Date(t).getDate()
-        ;(m[d] ??= []).push({ id: `lv-${lv.id}-${d}`, area: 'leave', title })
+        ;(m[d] ??= []).push({ id: `lv-${lv.id}-${d}`, area: 'leave', title, leave: leaveInfo })
       }
     }
     return m
@@ -226,20 +234,28 @@ export default function Calendar() {
                   {d}
                   {isToday && <span style={{ fontSize: 8, color: 'var(--brand)' }}> 오늘</span>}
                 </span>
-                {evs.map((e) => (
-                  <span
-                    key={e.id}
-                    className="ev"
-                    style={{
-                      background: e.area ? AREA_COLOR[e.area]?.c ?? 'var(--brand)' : 'var(--brand)',
-                      cursor: e.ev ? 'pointer' : 'default',
-                    }}
-                    title={e.ev ? '클릭하여 수정·삭제' : undefined}
-                    onClick={e.ev ? () => setEditEv(e.ev!) : undefined}
-                  >
-                    {e.title}
-                  </span>
-                ))}
+                {evs.map((e) => {
+                  const clickable = !!(e.ev || e.task || e.leave)
+                  const onClick = e.ev
+                    ? () => setEditEv(e.ev!)
+                    : e.task || e.leave
+                    ? () => setDetail(e)
+                    : undefined
+                  return (
+                    <span
+                      key={e.id}
+                      className="ev"
+                      style={{
+                        background: e.area ? AREA_COLOR[e.area]?.c ?? 'var(--brand)' : 'var(--brand)',
+                        cursor: clickable ? 'pointer' : 'default',
+                      }}
+                      title={e.ev ? '클릭하여 수정·삭제' : clickable ? '클릭하여 상세 보기' : undefined}
+                      onClick={onClick}
+                    >
+                      {e.title}
+                    </span>
+                  )
+                })}
               </div>
             )
           })}
@@ -262,6 +278,82 @@ export default function Calendar() {
           }}
         />
       )}
+
+      {detail && (
+        <EventDetailModal item={detail} empName={empName} onClose={() => setDetail(null)} />
+      )}
+    </div>
+  )
+}
+
+const TASK_ST: Record<string, string> = { plan: '예정', prog: '진행', hold: '보류', done: '완료' }
+const STATUS_CLS: Record<string, string> = { plan: 'c-plan', prog: 'c-prog', hold: 'set-hold', done: 'c-done' }
+
+/** 일정 상세 팝업 — 업무일정/휴가 (읽기전용) */
+function EventDetailModal({
+  item,
+  empName,
+  onClose,
+}: {
+  item: CalItem
+  empName: Record<string, string>
+  onClose: () => void
+}) {
+  const tk = item.task
+  const lv = item.leave
+  const kind = tk ? '업무 일정' : lv ? '휴가' : '일정'
+  return (
+    <div className="modal-bg" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 460 }} onClick={(e) => e.stopPropagation()}>
+        <div className="mh">
+          <div>
+            <div className="eyebrow">{kind} · 상세</div>
+            <h3>{item.title}</h3>
+          </div>
+          <button className="x" onClick={onClose}>
+            ✕
+          </button>
+        </div>
+        <div className="mb">
+          {tk && (
+            <div className="field-grid">
+              <Field l="구분" v={<span className="badge gold">{AREA_COLOR[tk.area ?? '']?.t ?? tk.dept ?? '—'}</span>} />
+              <Field l="담당자" v={tk.owner_id ? empName[tk.owner_id] ?? '—' : '—'} />
+              <Field l="세부분류" v={tk.detail || '—'} />
+              <Field
+                l="상태"
+                v={<span className={`chip ${STATUS_CLS[tk.status] ?? 'c-plan'}`}><i />{TASK_ST[tk.status] ?? tk.status}</span>}
+              />
+              <Field l="시작일" v={dateOnly(tk.start_date) || '—'} />
+              <Field l="마감일" v={dateOnly(tk.due_date) || '—'} />
+              <Field l="등록일" v={dateOnly(tk.reg_date) || '—'} />
+              {tk.src && <Field l="출처" v={tk.src} />}
+            </div>
+          )}
+          {lv && (
+            <div className="field-grid">
+              <Field l="대상자" v={lv.emp || '—'} />
+              <Field l="휴가 종류" v={lv.type} />
+              <Field l="시작일" v={dateOnly(lv.start) || '—'} />
+              <Field l="종료일" v={dateOnly(lv.end) || '—'} />
+            </div>
+          )}
+        </div>
+        <div className="mf">
+          <button className="btn pri" onClick={onClose}>
+            닫기
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Field({ l, v }: { l: string; v: ReactNode }) {
+  return (
+    <div className="field">
+      <div className="fl">{l}</div>
+      <div className="fv">{v}</div>
     </div>
   )
 }

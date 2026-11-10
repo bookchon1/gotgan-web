@@ -206,30 +206,27 @@ export default function ArtDetail() {
 
   return (
     <div className="page on" id="p-ops-art-detail">
-      {/* 상단 고정 헤더 */}
-      <div className="proj-head">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-          <button className="btn txt" style={{ padding: 0 }} onClick={() => navigate('/ops/art')}>
-            ‹ 사업 목록
+      {/* 상단 버튼 바 — 초록 헤더 위, 다른 화면 버튼과 동일한 스타일 */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '2px 0 10px' }}>
+        <button className="btn txt" style={{ padding: 0 }} onClick={() => navigate('/ops/art')}>
+          ‹ 사업 목록
+        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn sec" onClick={() => setEditOpen(true)}>
+            사업 수정
           </button>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button className="btn sec" style={{ padding: '4px 12px' }} onClick={() => setEditOpen(true)}>
-              사업 수정
-            </button>
-            <button
-              className="btn sec"
-              style={{ padding: '4px 12px', color: '#ffd9d0', borderColor: 'rgba(255,170,150,.5)' }}
-              onClick={removeProject}
-            >
-              삭제
-            </button>
-          </div>
+          <button className="btn sec" style={{ color: 'var(--danger)' }} onClick={removeProject}>
+            삭제
+          </button>
         </div>
+      </div>
+
+      {/* 초록 헤더 — 제목·상태·진행률만 (더 낮게) */}
+      <div className="proj-head">
         <div className="pt">
           <h2>{p.name}</h2>
           <span className="pst">{p.status}</span>
         </div>
-        <div className="pnow">{p.now_text}</div>
         <div className="pprog">
           <div className="track">
             <div className={`fill${prog.pct === 100 ? ' full' : ''}`} style={{ width: `${prog.pct}%` }} />

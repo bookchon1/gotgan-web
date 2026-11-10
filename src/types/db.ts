@@ -71,6 +71,7 @@ export interface WorkTask {
   status: 'plan' | 'prog' | 'hold' | 'done'
   src: string | null
   src_project_id: string | null
+  sort_order: number | null
 }
 
 export type ArtStatus = '공고/입찰' | '예정' | '진행' | '완료' | '탈락/보류'

@@ -44,6 +44,7 @@ export default function Tasks() {
         .from('work_tasks')
         .select('*')
         .eq('area', area!)
+        .order('sort_order', { ascending: false, nullsFirst: false })
         .order('reg_date', { ascending: false }),
     [area],
   )
@@ -105,6 +106,8 @@ export default function Tasks() {
     if (!form.title.trim()) return
     setBusy(true)
     if (modalFor === 'new') {
+      // 새 업무는 목록 맨 위로 (현재 영역 최대 sort_order + 1)
+      const maxSort = allTasks.reduce((mx, t) => Math.max(mx, t.sort_order ?? 0), 0)
       // 담당자는 무조건 로그인한 작성자
       await supabase.from('work_tasks').insert({
         area: area!,
@@ -116,6 +119,7 @@ export default function Tasks() {
         start_date: form.start || null,
         due_date: form.due || null,
         status: form.status,
+        sort_order: maxSort + 1,
       })
     } else if (modalFor) {
       await supabase
@@ -139,6 +143,30 @@ export default function Tasks() {
     if (!window.confirm(`업무 "${t.title}" 을(를) 삭제할까요?\n삭제하면 되돌릴 수 없습니다.`)) return
     setBusy(true)
     await supabase.from('work_tasks').delete().eq('id', t.id)
+    setBusy(false)
+    taskQ.reload()
+  }
+
+  // 위/아래로 이동: 현재 보이는 목록에서 이웃과 sort_order 를 맞바꾼다
+  // dir: -1 = 위로(앞으로), +1 = 아래로(뒤로). 목록은 sort_order 내림차순이므로 위=더 큰 값.
+  async function move(t: WorkTask, dir: -1 | 1) {
+    const i = tasks.findIndex((x) => x.id === t.id)
+    const j = i + dir
+    if (i < 0 || j < 0 || j >= tasks.length) return
+    const other = tasks[j]
+    let so = t.sort_order ?? 0
+    let oo = other.sort_order ?? 0
+    // 두 값이 같으면(백필 전) 위 칸이 큰 값이 되도록 1 벌려준다
+    if (so === oo) {
+      if (dir === -1) oo = so - 1
+      else oo = so + 1
+    }
+    setBusy(true)
+    // 서로 값을 맞바꿈
+    await Promise.all([
+      supabase.from('work_tasks').update({ sort_order: oo }).eq('id', t.id),
+      supabase.from('work_tasks').update({ sort_order: so }).eq('id', other.id),
+    ])
     setBusy(false)
     taskQ.reload()
   }
@@ -211,7 +239,7 @@ export default function Tasks() {
             <tbody>
               {taskQ.loading && <LoadingRow cols={7} />}
               {!taskQ.loading &&
-                tasks.map((t) => {
+                tasks.map((t, i) => {
                   const chk = t.status === 'done'
                   const sc = ST_CHIP[t.status] ?? ST_CHIP.plan
                   return (
@@ -251,8 +279,26 @@ export default function Tasks() {
                       </td>
                       <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                         <button
+                          className="btn sec"
+                          style={{ padding: '2px 7px', fontSize: 12, lineHeight: 1 }}
+                          onClick={() => move(t, -1)}
+                          disabled={busy || i === 0}
+                          title="위로"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          className="btn sec"
+                          style={{ padding: '2px 7px', fontSize: 12, lineHeight: 1, marginLeft: 3 }}
+                          onClick={() => move(t, 1)}
+                          disabled={busy || i === tasks.length - 1}
+                          title="아래로"
+                        >
+                          ↓
+                        </button>
+                        <button
                           className="btn txt"
-                          style={{ padding: '2px 6px', fontSize: 11.5 }}
+                          style={{ padding: '2px 6px', fontSize: 11.5, marginLeft: 4 }}
                           onClick={() => openEdit(t)}
                           disabled={busy}
                         >

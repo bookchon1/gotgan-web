@@ -26,6 +26,11 @@ const ST_OPTS: { v: WorkTask['status']; t: string }[] = [
 type Form = { title: string; start: string; due: string; detail: string; status: WorkTask['status'] }
 const EMPTY_FORM: Form = { title: '', start: '', due: '', detail: '', status: 'plan' }
 
+// 등록일(reg_date) → 'YYYY-MM' 귀속월
+function regMonth(t: WorkTask): string {
+  return (t.reg_date ?? '').slice(0, 7)
+}
+
 export default function Tasks() {
   const { area } = useParams()
   const { me } = useAuth()
@@ -39,7 +44,7 @@ export default function Tasks() {
         .from('work_tasks')
         .select('*')
         .eq('area', area!)
-        .order('due_date', { ascending: true }),
+        .order('reg_date', { ascending: false }),
     [area],
   )
   const empQ = useQuery<Pick<Employee, 'id' | 'name'>[]>(
@@ -52,24 +57,33 @@ export default function Tasks() {
     return m
   }, [empQ.data])
 
+  const allTasks = taskQ.data ?? []
+
+  // 월 단위 보기: 등록월 목록(최신순). 'all' = 전체 보기
+  const months = useMemo(() => {
+    const set = new Set<string>()
+    for (const t of allTasks) if (regMonth(t)) set.add(regMonth(t))
+    return Array.from(set).sort((x, y) => (x < y ? 1 : -1)) // 최신월 먼저
+  }, [allTasks])
+
+  // 선택된 월 (기본: 가장 최신월). 'all' 가능
+  const [month, setMonth] = useState<string | null>(null)
+  const curMonth = month ?? months[0] ?? null // 데이터 로드 전엔 null
+  const isAll = month === 'all'
+
+  const tasks = useMemo(() => {
+    if (isAll || !curMonth) return allTasks
+    return allTasks.filter((t) => regMonth(t) === curMonth)
+  }, [allTasks, curMonth, isAll])
+
+  // ◀ ▶ 로 이웃 월 이동
+  const idx = curMonth ? months.indexOf(curMonth) : -1
+  const goPrev = () => { if (idx >= 0 && idx < months.length - 1) setMonth(months[idx + 1]) } // 과거(오른쪽=더 예전)
+  const goNext = () => { if (idx > 0) setMonth(months[idx - 1]) } // 미래(최신)
+
   const [busy, setBusy] = useState(false)
 
-  // 상태를 드롭다운으로 직접 변경
-  async function setStatus(t: WorkTask, status: WorkTask['status']) {
-    if (status === t.status) return
-    setBusy(true)
-    await supabase.from('work_tasks').update({ status }).eq('id', t.id)
-    setBusy(false)
-    taskQ.reload()
-  }
-
-  const tasks = taskQ.data ?? []
-  const nPlan = tasks.filter((t) => t.status === 'plan').length
-  const nProg = tasks.filter((t) => t.status === 'prog').length
-  const nHold = tasks.filter((t) => t.status === 'hold').length
-  const nDone = tasks.filter((t) => t.status === 'done').length
-
-  // 등록/수정 모달 — edit=null 이면 신규
+  // 등록/수정 모달 — 'new' 이면 신규
   const [modalFor, setModalFor] = useState<null | WorkTask | 'new'>(null)
   const [form, setForm] = useState<Form>(EMPTY_FORM)
 
@@ -143,23 +157,47 @@ export default function Tasks() {
         }
       />
 
-      {/* KPI 미니 탭 */}
-      <div className="stats" style={{ marginBottom: 14 }}>
-        <MiniStat lbl="전체" n={tasks.length} />
-        <MiniStat lbl="예정" n={nPlan} />
-        <MiniStat lbl="진행" n={nProg} />
-        <MiniStat lbl="보류" n={nHold} />
-        <MiniStat lbl="완료" n={nDone} />
-      </div>
-
       <section className="panel">
         <ErrorBanner error={taskQ.error} table="work_tasks" />
-        <div className="panel-h">
+        <div className="panel-h" style={{ alignItems: 'center' }}>
           <div>
             <h2>
               {label} <span className="count">{taskQ.loading ? '…' : tasks.length}</span>
             </h2>
           </div>
+          {/* 월 단위 이동 — 데이터는 그대로, 보기만 월별로 나눔 */}
+          {!taskQ.loading && months.length > 0 && (
+            <div className="month-nav" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button
+                className="btn sec"
+                style={{ padding: '4px 9px' }}
+                onClick={goPrev}
+                disabled={isAll || idx < 0 || idx >= months.length - 1}
+                title="이전 달"
+              >
+                ◀
+              </button>
+              <span style={{ fontWeight: 700, minWidth: 92, textAlign: 'center', fontSize: 13 }}>
+                {isAll ? '전체 기간' : curMonth ? `${curMonth.slice(0, 4)}년 ${+curMonth.slice(5, 7)}월` : '—'}
+              </span>
+              <button
+                className="btn sec"
+                style={{ padding: '4px 9px' }}
+                onClick={goNext}
+                disabled={isAll || idx <= 0}
+                title="다음 달"
+              >
+                ▶
+              </button>
+              <button
+                className={`btn ${isAll ? 'pri' : 'sec'}`}
+                style={{ padding: '4px 10px', marginLeft: 4 }}
+                onClick={() => setMonth(isAll ? (months[0] ?? 'all') : 'all')}
+              >
+                {isAll ? '월별 보기' : '전체'}
+              </button>
+            </div>
+          )}
         </div>
         <div className="tbl-wrap">
           <table>
@@ -179,6 +217,7 @@ export default function Tasks() {
               {!taskQ.loading &&
                 tasks.map((t) => {
                   const chk = t.status === 'done'
+                  const sc = ST_CHIP[t.status] ?? ST_CHIP.plan
                   return (
                     <tr key={t.id}>
                       <td>
@@ -209,19 +248,10 @@ export default function Tasks() {
                       <td className="tnum">{mmdd(t.start_date)}</td>
                       <td className="tnum">{mmdd(t.due_date)}</td>
                       <td>
-                        <select
-                          className={`ctl chip-sel ${(ST_CHIP[t.status] ?? ST_CHIP.plan)[0]}`}
-                          value={t.status}
-                          disabled={busy}
-                          onChange={(e) => setStatus(t, e.target.value as WorkTask['status'])}
-                          style={{ padding: '4px 8px', fontSize: 11.5, fontWeight: 700, width: 'auto' }}
-                        >
-                          {ST_OPTS.map((o) => (
-                            <option key={o.v} value={o.v}>
-                              {o.t}
-                            </option>
-                          ))}
-                        </select>
+                        <span className={`chip ${sc[0]}`}>
+                          <i />
+                          {sc[1]}
+                        </span>
                       </td>
                       <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                         <button
@@ -322,20 +352,6 @@ export default function Tasks() {
           </div>
         </div>
       )}
-    </div>
-  )
-}
-
-function MiniStat({ lbl, n }: { lbl: string; n: number }) {
-  return (
-    <div className="stat">
-      <div>
-        <div className="lbl">{lbl}</div>
-        <div className="val tnum">
-          {n}
-          <small>건</small>
-        </div>
-      </div>
     </div>
   )
 }

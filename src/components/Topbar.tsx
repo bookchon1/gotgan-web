@@ -29,7 +29,8 @@ export default function Topbar({ onToggleSidebar }: { onToggleSidebar: () => voi
         {crumb.extra && (
           <>
             {' '}
-            <span className="sep">›</span> <strong>{crumb.extra}</strong>
+            <span className="sep">›</span>{' '}
+            <strong style={{ color: 'var(--gold, #A9781F)' }}>{crumb.extra}</strong>
           </>
         )}
       </div>

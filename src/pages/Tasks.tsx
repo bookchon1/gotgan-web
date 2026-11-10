@@ -4,20 +4,33 @@ import { PageHead } from '../components/PageHead'
 import { ErrorBanner, LoadingRow, EmptyRow } from '../components/States'
 import { supabase } from '../lib/supabase'
 import { useQuery } from '../lib/useQuery'
+import { useAuth } from '../lib/auth'
 import { mmdd } from '../lib/format'
 import { AREAS } from '../data/areas'
 import type { WorkTask, Employee } from '../types/db'
 
+// 상태 4종: 예정 / 진행 / 보류 / 완료
 const ST_CHIP: Record<string, [string, string]> = {
   plan: ['c-plan', '예정'],
-  prog: ['c-prog', '진행중'],
+  prog: ['c-prog', '진행'],
+  hold: ['set-hold', '보류'],
   done: ['c-done', '완료'],
 }
+const ST_OPTS: { v: WorkTask['status']; t: string }[] = [
+  { v: 'plan', t: '예정' },
+  { v: 'prog', t: '진행' },
+  { v: 'hold', t: '보류' },
+  { v: 'done', t: '완료' },
+]
+
+type Form = { title: string; start: string; due: string; detail: string; status: WorkTask['status'] }
+const EMPTY_FORM: Form = { title: '', start: '', due: '', detail: '', status: 'plan' }
 
 export default function Tasks() {
   const { area } = useParams()
+  const { me } = useAuth()
   const a = AREAS.find((x) => x.id === area)
-  // 시안과 동일: 제목은 기능명만 ("업무현황"). 부서는 경로·사이드바로 구분하므로 부서명을 붙이지 않는다.
+  // 시안과 동일: 제목은 기능명만 ("업무현황"). 부서는 경로·사이드바로 구분.
   const label = '업무현황'
 
   const taskQ = useQuery<WorkTask[]>(
@@ -40,10 +53,12 @@ export default function Tasks() {
   }, [empQ.data])
 
   const [busy, setBusy] = useState(false)
-  async function toggleDone(t: WorkTask) {
+
+  // 상태를 드롭다운으로 직접 변경
+  async function setStatus(t: WorkTask, status: WorkTask['status']) {
+    if (status === t.status) return
     setBusy(true)
-    const next = t.status === 'done' ? 'prog' : 'done'
-    await supabase.from('work_tasks').update({ status: next }).eq('id', t.id)
+    await supabase.from('work_tasks').update({ status }).eq('id', t.id)
     setBusy(false)
     taskQ.reload()
   }
@@ -51,28 +66,67 @@ export default function Tasks() {
   const tasks = taskQ.data ?? []
   const nPlan = tasks.filter((t) => t.status === 'plan').length
   const nProg = tasks.filter((t) => t.status === 'prog').length
+  const nHold = tasks.filter((t) => t.status === 'hold').length
   const nDone = tasks.filter((t) => t.status === 'done').length
 
-  const [showAdd, setShowAdd] = useState(false)
-  const [form, setForm] = useState({ title: '', owner: '', start: '', due: '', detail: '' })
-  async function addTask() {
+  // 등록/수정 모달 — edit=null 이면 신규
+  const [modalFor, setModalFor] = useState<null | WorkTask | 'new'>(null)
+  const [form, setForm] = useState<Form>(EMPTY_FORM)
+
+  function openNew() {
+    setForm(EMPTY_FORM)
+    setModalFor('new')
+  }
+  function openEdit(t: WorkTask) {
+    setForm({
+      title: t.title,
+      start: t.start_date ?? '',
+      due: t.due_date ?? '',
+      detail: t.detail ?? '',
+      status: t.status,
+    })
+    setModalFor(t)
+  }
+
+  async function saveTask() {
     if (!form.title.trim()) return
     setBusy(true)
-    const ownerId = (empQ.data ?? []).find((e) => e.name === form.owner)?.id ?? null
-    await supabase.from('work_tasks').insert({
-      area: area!,
-      title: form.title.trim(),
-      dept: a?.label ?? null,
-      detail: form.detail || null,
-      owner_id: ownerId,
-      reg_date: new Date().toISOString().slice(0, 10),
-      start_date: form.start || null,
-      due_date: form.due || null,
-      status: 'plan',
-    })
+    if (modalFor === 'new') {
+      // 담당자는 무조건 로그인한 작성자
+      await supabase.from('work_tasks').insert({
+        area: area!,
+        title: form.title.trim(),
+        dept: a?.label ?? null,
+        detail: form.detail || null,
+        owner_id: me?.id ?? null,
+        reg_date: new Date().toISOString().slice(0, 10),
+        start_date: form.start || null,
+        due_date: form.due || null,
+        status: form.status,
+      })
+    } else if (modalFor) {
+      await supabase
+        .from('work_tasks')
+        .update({
+          title: form.title.trim(),
+          detail: form.detail || null,
+          start_date: form.start || null,
+          due_date: form.due || null,
+          status: form.status,
+        })
+        .eq('id', modalFor.id)
+    }
     setBusy(false)
-    setShowAdd(false)
-    setForm({ title: '', owner: '', start: '', due: '', detail: '' })
+    setModalFor(null)
+    setForm(EMPTY_FORM)
+    taskQ.reload()
+  }
+
+  async function removeTask(t: WorkTask) {
+    if (!window.confirm(`업무 "${t.title}" 을(를) 삭제할까요?\n삭제하면 되돌릴 수 없습니다.`)) return
+    setBusy(true)
+    await supabase.from('work_tasks').delete().eq('id', t.id)
+    setBusy(false)
     taskQ.reload()
   }
 
@@ -83,7 +137,7 @@ export default function Tasks() {
         title={label}
         desc="부서별 업무를 한눈에 확인하세요."
         actions={
-          <button className="btn txt add-txt" onClick={() => setShowAdd(true)}>
+          <button className="btn txt add-txt" onClick={openNew}>
             + 업무 등록
           </button>
         }
@@ -93,7 +147,8 @@ export default function Tasks() {
       <div className="stats" style={{ marginBottom: 14 }}>
         <MiniStat lbl="전체" n={tasks.length} />
         <MiniStat lbl="예정" n={nPlan} />
-        <MiniStat lbl="진행중" n={nProg} />
+        <MiniStat lbl="진행" n={nProg} />
+        <MiniStat lbl="보류" n={nHold} />
         <MiniStat lbl="완료" n={nDone} />
       </div>
 
@@ -110,13 +165,13 @@ export default function Tasks() {
           <table>
             <thead>
               <tr>
-                <th />
                 <th>업무</th>
                 <th>담당자</th>
                 <th>등록</th>
                 <th>시작</th>
                 <th>마감</th>
                 <th>상태</th>
+                <th style={{ textAlign: 'right' }}>관리</th>
               </tr>
             </thead>
             <tbody>
@@ -124,23 +179,8 @@ export default function Tasks() {
               {!taskQ.loading &&
                 tasks.map((t) => {
                   const chk = t.status === 'done'
-                  const sc = ST_CHIP[t.status] ?? ST_CHIP.plan
                   return (
                     <tr key={t.id}>
-                      <td>
-                        <button
-                          className={`task-check${chk ? ' checked' : ''}`}
-                          title={chk ? '완료 취소' : '완료 처리'}
-                          onClick={() => toggleDone(t)}
-                          disabled={busy}
-                        >
-                          {chk && (
-                            <svg className="icon" width="11" height="11" viewBox="0 0 24 24">
-                              <path d="M5 12l4 4 10-10" />
-                            </svg>
-                          )}
-                        </button>
-                      </td>
                       <td>
                         <div className={`t-title${chk ? ' done-txt' : ''}`}>{t.title}</div>
                         {a && (
@@ -169,10 +209,37 @@ export default function Tasks() {
                       <td className="tnum">{mmdd(t.start_date)}</td>
                       <td className="tnum">{mmdd(t.due_date)}</td>
                       <td>
-                        <span className={`chip ${sc[0]}`}>
-                          <i />
-                          {sc[1]}
-                        </span>
+                        <select
+                          className={`ctl chip-sel ${(ST_CHIP[t.status] ?? ST_CHIP.plan)[0]}`}
+                          value={t.status}
+                          disabled={busy}
+                          onChange={(e) => setStatus(t, e.target.value as WorkTask['status'])}
+                          style={{ padding: '4px 8px', fontSize: 11.5, fontWeight: 700, width: 'auto' }}
+                        >
+                          {ST_OPTS.map((o) => (
+                            <option key={o.v} value={o.v}>
+                              {o.t}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <button
+                          className="btn txt"
+                          style={{ padding: '2px 6px', fontSize: 11.5 }}
+                          onClick={() => openEdit(t)}
+                          disabled={busy}
+                        >
+                          수정
+                        </button>
+                        <button
+                          className="btn txt"
+                          style={{ padding: '2px 6px', fontSize: 11.5, color: 'var(--danger)' }}
+                          onClick={() => removeTask(t)}
+                          disabled={busy}
+                        >
+                          삭제
+                        </button>
                       </td>
                     </tr>
                   )
@@ -185,15 +252,15 @@ export default function Tasks() {
         </div>
       </section>
 
-      {showAdd && (
-        <div className="modal-bg" onClick={() => setShowAdd(false)}>
+      {modalFor && (
+        <div className="modal-bg" onClick={() => setModalFor(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="mh">
               <div>
-                <div className="eyebrow">업무 등록</div>
+                <div className="eyebrow">{modalFor === 'new' ? '업무 등록' : '업무 수정'}</div>
                 <h3>{label}</h3>
               </div>
-              <button className="x" onClick={() => setShowAdd(false)}>
+              <button className="x" onClick={() => setModalFor(null)}>
                 ✕
               </button>
             </div>
@@ -208,17 +275,15 @@ export default function Tasks() {
                   autoFocus
                 />
               </div>
-              <div className="mfield">
-                <label>담당자</label>
-                <select className="ctl" value={form.owner} onChange={(e) => setForm({ ...form, owner: e.target.value })}>
-                  <option value="">선택</option>
-                  {(empQ.data ?? []).map((e) => (
-                    <option key={e.id} value={e.name}>
-                      {e.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {modalFor === 'new' && (
+                <div className="mfield">
+                  <label>담당자</label>
+                  <input className="ctl" value={me?.name ?? ''} readOnly disabled />
+                  <div className="hint" style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+                    담당자는 로그인한 작성자로 자동 지정됩니다.
+                  </div>
+                </div>
+              )}
               <div style={{ display: 'flex', gap: 10 }}>
                 <div className="mfield" style={{ flex: 1 }}>
                   <label>시작일</label>
@@ -229,17 +294,29 @@ export default function Tasks() {
                   <input className="ctl" type="date" value={form.due} onChange={(e) => setForm({ ...form, due: e.target.value })} />
                 </div>
               </div>
-              <div className="mfield">
-                <label>세부분류</label>
-                <input className="ctl" value={form.detail} onChange={(e) => setForm({ ...form, detail: e.target.value })} placeholder="예: 설계 / 조사 / 작업" />
+              <div style={{ display: 'flex', gap: 10 }}>
+                <div className="mfield" style={{ flex: 1 }}>
+                  <label>세부분류</label>
+                  <input className="ctl" value={form.detail} onChange={(e) => setForm({ ...form, detail: e.target.value })} placeholder="예: 설계 / 조사 / 작업" />
+                </div>
+                <div className="mfield" style={{ width: 130 }}>
+                  <label>상태</label>
+                  <select className="ctl" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as WorkTask['status'] })}>
+                    {ST_OPTS.map((o) => (
+                      <option key={o.v} value={o.v}>
+                        {o.t}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
             <div className="mf">
-              <button className="btn sec" onClick={() => setShowAdd(false)} disabled={busy}>
+              <button className="btn sec" onClick={() => setModalFor(null)} disabled={busy}>
                 취소
               </button>
-              <button className="btn pri" onClick={addTask} disabled={busy || !form.title.trim()}>
-                {busy ? '등록 중…' : '등록'}
+              <button className="btn pri" onClick={saveTask} disabled={busy || !form.title.trim()}>
+                {busy ? '저장 중…' : modalFor === 'new' ? '등록' : '저장'}
               </button>
             </div>
           </div>

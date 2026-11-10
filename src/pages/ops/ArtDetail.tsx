@@ -225,14 +225,16 @@ export default function ArtDetail() {
             <Field l="구분" v={p.kind ?? '—'} />
             <Field l="발주기관" v={p.client ?? '—'} />
             <Field l="사업유형" v={<span className="badge gold">{p.proj_type}</span>} />
-            <Field l="추정금액" v={eok(Number(p.est_amount) || contract)} />
+            <Field l="낙찰 방법" v={p.bid_method ?? '—'} />
+            <Field l="입찰 일정" v={dateOnly(p.bid_date) || '—'} />
+            <Field l="계약일" v={dateOnly(p.contract_date) || '—'} />
+            <Field l="착공일" v={dateOnly(p.start_date) || '—'} />
             <Field l="계약금" v={eok(contract)} />
             <Field l="준공 예정" v={dateOnly(p.due_date) || '—'} />
             <Field
               l="준공 일자"
               v={p.done_date ? dateOnly(p.done_date) : <span className="chip c-prog"><i />진행중</span>}
             />
-            <Field l="담당" v={'—'} />
           </div>
 
           {/* 관계자 */}

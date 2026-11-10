@@ -68,7 +68,7 @@ export interface WorkTask {
   reg_date: string | null
   start_date: string | null
   due_date: string | null
-  status: 'plan' | 'prog' | 'done'
+  status: 'plan' | 'prog' | 'hold' | 'done'
   src: string | null
   src_project_id: string | null
 }
@@ -91,6 +91,11 @@ export interface ArtProject {
   due_date: string | null
   done_date: string | null
   year: number | null
+  // 시안 '입찰·계약' 상세 필드
+  bid_method: string | null    // 낙찰 방법
+  bid_date: string | null      // 입찰 일정
+  contract_date: string | null // 계약일
+  start_date: string | null    // 착공일
 }
 
 export interface ArtBudget {

@@ -274,8 +274,10 @@ function FundView({
         <section className="panel">
           <div className="panel-h" style={{ marginBottom: 6 }}>
             <div>
-              <h2 style={{ fontSize: 16 }}>수입 · 지출</h2>
-              <p>{donutMonthLabel} 구성</p>
+              <h2 style={{ fontSize: 16 }}>
+                수입 · 지출 <span style={{ color: 'var(--gold, #A9781F)', fontWeight: 700, fontSize: 13 }}>· {donutMonthLabel}</span>
+              </h2>
+              <p>해당 월 수입·지출 구성</p>
             </div>
           </div>
           <FundDonut s={donutS} />

@@ -165,33 +165,33 @@ export default function Tasks() {
             </h2>
           </div>
           {/* 월 단위 이동 — 데이터는 그대로, 보기만 월별로 나눔 (달력 기준, 빈 달도 이동) */}
-          <div className="month-nav" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div className="month-nav" style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
             <button
               className="btn sec"
-              style={{ padding: '4px 11px' }}
+              style={{ padding: '4px 10px' }}
               onClick={goPrev}
               title="이전 달"
             >
-              ‹ 이전
+              ‹
             </button>
             <span style={{ fontWeight: 700, minWidth: 96, textAlign: 'center', fontSize: 13 }}>
               {isAll ? '전체 기간' : `${curMonth!.slice(0, 4)}년 ${+curMonth!.slice(5, 7)}월`}
             </span>
             <button
               className="btn sec"
-              style={{ padding: '4px 11px' }}
+              style={{ padding: '4px 10px' }}
               onClick={goNext}
               disabled={!isAll && curMonth! >= THIS_MONTH}
               title="다음 달"
             >
-              다음 ›
+              ›
             </button>
             <button
               className={`btn ${isAll ? 'pri' : 'sec'}`}
               style={{ padding: '4px 11px', marginLeft: 4 }}
               onClick={() => setMonth(isAll ? THIS_MONTH : 'all')}
             >
-              {isAll ? '월별 보기' : '전체 보기'}
+              {isAll ? '월별' : '전체'}
             </button>
           </div>
         </div>

@@ -29,6 +29,9 @@ import { BudgetTxPopup } from './BudgetTxPopup'
 import { AdvisorFeeModal } from './AdvisorFeeModal'
 import { ArtProjectModal } from './ArtList'
 
+// 원가계산서 예산 항목 (시안 기준)
+const BUDGET_ITEMS = ['재료비', '노무비', '경비', '외주가공비', '이윤', '보존처리계획', '훈증', '자문회비']
+
 export default function ArtDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -39,6 +42,8 @@ export default function ArtDetail() {
   const [changeForm, setChangeForm] = useState({ date: '', type: '증액', memo: '', after: 0 })
   const [addReceipt, setAddReceipt] = useState(false)
   const [receiptForm, setReceiptForm] = useState({ kind: '기성', date: '', amount: 0 })
+  const [addBudget, setAddBudget] = useState(false)
+  const [budgetForm, setBudgetForm] = useState({ item: '재료비', alloc: 0 })
   const [budBusy, setBudBusy] = useState(false)
   const [addStk, setAddStk] = useState(false)
   const [stkForm, setStkForm] = useState({ kind: '발주담당', name: '', org: '', phone: '' })
@@ -110,7 +115,7 @@ export default function ArtDetail() {
   async function saveChange() {
     if (!changeForm.date || !changeForm.after) return
     setBudBusy(true)
-    await supabase.from('budget_changes').insert({
+    const { error } = await supabase.from('budget_changes').insert({
       project_id: id!,
       date: changeForm.date,
       type: changeForm.type,
@@ -118,6 +123,10 @@ export default function ArtDetail() {
       after_amount: changeForm.after,
     })
     setBudBusy(false)
+    if (error) {
+      alert('설계변경 저장 실패: ' + error.message)
+      return
+    }
     setAddChange(false)
     setChangeForm({ date: '', type: '증액', memo: '', after: 0 })
     changesQ.reload()
@@ -125,13 +134,19 @@ export default function ArtDetail() {
   async function saveReceipt() {
     if (!receiptForm.date || !receiptForm.amount) return
     setBudBusy(true)
-    await supabase.from('budget_receipts').insert({
-      project_id: id!,
-      kind: receiptForm.kind,
-      date: receiptForm.date,
-      amount: receiptForm.amount,
+    // 대금 수령 + 매출 전표 자동 생성(RPC)
+    const { error } = await supabase.rpc('art_add_receipt', {
+      p_project_id: id!,
+      p_kind: receiptForm.kind,
+      p_date: receiptForm.date,
+      p_amount: receiptForm.amount,
+      p_make_tx: true,
     })
     setBudBusy(false)
+    if (error) {
+      alert('대금 수령 저장 실패: ' + error.message)
+      return
+    }
     setAddReceipt(false)
     setReceiptForm({ kind: '기성', date: '', amount: 0 })
     receiptsQ.reload()
@@ -139,7 +154,7 @@ export default function ArtDetail() {
   async function saveStk() {
     if (!stkForm.name.trim()) return
     setStkBusy(true)
-    await supabase.from('art_stakeholders').insert({
+    const { error } = await supabase.from('art_stakeholders').insert({
       project_id: id!,
       kind: stkForm.kind,
       name: stkForm.name.trim(),
@@ -148,9 +163,51 @@ export default function ArtDetail() {
       sort: stakeholders.length,
     })
     setStkBusy(false)
+    if (error) {
+      alert('관계자 저장 실패: ' + error.message)
+      return
+    }
     setAddStk(false)
     setStkForm({ kind: '발주담당', name: '', org: '', phone: '' })
     stkQ.reload()
+  }
+
+  // 예산 항목 등록/수정 (art_budget upsert — project_id+item 유니크)
+  async function saveBudget() {
+    if (!budgetForm.item || budgetForm.alloc <= 0) return
+    setBudBusy(true)
+    const { error } = await supabase
+      .from('art_budget')
+      .upsert(
+        { project_id: id!, item: budgetForm.item, alloc: budgetForm.alloc },
+        { onConflict: 'project_id,item' },
+      )
+    setBudBusy(false)
+    if (error) {
+      alert('예산 항목 저장 실패: ' + error.message)
+      return
+    }
+    setAddBudget(false)
+    setBudgetForm({ item: BUDGET_ITEMS[0], alloc: 0 })
+    budgetQ.reload()
+  }
+
+  // 기본 공정 템플릿 생성 (비어있을 때)
+  async function seedSteps() {
+    const TPL = [
+      '착수 준비', '현장 조사', '사전 기록', '해체·수습', '세척·클리닝',
+      '안정화 처리', '접합·복원', '보강', '색맞춤', '마감 처리',
+      '재조립', '최종 기록', '보고서 작성', '납품·설치',
+    ]
+    setBudBusy(true)
+    const rows = TPL.map((title, i) => ({ project_id: id!, seq: i + 1, title, status: 'before' }))
+    const { error } = await supabase.from('project_steps').insert(rows)
+    setBudBusy(false)
+    if (error) {
+      alert('공정 생성 실패: ' + error.message)
+      return
+    }
+    reloadSteps()
   }
 
   async function removeProject() {
@@ -540,8 +597,15 @@ export default function ArtDetail() {
           </table>
 
           {/* 9대 예산 카드 */}
-          <div className="bud-h" style={{ marginTop: 16 }}>
+          <div className="bud-h" style={{ marginTop: 16, display: 'flex', alignItems: 'center' }}>
             <div className="t">예산 집행 현황</div>
+            <button
+              className="btn sec"
+              style={{ padding: '4px 11px', fontSize: 11.5, marginLeft: 'auto' }}
+              onClick={() => { setBudgetForm({ item: BUDGET_ITEMS[0], alloc: 0 }); setAddBudget(true) }}
+            >
+              + 예산 항목
+            </button>
           </div>
           <div className="bcards">
             {bRows.map((b) => (
@@ -638,16 +702,15 @@ export default function ArtDetail() {
           <Icon name="chevron" className="icon chev" />
         </summary>
         <div className="sbody">
-          {steps.length === 0 ? (
-            <CenterNote>등록된 공정이 없습니다.</CenterNote>
-          ) : (
-            <Step20Editor
-              projectId={id!}
-              steps={steps}
-              comments={comments}
-              onChanged={reloadSteps}
-            />
+          {steps.length === 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+              <CenterNote>등록된 공정이 없습니다.</CenterNote>
+              <button className="btn pri" style={{ padding: '5px 12px', fontSize: 12 }} onClick={seedSteps} disabled={budBusy}>
+                기본 공정 생성
+              </button>
+            </div>
           )}
+          <Step20Editor projectId={id!} steps={steps} comments={comments} onChanged={reloadSteps} />
         </div>
       </details>
 
@@ -660,6 +723,49 @@ export default function ArtDetail() {
           budget={budget}
           onClose={() => setBudItem(null)}
         />
+      )}
+      {addBudget && (
+        <div className="modal-bg" onClick={() => setAddBudget(false)}>
+          <div className="modal" style={{ maxWidth: 420 }} onClick={(e) => e.stopPropagation()}>
+            <div className="mh">
+              <div>
+                <div className="eyebrow">예산 항목 등록</div>
+                <h3>원가계산 예산</h3>
+              </div>
+              <button className="x" onClick={() => setAddBudget(false)}>✕</button>
+            </div>
+            <div className="mb">
+              <div className="mfield">
+                <label>예산 항목</label>
+                <select className="ctl" value={budgetForm.item} onChange={(e) => setBudgetForm({ ...budgetForm, item: e.target.value })}>
+                  {BUDGET_ITEMS.map((it) => (
+                    <option key={it} value={it}>{it}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="mfield">
+                <label>예산액</label>
+                <input
+                  className="ctl tnum"
+                  type="text"
+                  inputMode="numeric"
+                  value={budgetForm.alloc ? budgetForm.alloc.toLocaleString('ko-KR') : ''}
+                  onChange={(e) => setBudgetForm({ ...budgetForm, alloc: Number(e.target.value.replace(/[^0-9]/g, '')) || 0 })}
+                  placeholder="예: 50,000,000"
+                />
+              </div>
+              <div className="hint" style={{ fontSize: 11, color: 'var(--muted)' }}>
+                같은 항목을 다시 등록하면 예산액이 갱신됩니다.
+              </div>
+            </div>
+            <div className="mf">
+              <button className="btn sec" onClick={() => setAddBudget(false)} disabled={budBusy}>취소</button>
+              <button className="btn pri" onClick={saveBudget} disabled={budBusy || budgetForm.alloc <= 0}>
+                {budBusy ? '저장 중…' : '저장'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       {advOpen && (
         <AdvisorFeeModal

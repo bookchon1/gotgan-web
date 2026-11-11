@@ -910,9 +910,8 @@ function PaySlipDetailModal({
   onEdit: () => void
   onDelete: () => void
 }) {
-  const ROWS: [string, number][] = [
-    ['기본급', slip.base_pay],
-    ['수당', slip.allowances],
+  // 급여 수정 모달과 동일한 레이아웃(읽기전용): 지급 2칸 + 공제 2열 그리드 + 하단 요약바
+  const DED: [string, number][] = [
     ['국민연금', slip.d_pension],
     ['건강보험', slip.d_health],
     ['장기요양', slip.d_ltc],
@@ -921,12 +920,27 @@ function PaySlipDetailModal({
     ['지방소득세', slip.d_local_tax],
     ['기타공제', slip.d_other],
   ]
+  const gross = (Number(slip.base_pay) || 0) + (Number(slip.allowances) || 0)
+  // 읽기전용 표시칸 (급여 수정의 .ctl 과 같은 모양)
+  const Box = ({ v, expense }: { v: number; expense?: boolean }) => (
+    <div
+      className="ctl tnum"
+      style={{
+        textAlign: 'right',
+        background: 'var(--surface-2, #f6f5f2)',
+        color: expense ? 'var(--expense)' : undefined,
+        cursor: 'default',
+      }}
+    >
+      {won(v)}
+    </div>
+  )
   return (
     <div className="modal-bg" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
+      <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 520 }}>
         <div className="mh">
           <div>
-            <div className="eyebrow">급여 상세</div>
+            <div className="eyebrow">급여명세서</div>
             <h3>
               {emp?.name ?? '—'}
               {emp?.dept ? <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginLeft: 8 }}>{emp.dept}</span> : null}
@@ -937,26 +951,40 @@ function PaySlipDetailModal({
           </button>
         </div>
         <div className="mb">
-          <table style={{ fontSize: 13 }}>
-            <tbody>
-              {ROWS.map(([lbl, v]) => (
-                <tr key={lbl}>
-                  <td style={{ color: 'var(--ink-soft)' }}>{lbl}</td>
-                  <td className="tnum" style={{ textAlign: 'right', color: lbl !== '기본급' && lbl !== '수당' ? 'var(--expense)' : undefined }}>
-                    {won(v)}
-                  </td>
-                </tr>
-              ))}
-              <tr style={{ borderTop: '1px solid var(--line)' }}>
-                <td style={{ fontWeight: 700, color: 'var(--expense)' }}>공제 합계</td>
-                <td className="tnum" style={{ textAlign: 'right', fontWeight: 700, color: 'var(--expense)' }}>{won(slip.deductions)}</td>
-              </tr>
-              <tr style={{ background: 'var(--brand-soft)' }}>
-                <td style={{ fontWeight: 800 }}>실지급액</td>
-                <td className="tnum" style={{ textAlign: 'right', fontWeight: 800 }}>{won(slip.net_pay)}원</td>
-              </tr>
-            </tbody>
-          </table>
+          {/* 지급 */}
+          <div style={{ display: 'flex', gap: 10 }}>
+            <div className="mfield" style={{ flex: 1 }}>
+              <label>기본급</label>
+              <Box v={slip.base_pay} />
+            </div>
+            <div className="mfield" style={{ flex: 1 }}>
+              <label>수당</label>
+              <Box v={slip.allowances} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', margin: '2px 2px 2px', fontWeight: 700, fontSize: 13 }}>
+            <span style={{ color: 'var(--muted)' }}>지급 합계</span>
+            <span className="tnum">{won(gross)}</span>
+          </div>
+          {/* 공제 항목 */}
+          <div className="mfield" style={{ margin: '6px 0 0' }}>
+            <label style={{ color: 'var(--expense)' }}>공제 항목</label>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            {DED.map(([lbl, v]) => (
+              <div className="mfield" key={lbl} style={{ margin: 0 }}>
+                <label>{lbl}</label>
+                <Box v={v} expense />
+              </div>
+            ))}
+          </div>
+          {/* 요약바 — 급여 수정과 동일 */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12, padding: '10px 12px', background: 'var(--brand-soft)', borderRadius: 8, fontWeight: 800 }}>
+            <span>
+              공제 합계 <span style={{ color: 'var(--expense)' }}>{won(slip.deductions)}</span>
+            </span>
+            <span>실지급액 {won(slip.net_pay)}원</span>
+          </div>
         </div>
         <div className="mf">
           {canEdit && (
@@ -1022,7 +1050,12 @@ function PaySlipModal({
   const net = Number(f.base_pay) + Number(f.allowances) - ded
 
   function num(k: keyof typeof f, v: string) {
-    setF({ ...f, [k]: Number(v) || 0 })
+    // 콤마·숫자 외 문자 제거 후 숫자로
+    setF({ ...f, [k]: Number(String(v).replace(/[^0-9]/g, '')) || 0 })
+  }
+  // 입력칸 표시용 — 천단위 콤마 (0은 빈칸)
+  function cm(n: number): string {
+    return n ? Number(n).toLocaleString('ko-KR') : ''
   }
 
   async function save() {
@@ -1105,11 +1138,11 @@ function PaySlipModal({
           <div style={{ display: 'flex', gap: 10 }}>
             <div className="mfield" style={{ flex: 1 }}>
               <label>기본급</label>
-              <input type="number" className="ctl" value={f.base_pay} onChange={(e) => num('base_pay', e.target.value)} />
+              <input type="text" inputMode="numeric" className="ctl tnum" value={cm(f.base_pay)} onChange={(e) => num('base_pay', e.target.value)} />
             </div>
             <div className="mfield" style={{ flex: 1 }}>
               <label>수당</label>
-              <input type="number" className="ctl" value={f.allowances} onChange={(e) => num('allowances', e.target.value)} />
+              <input type="text" inputMode="numeric" className="ctl tnum" value={cm(f.allowances)} onChange={(e) => num('allowances', e.target.value)} />
             </div>
           </div>
           <div className="mfield" style={{ margin: '4px 0 0' }}>
@@ -1119,7 +1152,7 @@ function PaySlipModal({
             {DED_FIELDS.map(([k, lbl]) => (
               <div className="mfield" key={k} style={{ margin: 0 }}>
                 <label>{lbl}</label>
-                <input type="number" className="ctl" value={f[k]} onChange={(e) => num(k, e.target.value)} />
+                <input type="text" inputMode="numeric" className="ctl tnum" value={cm(f[k] as number)} onChange={(e) => num(k, e.target.value)} />
               </div>
             ))}
           </div>

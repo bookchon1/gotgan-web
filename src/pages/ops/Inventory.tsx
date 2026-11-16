@@ -26,6 +26,8 @@ export default function Inventory() {
   const [sel, setSel] = useState<Record<string, boolean>>({})
   const [orderOpen, setOrderOpen] = useState(false)
   const [note, setNote] = useState<string | null>(null)
+  const [addOpen, setAddOpen] = useState(false)
+  const [addForm, setAddForm] = useState({ code: '', name: '', category: '완제품' as '완제품' | '부자재', stock: 0, min_qty: 0, unit_price: 0, location: '' })
 
   const invQ = useQuery<Inv[]>(
     async () => await supabase.from('inventory').select('*').order('code', { ascending: true }),
@@ -81,12 +83,52 @@ export default function Inventory() {
     invQ.reload()
   }
 
+  async function addItem() {
+    if (!addForm.name.trim()) return
+    setBusy(true)
+    const { error } = await supabase.from('inventory').insert({
+      code: addForm.code.trim() || null,
+      name: addForm.name.trim(),
+      category: addForm.category,
+      stock: addForm.stock,
+      min_qty: addForm.min_qty,
+      unit_price: addForm.unit_price,
+      incoming: 0,
+      location: addForm.location.trim() || null,
+    })
+    setBusy(false)
+    if (error) {
+      alert('품목 등록 실패: ' + error.message)
+      return
+    }
+    setAddOpen(false)
+    setAddForm({ code: '', name: '', category: '완제품', stock: 0, min_qty: 0, unit_price: 0, location: '' })
+    invQ.reload()
+  }
+
+  async function removeItem(it: Inv) {
+    if (!window.confirm(`품목 "${it.name}" 을(를) 삭제할까요?\n매입이력 등 연결 데이터가 함께 삭제될 수 있으며 되돌릴 수 없습니다.`)) return
+    setBusy(true)
+    const { error } = await supabase.from('inventory').delete().eq('id', it.id)
+    setBusy(false)
+    if (error) {
+      alert('삭제 실패: ' + error.message)
+      return
+    }
+    invQ.reload()
+  }
+
   return (
     <div className="page on">
       <PageHead
         eyebrow="상품 · 재고"
         title="재고현황"
         desc="완제품·부자재 재고를 확인하고, 부족 품목을 선택해 발주·지출결의서를 상신하세요."
+        actions={
+          <button className="btn txt add-txt" onClick={() => setAddOpen(true)}>
+            + 품목 등록
+          </button>
+        }
       />
       <section className="panel">
         <ErrorBanner error={invQ.error} table="inventory" />
@@ -207,6 +249,14 @@ export default function Inventory() {
                             입고
                           </button>
                         )}
+                        <button
+                          className="btn txt"
+                          style={{ padding: '4px 7px', fontSize: 11, marginLeft: 4, color: 'var(--danger)' }}
+                          onClick={() => removeItem(it)}
+                          disabled={busy}
+                        >
+                          삭제
+                        </button>
                       </td>
                     </tr>
                   )
@@ -269,6 +319,64 @@ export default function Inventory() {
       </section>
 
       {histOf && <PurchaseHistModal item={histOf} onClose={() => setHistOf(null)} />}
+      {addOpen && (
+        <div className="modal-bg" onClick={() => setAddOpen(false)}>
+          <div className="modal" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
+            <div className="mh">
+              <div>
+                <div className="eyebrow">재고 품목 등록</div>
+                <h3>신규 품목</h3>
+              </div>
+              <button className="x" onClick={() => setAddOpen(false)}>✕</button>
+            </div>
+            <div className="mb">
+              <div style={{ display: 'flex', gap: 10 }}>
+                <div className="mfield" style={{ flex: 1 }}>
+                  <label>품목명</label>
+                  <input className="ctl" value={addForm.name} onChange={(e) => setAddForm({ ...addForm, name: e.target.value })} placeholder="예: 한지 (중목)" autoFocus />
+                </div>
+                <div className="mfield" style={{ width: 120 }}>
+                  <label>구분</label>
+                  <select className="ctl" value={addForm.category} onChange={(e) => setAddForm({ ...addForm, category: e.target.value as '완제품' | '부자재' })}>
+                    <option value="완제품">완제품</option>
+                    <option value="부자재">부자재</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <div className="mfield" style={{ flex: 1 }}>
+                  <label>코드</label>
+                  <input className="ctl" value={addForm.code} onChange={(e) => setAddForm({ ...addForm, code: e.target.value })} placeholder="예: A-001" />
+                </div>
+                <div className="mfield" style={{ flex: 1 }}>
+                  <label>보관 위치</label>
+                  <input className="ctl" value={addForm.location} onChange={(e) => setAddForm({ ...addForm, location: e.target.value })} placeholder="예: 창고 2층" />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <div className="mfield" style={{ flex: 1 }}>
+                  <label>현재 재고</label>
+                  <input className="ctl tnum" type="text" inputMode="numeric" value={addForm.stock || ''} onChange={(e) => setAddForm({ ...addForm, stock: Number(e.target.value.replace(/[^0-9]/g, '')) || 0 })} />
+                </div>
+                <div className="mfield" style={{ flex: 1 }}>
+                  <label>적정 재고</label>
+                  <input className="ctl tnum" type="text" inputMode="numeric" value={addForm.min_qty || ''} onChange={(e) => setAddForm({ ...addForm, min_qty: Number(e.target.value.replace(/[^0-9]/g, '')) || 0 })} />
+                </div>
+                <div className="mfield" style={{ flex: 1 }}>
+                  <label>단가</label>
+                  <input className="ctl tnum" type="text" inputMode="numeric" value={addForm.unit_price ? addForm.unit_price.toLocaleString('ko-KR') : ''} onChange={(e) => setAddForm({ ...addForm, unit_price: Number(e.target.value.replace(/[^0-9]/g, '')) || 0 })} />
+                </div>
+              </div>
+            </div>
+            <div className="mf">
+              <button className="btn sec" onClick={() => setAddOpen(false)} disabled={busy}>취소</button>
+              <button className="btn pri" onClick={addItem} disabled={busy || !addForm.name.trim()}>
+                {busy ? '등록 중…' : '등록'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {orderOpen && (
         <OrderExpenseModal
           items={selectedItems}

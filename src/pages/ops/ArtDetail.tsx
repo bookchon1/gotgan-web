@@ -192,15 +192,24 @@ export default function ArtDetail() {
     budgetQ.reload()
   }
 
-  // 기본 공정 템플릿 생성 (비어있을 때)
+  // 기본 20단계 보존처리 공정 템플릿
+  const STEP20 = [
+    '착수 준비', '현장 조사', '사전 조사·기록', '과학적 분석', '촬영·실측',
+    '해체·수습', '이물질 제거', '세척·클리닝', '안정화 처리', '탈염·탈산',
+    '접합', '결손부 복원', '보강', '메움·충전', '색맞춤',
+    '표면 마감', '재조립·설치', '최종 기록·촬영', '보고서 작성', '납품·인수',
+  ]
+  // 기본 공정 생성: 이미 있는 seq는 건너뛰고 비어있는 단계만 채움(삭제 후 재생성 가능)
   async function seedSteps() {
-    const TPL = [
-      '착수 준비', '현장 조사', '사전 기록', '해체·수습', '세척·클리닝',
-      '안정화 처리', '접합·복원', '보강', '색맞춤', '마감 처리',
-      '재조립', '최종 기록', '보고서 작성', '납품·설치',
-    ]
+    const have = new Set((steps ?? []).map((s) => s.seq))
+    const rows = STEP20
+      .map((title, i) => ({ project_id: id!, seq: i + 1, title, status: 'before' }))
+      .filter((r) => !have.has(r.seq))
+    if (rows.length === 0) {
+      alert('이미 20단계 공정이 모두 등록되어 있습니다.')
+      return
+    }
     setBudBusy(true)
-    const rows = TPL.map((title, i) => ({ project_id: id!, seq: i + 1, title, status: 'before' }))
     const { error } = await supabase.from('project_steps').insert(rows)
     setBudBusy(false)
     if (error) {
@@ -439,7 +448,7 @@ export default function ArtDetail() {
       >
         <summary>
           <span className="sn">2</span>
-          예산 현황
+          예산현황
           <span className="sc">미수금 {eok(balance)}</span>
           <Icon name="chevron" className="icon chev" />
         </summary>
@@ -695,21 +704,26 @@ export default function ArtDetail() {
       >
         <summary>
           <span className="sn">3</span>
-          세부 진행 현황
+          진행현황
           <span className="sc">
             총 {prog.total}공정 · 완료 {prog.nDone} · 진행 {prog.nProg}
           </span>
           <Icon name="chevron" className="icon chev" />
         </summary>
         <div className="sbody">
-          {steps.length === 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-              <CenterNote>등록된 공정이 없습니다.</CenterNote>
-              <button className="btn pri" style={{ padding: '5px 12px', fontSize: 12 }} onClick={seedSteps} disabled={budBusy}>
-                기본 공정 생성
-              </button>
-            </div>
-          )}
+          {/* 기본 공정 생성 — 항상 노출(삭제 후 다시 생성 가능) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+            {steps.length === 0 && <CenterNote>등록된 공정이 없습니다.</CenterNote>}
+            <button
+              className="btn sec"
+              style={{ padding: '5px 12px', fontSize: 12, marginLeft: steps.length === 0 ? 0 : 'auto' }}
+              onClick={seedSteps}
+              disabled={budBusy}
+              title="기본 20단계 공정을 추가합니다"
+            >
+              기본 공정 20단계 생성
+            </button>
+          </div>
           <Step20Editor projectId={id!} steps={steps} comments={comments} onChanged={reloadSteps} />
         </div>
       </details>

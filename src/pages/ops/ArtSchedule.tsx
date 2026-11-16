@@ -1,20 +1,24 @@
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useQuery } from '../../lib/useQuery'
 import { dateOnly } from '../../lib/format'
-import type { ArtProject, ProjectStep, WorkTask, Employee } from '../../types/db'
+import type { ArtProject, ProjectStep } from '../../types/db'
 
-/* 업무 일정 (사업관리 상단) — 공정(project_steps) + 미술 업무(work_tasks)를 모아
-   주간 / 월간 / 분기 뷰로. 시안 "업무 일정" 패널의 실데이터 버전. */
+/* 업무 일정 (사업관리 상단) — 사업별 세부공정(project_steps) 일정표.
+   주간 / 월간 / 분기 뷰, 사업별 색상 구분, 공정 클릭 시 상세 팝업. */
 
 type Plan = 'week' | 'month' | 'quarter'
 
 interface WorkItem {
-  name: string
+  name: string // 사업명 — 공정명
   biz: string
+  projectId: string
+  stepTitle: string
   start: string // YYYY-MM-DD
   end: string
   status: '완료' | '진행중' | '대기' | '보류'
+  memo: string
   color: string
 }
 
@@ -24,19 +28,18 @@ const STEP_STATUS: Record<string, '완료' | '진행중' | '대기' | '보류'> 
   before: '대기',
   na: '보류',
 }
-const TASK_STATUS: Record<string, '완료' | '진행중' | '대기' | '보류'> = {
-  done: '완료',
-  prog: '진행중',
-  plan: '대기',
-}
 const STWORK: Record<string, string> = {
   완료: 'c-done',
   진행중: 'c-prog',
   대기: 'c-wait',
   보류: 'set-hold',
 }
-const STEP_COLOR = 'var(--ar-art)'
-const TASK_COLOR = '#3C6E9C'
+
+// 사업별 색상 팔레트 (프로젝트 등록 순서대로 배정)
+const PROJ_PALETTE = [
+  '#3C6E9C', '#A9781F', '#2E7D5B', '#9C4F6E', '#6E5BA6',
+  '#B5651D', '#4F8A8B', '#8B5E3C', '#7A8B3C', '#C0567A',
+]
 
 const WD = ['월', '화', '수', '목', '금', '토', '일']
 
@@ -57,28 +60,20 @@ function covers(w: WorkItem, dYmd: string): boolean {
 
 export default function ArtSchedule() {
   const [plan, setPlan] = useState<Plan>('week')
-  const [addOpen, setAddOpen] = useState(false)
   const now = new Date()
   const todayYmd = ymd(now)
   const [monthView, setMonthView] = useState(now.getMonth() + 1)
   const curQ = Math.floor(now.getMonth() / 3) + 1
   const [quarterView, setQuarterView] = useState(curQ)
   const year = now.getFullYear()
+  const navigate = useNavigate()
 
   const projQ = useQuery<Pick<ArtProject, 'id' | 'name'>[]>(
-    async () => await supabase.from('art_projects').select('id,name'),
+    async () => await supabase.from('art_projects').select('id,name').order('created_at', { ascending: true }),
     [],
   )
   const stepQ = useQuery<ProjectStep[]>(
     async () => await supabase.from('project_steps').select('*').not('from_date', 'is', null),
-    [],
-  )
-  const taskQ = useQuery<WorkTask[]>(
-    async () => await supabase.from('work_tasks').select('*').eq('area', 'art').not('start_date', 'is', null),
-    [],
-  )
-  const empQ = useQuery<Pick<Employee, 'id' | 'name'>[]>(
-    async () => await supabase.from('employees').select('id,name'),
     [],
   )
 
@@ -86,8 +81,14 @@ export default function ArtSchedule() {
     () => Object.fromEntries((projQ.data ?? []).map((p) => [p.id, p.name])),
     [projQ.data],
   )
+  // 사업별 색상 (등록 순서대로 팔레트 배정)
+  const projColor = useMemo(() => {
+    const m: Record<string, string> = {}
+    ;(projQ.data ?? []).forEach((p, i) => { m[p.id] = PROJ_PALETTE[i % PROJ_PALETTE.length] })
+    return m
+  }, [projQ.data])
 
-  // 통합 업무 목록
+  // 세부공정 일정 목록 (사업별 색상)
   const works: WorkItem[] = useMemo(() => {
     const out: WorkItem[] = []
     for (const s of stepQ.data ?? []) {
@@ -97,36 +98,28 @@ export default function ArtSchedule() {
       out.push({
         name: `${biz ? biz + ' — ' : ''}${s.title}`,
         biz,
+        projectId: s.project_id,
+        stepTitle: s.title,
         start,
         end: dateOnly(s.to_date) || start,
         status: STEP_STATUS[s.status] ?? '대기',
-        color: STEP_COLOR,
-      })
-    }
-    for (const t of taskQ.data ?? []) {
-      const start = dateOnly(t.start_date)
-      if (!start) continue
-      // src 가 "사업: 삼국유사…" 형태면 접두어 제거 (표기 시 다시 "사업:" 를 붙이므로 중복 방지)
-      const biz = (t.src ?? '').replace(/^\s*사업\s*:\s*/, '')
-      out.push({
-        name: t.title,
-        biz,
-        start,
-        end: dateOnly(t.due_date) || start,
-        status: TASK_STATUS[t.status] ?? '대기',
-        color: TASK_COLOR,
+        memo: (s as { memo?: string }).memo ?? '',
+        color: projColor[s.project_id] ?? '#3C6E9C',
       })
     }
     return out
-  }, [stepQ.data, taskQ.data, projName])
+  }, [stepQ.data, projName, projColor])
 
-  const loading = projQ.loading || stepQ.loading || taskQ.loading
+  const loading = projQ.loading || stepQ.loading
+  // 공정 클릭 시 상세 팝업
+  const [stepPopup, setStepPopup] = useState<WorkItem | null>(null)
 
   return (
     <section className="panel" style={{ marginBottom: 14 }}>
       <div className="panel-h">
         <div>
           <h2>업무 일정</h2>
+          <span style={{ fontSize: 11, color: 'var(--muted)' }}>사업별 세부공정 일정</span>
         </div>
         <div className="r" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <div className="seg-text">
@@ -140,11 +133,20 @@ export default function ArtSchedule() {
               분기
             </button>
           </div>
-          <button className="btn txt add-txt" style={{ fontSize: 12.5 }} onClick={() => setAddOpen(true)}>
-            + 업무 등록
-          </button>
         </div>
       </div>
+
+      {/* 사업별 색상 범례 */}
+      {!loading && (projQ.data ?? []).length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, padding: '0 2px 10px', fontSize: 11.5 }}>
+          {(projQ.data ?? []).map((p) => (
+            <span key={p.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'var(--ink-soft)' }}>
+              <i style={{ width: 10, height: 10, borderRadius: 3, background: projColor[p.id], display: 'inline-block' }} />
+              {p.name}
+            </span>
+          ))}
+        </div>
+      )}
 
       <div id="artplan-body">
         {loading ? (
@@ -152,7 +154,7 @@ export default function ArtSchedule() {
             일정 불러오는 중…
           </div>
         ) : plan === 'week' ? (
-          <WeekView works={works} todayYmd={todayYmd} baseMon={mondayOf(now)} />
+          <WeekView works={works} todayYmd={todayYmd} baseMon={mondayOf(now)} onPick={setStepPopup} />
         ) : plan === 'month' ? (
           <MonthView
             works={works}
@@ -160,151 +162,45 @@ export default function ArtSchedule() {
             month={monthView}
             todayYmd={todayYmd}
             onStep={(d) => setMonthView((m) => ((m - 1 + d + 12) % 12) + 1)}
+            onPick={setStepPopup}
           />
         ) : (
-          <QuarterView works={works} quarter={quarterView} onSet={setQuarterView} />
+          <QuarterView works={works} quarter={quarterView} onSet={setQuarterView} onPick={setStepPopup} />
         )}
       </div>
 
-      {addOpen && (
-        <ArtTaskModal
-          employees={empQ.data ?? []}
-          onClose={() => setAddOpen(false)}
-          onCreated={() => {
-            setAddOpen(false)
-            taskQ.reload()
-          }}
-        />
+      {stepPopup && (
+        <div className="modal-bg" onClick={() => setStepPopup(null)}>
+          <div className="modal" style={{ maxWidth: 420 }} onClick={(e) => e.stopPropagation()}>
+            <div className="mh">
+              <div>
+                <div className="eyebrow" style={{ color: stepPopup.color }}>● {stepPopup.biz || '공정'}</div>
+                <h3>{stepPopup.stepTitle}</h3>
+              </div>
+              <button className="x" onClick={() => setStepPopup(null)}>✕</button>
+            </div>
+            <div className="mb">
+              <div className="field-grid">
+                <div className="field"><div className="fl">사업</div><div className="fv">{stepPopup.biz || '—'}</div></div>
+                <div className="field"><div className="fl">공정</div><div className="fv">{stepPopup.stepTitle}</div></div>
+                <div className="field"><div className="fl">상태</div><div className="fv"><span className={`chip ${STWORK[stepPopup.status]}`}><i />{stepPopup.status}</span></div></div>
+                <div className="field"><div className="fl">기간</div><div className="fv">{stepPopup.start}{stepPopup.end !== stepPopup.start ? ` ~ ${stepPopup.end}` : ''}</div></div>
+                {stepPopup.memo && <div className="field" style={{ gridColumn: '1 / -1' }}><div className="fl">메모</div><div className="fv">{stepPopup.memo}</div></div>}
+              </div>
+            </div>
+            <div className="mf">
+              <button className="btn sec" onClick={() => setStepPopup(null)}>닫기</button>
+              <button className="btn pri" onClick={() => navigate(`/ops/art/${stepPopup.projectId}`)}>사업 상세로</button>
+            </div>
+          </div>
+        </div>
       )}
     </section>
   )
 }
 
-/** 미술 업무 등록 — work_tasks insert (area:'art'). Tasks.tsx addTask 와 동일 패턴. */
-function ArtTaskModal({
-  employees,
-  onClose,
-  onCreated,
-}: {
-  employees: Pick<Employee, 'id' | 'name'>[]
-  onClose: () => void
-  onCreated: () => void
-}) {
-  const [form, setForm] = useState({ title: '', owner: '', start: '', due: '', detail: '' })
-  const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState<string | null>(null)
-
-  async function submit() {
-    if (!form.title.trim()) {
-      setErr('업무명을 입력하세요.')
-      return
-    }
-    setBusy(true)
-    setErr(null)
-    const ownerId = employees.find((e) => e.name === form.owner)?.id ?? null
-    const { error } = await supabase.from('work_tasks').insert({
-      area: 'art',
-      title: form.title.trim(),
-      dept: '미술',
-      detail: form.detail || null,
-      owner_id: ownerId,
-      reg_date: new Date().toISOString().slice(0, 10),
-      start_date: form.start || null,
-      due_date: form.due || null,
-      status: 'plan',
-    })
-    setBusy(false)
-    if (error) {
-      setErr(error.message)
-      return
-    }
-    onCreated()
-  }
-
-  return (
-    <div className="modal-bg" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <div className="mh">
-          <div>
-            <div className="eyebrow">업무 등록</div>
-            <h3>미술 업무</h3>
-          </div>
-          <button className="x" onClick={onClose}>
-            ✕
-          </button>
-        </div>
-        <div className="mb">
-          <div className="mfield">
-            <label>업무명</label>
-            <input
-              className="ctl"
-              value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
-              placeholder="예: 보존처리 설계도면 작성"
-              autoFocus
-            />
-          </div>
-          <div className="mfield">
-            <label>담당자</label>
-            <select className="ctl" value={form.owner} onChange={(e) => setForm({ ...form, owner: e.target.value })}>
-              <option value="">선택</option>
-              {employees.map((e) => (
-                <option key={e.id} value={e.name}>
-                  {e.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <div className="mfield" style={{ flex: 1 }}>
-              <label>시작일</label>
-              <input
-                className="ctl"
-                type="date"
-                value={form.start}
-                onChange={(e) => setForm({ ...form, start: e.target.value })}
-              />
-            </div>
-            <div className="mfield" style={{ flex: 1 }}>
-              <label>마감일</label>
-              <input
-                className="ctl"
-                type="date"
-                value={form.due}
-                onChange={(e) => setForm({ ...form, due: e.target.value })}
-              />
-            </div>
-          </div>
-          <div className="mfield">
-            <label>세부분류</label>
-            <input
-              className="ctl"
-              value={form.detail}
-              onChange={(e) => setForm({ ...form, detail: e.target.value })}
-              placeholder="예: 설계 / 조사 / 작업"
-            />
-          </div>
-          {err && (
-            <div className="login-alert err" style={{ margin: 0 }}>
-              {err}
-            </div>
-          )}
-        </div>
-        <div className="mf">
-          <button className="btn sec" onClick={onClose} disabled={busy}>
-            취소
-          </button>
-          <button className="btn pri" onClick={submit} disabled={busy || !form.title.trim()}>
-            {busy ? '등록 중…' : '등록'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 /* ── 주간 ── */
-function WeekView({ works, todayYmd, baseMon }: { works: WorkItem[]; todayYmd: string; baseMon: Date }) {
+function WeekView({ works, todayYmd, baseMon, onPick }: { works: WorkItem[]; todayYmd: string; baseMon: Date; onPick: (w: WorkItem) => void }) {
   const days = Array.from({ length: 7 }).map((_, i) => {
     const d = new Date(baseMon)
     d.setDate(baseMon.getDate() + i)
@@ -331,7 +227,13 @@ function WeekView({ works, todayYmd, baseMon }: { works: WorkItem[]; todayYmd: s
             {dayWorks.map((w, j) => {
               const short = w.name.includes('—') ? w.name.split('—').pop()!.trim() : w.name
               return (
-                <span className="wk-ev" key={j} style={{ background: w.color }} title={w.name}>
+                <span
+                  className="wk-ev"
+                  key={j}
+                  style={{ background: w.color, cursor: 'pointer' }}
+                  title={w.name}
+                  onClick={() => onPick(w)}
+                >
                   {short}
                 </span>
               )
@@ -350,12 +252,14 @@ function MonthView({
   month,
   todayYmd,
   onStep,
+  onPick,
 }: {
   works: WorkItem[]
   year: number
   month: number
   todayYmd: string
   onStep: (d: number) => void
+  onPick: (w: WorkItem) => void
 }) {
   const first = new Date(year, month - 1, 1)
   const firstDow = (first.getDay() + 6) % 7
@@ -384,7 +288,7 @@ function MonthView({
         <b>
           {year}년 {month}월
         </b>
-        <span>업무 {uniq.size}건</span>
+        <span>공정 {uniq.size}건</span>
         <button onClick={() => onStep(1)} aria-label="다음 달">
           ›
         </button>
@@ -431,9 +335,9 @@ function MonthView({
           <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 440 }}>
             <div className="mh">
               <div>
-                <div className="eyebrow">업무 일정</div>
+                <div className="eyebrow">세부공정</div>
                 <h3>
-                  {year}-{String(month).padStart(2, '0')}-{String(dayModal.day).padStart(2, '0')} · 업무{' '}
+                  {year}-{String(month).padStart(2, '0')}-{String(dayModal.day).padStart(2, '0')} · 공정{' '}
                   {dayModal.ws.length}건
                 </h3>
               </div>
@@ -444,8 +348,9 @@ function MonthView({
             <div className="mb">
               <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                 {dayModal.ws.map((w, j) => (
-                  <div
+                  <button
                     key={j}
+                    onClick={() => { setDayModal(null); onPick(w) }}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -453,13 +358,17 @@ function MonthView({
                       border: '1px solid var(--line-2)',
                       borderRadius: 9,
                       padding: '8px 10px',
+                      background: 'transparent',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      width: '100%',
                     }}
                   >
                     <span
                       style={{ width: 9, height: 9, borderRadius: 3, flex: 'none', background: w.color }}
                     />
                     <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontSize: 12.5, fontWeight: 700 }}>{w.name}</div>
+                      <div style={{ fontSize: 12.5, fontWeight: 700 }}>{w.stepTitle}</div>
                       {w.biz && (
                         <div style={{ fontSize: 11, color: 'var(--muted)' }}>사업: {w.biz}</div>
                       )}
@@ -468,7 +377,7 @@ function MonthView({
                       <i />
                       {w.status}
                     </span>
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
@@ -484,10 +393,12 @@ function QuarterView({
   works,
   quarter,
   onSet,
+  onPick,
 }: {
   works: WorkItem[]
   quarter: number
   onSet: (q: number) => void
+  onPick: (w: WorkItem) => void
 }) {
   const months = [
     [1, 2, 3],
@@ -518,7 +429,7 @@ function QuarterView({
       </div>
       {!any ? (
         <div className="empty" style={{ padding: 28 }}>
-          <strong>이 분기에 등록된 업무가 없습니다.</strong>
+          <strong>이 분기에 등록된 공정이 없습니다.</strong>
         </div>
       ) : (
         <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -536,10 +447,11 @@ function QuarterView({
                     <table>
                       <tbody>
                         {mw.map((w, j) => (
-                          <tr key={j}>
+                          <tr key={j} style={{ cursor: 'pointer' }} onClick={() => onPick(w)}>
                             <td style={{ width: '55%' }}>
                               <div className="t-title" style={{ fontSize: 12.5 }}>
-                                {w.name}
+                                <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, background: w.color, marginRight: 6 }} />
+                                {w.stepTitle}
                               </div>
                               {w.biz && <div className="t-sub">사업: {w.biz}</div>}
                             </td>

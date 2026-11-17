@@ -168,6 +168,7 @@ export function BoqModal({
   const [loadErr, setLoadErr] = useState<string | null>(null)
   const [parsed, setParsed] = useState<Parsed | null>(null)
   const [tab, setTab] = useState(SHEETS[0])
+  const [truncUnit, setTruncUnit] = useState(10000) // 절삭 단위(원). 1이면 절삭 없음
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
@@ -190,9 +191,25 @@ export function BoqModal({
   const items = parsed?.items
   const curAlloc = Object.fromEntries(budget.map((b) => [b.item, Number(b.alloc) || 0]))
 
-  const total = items ? BUDGET_9.reduce((s, k) => s + (items[k] || 0), 0) : 0
-  const supply = items ? total - (items['자문회비'] || 0) : 0 // 공급가액 (자문회비 제외)
-  const vat = Math.round(supply * 0.1)
+  // 절삭: (공급가액 + 부가세)를 절삭 단위로 내리고, 줄어드는 금액은 노무비에서 차감 (곳간 기존 방식)
+  const calc = useMemo(() => {
+    if (!items) return null
+    const rawTotal = BUDGET_9.reduce((s, k) => s + (items[k] || 0), 0)
+    const rawSupply = rawTotal - (items['자문회비'] || 0) // 공급가액 (자문회비 제외)
+    const vatOf = (x: number) => Math.round(x * 0.1)
+    let supply = rawSupply
+    if (truncUnit > 1) {
+      const target = Math.floor((rawSupply + vatOf(rawSupply)) / truncUnit) * truncUnit
+      let x = Math.floor(target / 1.1)
+      while (x + vatOf(x) > target) x--
+      while (x + 1 + vatOf(x + 1) <= target) x++
+      supply = Math.min(rawSupply, x)
+    }
+    const cut = rawSupply - supply
+    const applied: Record<string, number> = { ...items, 노무비: Math.max(0, (items['노무비'] || 0) - cut) }
+    const total = BUDGET_9.reduce((s, k) => s + (applied[k] || 0), 0)
+    return { rawSupply, supply, vat: vatOf(supply), cut, applied, total }
+  }, [items, truncUnit])
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
@@ -213,10 +230,10 @@ export function BoqModal({
   }
 
   async function apply() {
-    if (!parsed || !items) return
+    if (!parsed || !items || !calc) return
     setBusy(true)
     setErr(null)
-    const rows = BUDGET_9.map((item, i) => ({ project_id: projectId, item, alloc: items[item] || 0, sort: i })).filter(
+    const rows = BUDGET_9.map((item, i) => ({ project_id: projectId, item, alloc: calc.applied[item] || 0, sort: i })).filter(
       (r) => r.alloc > 0,
     )
     if (rows.length === 0) {
@@ -240,7 +257,7 @@ export function BoqModal({
     setBusy(false)
     onApplied()
     const sum = rows.reduce((s, r) => s + r.alloc, 0)
-    setMsg(`${rows.length}개 항목 자동 입력 (합계 ${won(sum)}원)`)
+    setMsg(`${rows.length}개 항목 자동 입력 (합계 ${won(sum)}원${calc.cut ? ` · 절삭 ${won(calc.cut)}원 노무비 차감` : ''})`)
     if (e2) {
       setErr('예산은 반영됐지만 내역서 보관에 실패했습니다 (SQL 19 실행 필요): ' + e2.message)
       return
@@ -296,11 +313,22 @@ export function BoqModal({
           {msg && <div className="login-alert" style={{ margin: '8px 0 0', color: 'var(--brand-ink)' }}>✓ {msg}</div>}
 
           {/* 자동 파악 결과 */}
-          {items && (
+          {items && calc && (
             <div style={{ marginTop: 12 }}>
-              <div className="bud-h" style={{ display: 'flex', alignItems: 'center' }}>
+              <div className="bud-h" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 <div className="t">원가계산서에서 자동 파악한 예산</div>
-                <button className="btn pri" style={{ marginLeft: 'auto', padding: '4px 10px', fontSize: 12 }} onClick={apply} disabled={busy}>
+                <label className="t-sub" style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 5, marginLeft: 'auto' }}>
+                  절삭 단위
+                  <select className="hr-in" style={{ width: 110 }} value={truncUnit} onChange={(e) => setTruncUnit(Number(e.target.value))}>
+                    <option value={1}>절삭 안 함</option>
+                    <option value={10}>10원</option>
+                    <option value={100}>100원</option>
+                    <option value={1000}>1,000원</option>
+                    <option value={10000}>10,000원</option>
+                    <option value={100000}>100,000원</option>
+                  </select>
+                </label>
+                <button className="btn pri" style={{ padding: '4px 10px', fontSize: 12 }} onClick={apply} disabled={busy}>
                   {busy ? '반영 중…' : '예산에 반영'}
                 </button>
               </div>
@@ -309,31 +337,43 @@ export function BoqModal({
                   <tr>
                     <th>항목</th>
                     <th style={{ textAlign: 'right' }}>내역서 금액</th>
+                    <th style={{ textAlign: 'right' }}>절삭 반영 예산</th>
                     <th style={{ textAlign: 'right' }}>현재 예산</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {BUDGET_9.map((k) => (
-                    <tr key={k}>
-                      <td>{k}</td>
-                      <td className="tnum" style={{ textAlign: 'right', fontWeight: 700 }}>{items[k] ? won(items[k]) : '—'}</td>
-                      <td className="tnum" style={{ textAlign: 'right', color: 'var(--muted)' }}>{curAlloc[k] ? won(curAlloc[k]) : '—'}</td>
-                    </tr>
-                  ))}
+                  {BUDGET_9.map((k) => {
+                    const changed = (calc.applied[k] || 0) !== (items[k] || 0)
+                    return (
+                      <tr key={k}>
+                        <td>{k}</td>
+                        <td className="tnum" style={{ textAlign: 'right', color: changed ? 'var(--muted)' : undefined, fontWeight: changed ? 400 : 700 }}>
+                          {items[k] ? won(items[k]) : '—'}
+                        </td>
+                        <td className="tnum" style={{ textAlign: 'right', fontWeight: 700, color: changed ? 'var(--danger)' : undefined }}>
+                          {calc.applied[k] ? won(calc.applied[k]) : '—'}
+                          {changed && <span style={{ fontSize: 10.5, fontWeight: 500, marginLeft: 4 }}>(−{won(calc.cut)} 절삭)</span>}
+                        </td>
+                        <td className="tnum" style={{ textAlign: 'right', color: 'var(--muted)' }}>{curAlloc[k] ? won(curAlloc[k]) : '—'}</td>
+                      </tr>
+                    )
+                  })}
                   <tr>
                     <td><b>합계</b></td>
-                    <td className="tnum" style={{ textAlign: 'right', fontWeight: 800 }}>{won(total)}</td>
+                    <td className="tnum" style={{ textAlign: 'right', color: 'var(--muted)' }}>{won(BUDGET_9.reduce((s, k) => s + (items[k] || 0), 0))}</td>
+                    <td className="tnum" style={{ textAlign: 'right', fontWeight: 800 }}>{won(calc.total)}</td>
                     <td></td>
                   </tr>
                 </tbody>
               </table>
               <div className="boq-sum">
-                <span>공급가액(자문회비 제외) <b className="tnum">{won(supply)}</b></span>
-                <span>부가세(10%) <b className="tnum">{won(vat)}</b></span>
-                <span>공급가액+부가세 <b className="tnum">{won(supply + vat)}</b></span>
+                <span>공급가액(자문회비 제외) <b className="tnum">{won(calc.supply)}</b></span>
+                <span>부가세(10%) <b className="tnum">{won(calc.vat)}</b></span>
+                <span>공급가액+부가세 <b className="tnum">{won(calc.supply + calc.vat)}</b></span>
+                <span>절삭액 <b className="tnum" style={{ color: calc.cut ? 'var(--danger)' : undefined }}>{calc.cut ? '−' + won(calc.cut) : '0'}</b></span>
               </div>
               <p className="t-sub" style={{ fontSize: 11.5, margin: '6px 0 0' }}>
-                경비 = 경비 소계 − 기타경비. 반영하면 위 금액이 예산 항목에 입력되고(기존 같은 항목은 덮어씀) 내역서가 사업에 보관됩니다.
+                경비 = 경비 소계 − 기타경비. 절삭되는 금액은 노무비에서 차감해 공급가액+부가세가 절삭 단위에 딱 맞도록 반영합니다. 반영하면 기존 같은 항목은 덮어쓰고 내역서가 사업에 보관됩니다.
               </p>
             </div>
           )}

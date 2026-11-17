@@ -501,7 +501,11 @@ export function ArtProjectModal({
             </div>
             <div className="mfield" style={{ flex: 1 }}>
               <label>준공일</label>
-              <input className="ctl" type="date" min="1900-01-01" max="9999-12-31" value={doneDate} onChange={(e) => setDoneDate(e.target.value)} />
+              <input className="ctl" type="date" min="1900-01-01" max="9999-12-31" value={doneDate} onChange={(e) => {
+                  setDoneDate(e.target.value)
+                  if (e.target.value) setStatus('완료')
+                  else if (status === '완료') setStatus('진행')
+                }} />
             </div>
           </div>
           <div className="mfield">

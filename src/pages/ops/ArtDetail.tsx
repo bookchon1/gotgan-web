@@ -62,7 +62,16 @@ export default function ArtDetail() {
     name: '', status: '예정' as ArtStatus, contract_base: 0, kind: '발주', client: '', proj_type: '서화',
     bid_method: '협상에의한계약', contract_date: '', start_date: '', due_date: '', done_date: '',
   })
-  const setE = (k: keyof typeof ef, v: string | number) => setEf((o) => ({ ...o, [k]: v }))
+  // 준공일을 입력하면 진행상태가 자동으로 '완료', 지우면 '완료'였던 상태는 '진행'으로
+  const setE = (k: keyof typeof ef, v: string | number) =>
+    setEf((o) => {
+      const n = { ...o, [k]: v }
+      if (k === 'done_date') {
+        if (v) n.status = '완료'
+        else if (o.status === '완료') n.status = '진행'
+      }
+      return n
+    })
 
   const projQ = useQuery<ArtProject[]>(
     async () => await supabase.from('art_projects').select('*').eq('id', id!),

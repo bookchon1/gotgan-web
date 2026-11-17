@@ -30,6 +30,7 @@ import { BudgetTxPopup } from './BudgetTxPopup'
 import { AdvisorFeeModal } from './AdvisorFeeModal'
 import { BID_METHODS, PROJ_TYPES, ART_STATUSES } from './ArtList'
 import { BoqModal, BUDGET_9 } from './BoqModal'
+import { ContactSearch, hitToRow } from './ContactSearch'
 
 // 원가계산서 예산 항목 (시안 기준)
 const BUDGET_ITEMS = BUDGET_9
@@ -314,6 +315,17 @@ export default function ArtDetail() {
       )
     }
 
+    // 업체정보(partners)에 자동 등록 — 같은 업체·담당자는 갱신. 실패해도 저장은 유지(경고만)
+    let ptnWarn = ''
+    for (const r of stkValid) {
+      const { error: e } = await supabase.rpc('partner_upsert_contact', { p_org: r.org, p_person: r.name, p_kind: r.kind, p_phone: r.phone, p_email: r.email })
+      if (e && !ptnWarn) ptnWarn = e.message
+    }
+    for (const r of advValid) {
+      const { error: e } = await supabase.rpc('partner_upsert_contact', { p_org: r.org, p_person: r.name, p_kind: '자문위원', p_phone: r.phone, p_email: r.email })
+      if (e && !ptnWarn) ptnWarn = e.message
+    }
+
     setEditBusy(false)
     projQ.reload()
     stkQ.reload()
@@ -323,6 +335,7 @@ export default function ArtDetail() {
       return
     }
     setEditing(false)
+    if (ptnWarn) alert('저장은 완료됐지만 업체정보 등록에 실패했습니다.\n(SQL 20 실행이 필요할 수 있습니다)\n' + ptnWarn)
   }
 
   async function removeProject() {
@@ -588,8 +601,8 @@ export default function ArtDetail() {
                             ))}
                           </select>
                         </td>
-                        <td><input className="hr-in" value={r.name} onChange={(e) => up('name', e.target.value)} placeholder="이름" /></td>
-                        <td><input className="hr-in" value={r.org} onChange={(e) => up('org', e.target.value)} placeholder="소속" /></td>
+                        <td><ContactSearch value={r.name} onChange={(v) => up('name', v)} placeholder="이름 (검색)" onPick={(h) => setStkRows((rows) => rows.map((x, j) => (j === i ? { ...x, ...hitToRow(h), name: hitToRow(h).name || x.name } : x)))} /></td>
+                        <td><ContactSearch value={r.org} onChange={(v) => up('org', v)} placeholder="소속 (검색)" onPick={(h) => setStkRows((rows) => rows.map((x, j) => (j === i ? { ...x, ...hitToRow(h), name: hitToRow(h).name || x.name } : x)))} /></td>
                         <td><input className="hr-in" value={r.phone} onChange={(e) => up('phone', e.target.value)} placeholder="010-0000-0000" /></td>
                         <td><input className="hr-in" type="email" value={r.email} onChange={(e) => up('email', e.target.value)} placeholder="name@example.com" /></td>
                         <td style={{ textAlign: 'center' }}>
@@ -655,8 +668,8 @@ export default function ArtDetail() {
                     const up = (k: keyof AdvRow, v: string | number) => setAdvRows((rows) => rows.map((x, j) => (j === i ? { ...x, [k]: v } : x)))
                     return (
                       <tr key={r.id ?? `n${i}`}>
-                        <td><input className="hr-in" value={r.name} onChange={(e) => up('name', e.target.value)} placeholder="이름" /></td>
-                        <td><input className="hr-in" value={r.org} onChange={(e) => up('org', e.target.value)} placeholder="소속" /></td>
+                        <td><ContactSearch value={r.name} onChange={(v) => up('name', v)} placeholder="이름 (검색)" onPick={(h) => setAdvRows((rows) => rows.map((x, j) => (j === i ? { ...x, ...hitToRow(h), name: hitToRow(h).name || x.name } : x)))} /></td>
+                        <td><ContactSearch value={r.org} onChange={(v) => up('org', v)} placeholder="소속 (검색)" onPick={(h) => setAdvRows((rows) => rows.map((x, j) => (j === i ? { ...x, ...hitToRow(h), name: hitToRow(h).name || x.name } : x)))} /></td>
                         <td><input className="hr-in" value={r.phone} onChange={(e) => up('phone', e.target.value)} placeholder="010-0000-0000" /></td>
                         <td><input className="hr-in" type="email" value={r.email} onChange={(e) => up('email', e.target.value)} placeholder="name@example.com" /></td>
                         <td>

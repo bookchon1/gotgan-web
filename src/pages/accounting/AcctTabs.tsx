@@ -498,7 +498,7 @@ function CardUploadModal({ onClose, onUploaded }: { onClose: () => void; onUploa
 }
 
 // ===================== 거래처 =====================
-const PARTNER_KINDS = ['발주처', '협력업체', '공급처', '기타']
+const PARTNER_KINDS = ['발주처', '협력업체', '공급처', '재무과', '학예사', '소장처', '자문위원', '기타']
 
 export function PartnerView() {
   const [q, setQ] = useState('')
@@ -509,7 +509,13 @@ export function PartnerView() {
     [],
   )
   const list = (ptnQ.data ?? []).filter(
-    (p) => !q || p.name.includes(q) || (p.person ?? '').includes(q),
+    (p) =>
+      !q ||
+      p.name.includes(q) ||
+      (p.person ?? '').includes(q) ||
+      (p.kind ?? '').includes(q) ||
+      (p.phone1 ?? '').includes(q) ||
+      (p.email ?? '').includes(q),
   )
 
   return (
@@ -525,7 +531,7 @@ export function PartnerView() {
               <circle cx="11" cy="11" r="7" />
               <path d="M21 21l-4-4" />
             </svg>
-            <input placeholder="업체명·담당자 검색" value={q} onChange={(e) => setQ(e.target.value)} />
+            <input placeholder="업체명·담당자·구분·연락처 검색" value={q} onChange={(e) => setQ(e.target.value)} />
           </label>
           <button className="btn txt add-txt" onClick={() => setAddOpen(true)}>
             + 업체 등록
@@ -537,6 +543,7 @@ export function PartnerView() {
           <thead>
             <tr>
               <th>거래처명</th>
+              <th>구분</th>
               <th>담당자</th>
               <th>직책</th>
               <th>연락처1</th>
@@ -545,13 +552,14 @@ export function PartnerView() {
             </tr>
           </thead>
           <tbody>
-            {ptnQ.loading && <LoadingRow cols={6} />}
+            {ptnQ.loading && <LoadingRow cols={7} />}
             {!ptnQ.loading &&
               list.map((p) => (
                 <tr key={p.id} style={{ cursor: 'pointer' }} onClick={() => setOpen(p)}>
                   <td>
                     <b>{p.name}</b>
                   </td>
+                  <td className="t-sub">{p.kind || '—'}</td>
                   <td>{p.person || '—'}</td>
                   <td className="t-sub">{p.title || '—'}</td>
                   <td className="tnum">{p.phone1 || '—'}</td>
@@ -559,7 +567,7 @@ export function PartnerView() {
                   <td className="tnum">{p.biz_no || '—'}</td>
                 </tr>
               ))}
-            {!ptnQ.loading && list.length === 0 && <EmptyRow cols={6} text="거래처가 없습니다." />}
+            {!ptnQ.loading && list.length === 0 && <EmptyRow cols={7} text="거래처가 없습니다." />}
           </tbody>
         </table>
       </div>

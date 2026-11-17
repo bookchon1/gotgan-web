@@ -364,11 +364,11 @@ export default function ArtDetail() {
   return (
     <div className="page on" id="p-ops-art-detail">
       {/* 상단 버튼 바 — 초록 헤더 위, 다른 화면 버튼과 동일한 스타일 */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '2px 0 10px' }}>
-        <button className="btn txt" style={{ padding: 0 }} onClick={() => navigate('/ops/art')}>
+      <div className="proj-bar">
+        <button className="btn txt" onClick={() => navigate('/ops/art')}>
           ‹ 사업 목록
         </button>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div className="proj-actions">
           {editing ? (
             <>
               <button className="btn sec" onClick={() => setEditing(false)} disabled={editBusy}>
@@ -381,9 +381,9 @@ export default function ArtDetail() {
           ) : (
             <>
               <button className="btn sec" onClick={startEdit}>
-                사업 수정
+                수정
               </button>
-              <button className="btn sec" style={{ color: 'var(--danger)' }} onClick={removeProject}>
+              <button className="btn sec del" onClick={removeProject}>
                 삭제
               </button>
             </>

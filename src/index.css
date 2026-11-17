@@ -1009,3 +1009,13 @@ td>.hr-in{max-width:160px}
 .chg-sum .k{display:block;font-size:10.5px;color:var(--muted);font-weight:700;margin-bottom:2px}
 .chg-sum b{font-size:14px;font-weight:800}
 .chg-sum .arr{color:var(--muted);font-size:16px}
+
+/* 사업 상세 상단 바 — 작고 간결하게, 수정·삭제는 붙여서 */
+.proj-bar{display:flex;align-items:center;justify-content:space-between;margin:0 0 8px}
+.proj-bar .btn{font-size:12px;padding:4px 8px;gap:4px}
+.proj-bar .btn.txt{padding-left:0;color:var(--muted)}
+.proj-bar .btn.txt:hover{color:var(--brand-ink)}
+.proj-actions{display:inline-flex;align-items:center;gap:0}
+.proj-actions .btn+.btn{position:relative;margin-left:2px}
+.proj-actions .btn+.btn::before{content:"";position:absolute;left:-2px;top:50%;height:11px;width:1px;margin-top:-5.5px;background:var(--line)}
+.proj-actions .btn.del{color:var(--danger)}

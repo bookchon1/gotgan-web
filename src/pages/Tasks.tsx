@@ -395,11 +395,11 @@ export default function Tasks() {
               <div style={{ display: 'flex', gap: 10 }}>
                 <div className="mfield" style={{ flex: 1 }}>
                   <label>시작일</label>
-                  <input className="ctl" type="date" value={form.start} onChange={(e) => setForm({ ...form, start: e.target.value })} />
+                  <input className="ctl" type="date" min="1900-01-01" max="9999-12-31" value={form.start} onChange={(e) => setForm({ ...form, start: e.target.value })} />
                 </div>
                 <div className="mfield" style={{ flex: 1 }}>
                   <label>마감일</label>
-                  <input className="ctl" type="date" value={form.due} onChange={(e) => setForm({ ...form, due: e.target.value })} />
+                  <input className="ctl" type="date" min="1900-01-01" max="9999-12-31" value={form.due} onChange={(e) => setForm({ ...form, due: e.target.value })} />
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 10 }}>

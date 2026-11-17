@@ -454,7 +454,7 @@ function PersonalEventModal({
           </div>
           <div className="mfield">
             <label>날짜</label>
-            <input className="ctl" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            <input className="ctl" type="date" min="1900-01-01" max="9999-12-31" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
           {!editing && (
             <div className="mfield">

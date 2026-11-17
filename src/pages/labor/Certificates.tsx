@@ -170,7 +170,7 @@ export default function Certificates() {
           </div>
           <div className="mfield">
             <label>발급일</label>
-            <input type="date" className="ctl" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} />
+            <input type="date" min="1900-01-01" max="9999-12-31" className="ctl" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} />
           </div>
           <label className="mfield cert-toggle" style={{ cursor: 'pointer' }}>
             <label>&nbsp;</label>

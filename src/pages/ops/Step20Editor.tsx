@@ -204,13 +204,13 @@ export function Step20Editor({
                   {edit ? (
                     <>
                       <input
-                        type="date"
+                        type="date" min="1900-01-01" max="9999-12-31"
                         defaultValue={s.from_date ?? ''}
                         onChange={(e) => setField(s.id, { from_date: e.target.value || null })}
                       />
                       <span>~</span>
                       <input
-                        type="date"
+                        type="date" min="1900-01-01" max="9999-12-31"
                         defaultValue={s.to_date ?? ''}
                         onChange={(e) => setField(s.id, { to_date: e.target.value || null })}
                       />

@@ -574,18 +574,18 @@ function LedgerView({
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginLeft: 'auto' }}>
           <input
             className="sel"
-            type="date"
+            type="date" min="1900-01-01"
             value={dateFrom}
-            max={dateTo || undefined}
+            max={dateTo || '9999-12-31'}
             onChange={(e) => setDateFrom(e.target.value)}
             aria-label="시작일"
           />
           <span style={{ color: 'var(--muted)' }}>~</span>
           <input
             className="sel"
-            type="date"
+            type="date" max="9999-12-31"
             value={dateTo}
-            min={dateFrom || undefined}
+            min={dateFrom || '1900-01-01'}
             onChange={(e) => setDateTo(e.target.value)}
             aria-label="종료일"
           />
@@ -770,7 +770,7 @@ function LedgerAddModal({ onClose, onPosted, editTx }: { onClose: () => void; on
           <div style={{ display: 'flex', gap: 10 }}>
             <div className="mfield" style={{ flex: 1 }}>
               <label>일자</label>
-              <input className="ctl" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <input className="ctl" type="date" min="1900-01-01" max="9999-12-31" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
             <div className="mfield" style={{ width: 130 }}>
               <label>사업자</label>

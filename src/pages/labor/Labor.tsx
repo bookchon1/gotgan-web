@@ -326,7 +326,7 @@ function AttAddModal({
             </div>
             <div className="mfield" style={{ flex: 1 }}>
               <label>근무일</label>
-              <input type="date" className="ctl" value={f.work_date} onChange={(e) => setF({ ...f, work_date: e.target.value })} />
+              <input type="date" min="1900-01-01" max="9999-12-31" className="ctl" value={f.work_date} onChange={(e) => setF({ ...f, work_date: e.target.value })} />
             </div>
           </div>
           <div style={{ display: 'flex', gap: 10 }}>

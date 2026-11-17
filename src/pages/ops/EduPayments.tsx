@@ -293,7 +293,7 @@ function PaymentModal({
           </div>
           <div className="mfield">
             <label>납부일</label>
-            <input className="ctl" type="date" value={paidDate} onChange={(e) => setPaidDate(e.target.value)} />
+            <input className="ctl" type="date" min="1900-01-01" max="9999-12-31" value={paidDate} onChange={(e) => setPaidDate(e.target.value)} />
           </div>
           <div className="mfield">
             <label>메모</label>

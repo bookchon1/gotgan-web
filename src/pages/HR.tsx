@@ -592,7 +592,7 @@ function EmpCardModal({
                 </select>
               </Field>
               <Field label="입사일">
-                <input className="ctl" type="date" value={form.join_date ?? ''} onChange={(e) => set('join_date', e.target.value)} />
+                <input className="ctl" type="date" min="1900-01-01" max="9999-12-31" value={form.join_date ?? ''} onChange={(e) => set('join_date', e.target.value)} />
               </Field>
               <Field label="재직상태">
                 <select className="ctl" value={form.status} onChange={(e) => set('status', e.target.value as Emp['status'])}>
@@ -605,7 +605,7 @@ function EmpCardModal({
               </Field>
               {form.status === '퇴직' && (
                 <Field label="퇴사일">
-                  <input className="ctl" type="date" value={form.leave_date ?? ''} onChange={(e) => set('leave_date', e.target.value)} />
+                  <input className="ctl" type="date" min="1900-01-01" max="9999-12-31" value={form.leave_date ?? ''} onChange={(e) => set('leave_date', e.target.value)} />
                 </Field>
               )}
               <Field label="인사 메모" full>
@@ -716,7 +716,7 @@ function AssignTab({ empId }: { empId: string }) {
 
       {adding && (
         <div className="assign-add">
-          <input className="ctl" type="date" value={form.eff_date} onChange={(e) => setForm({ ...form, eff_date: e.target.value })} />
+          <input className="ctl" type="date" min="1900-01-01" max="9999-12-31" value={form.eff_date} onChange={(e) => setForm({ ...form, eff_date: e.target.value })} />
           <select className="ctl" value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })}>
             {ASSIGN_KINDS.map((k) => (
               <option key={k} value={k}>

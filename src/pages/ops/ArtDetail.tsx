@@ -572,7 +572,7 @@ export default function ArtDetail() {
                     </select>
                   </td>
                   <td>
-                    <input className="hr-in" type="date" value={receiptForm.date} onChange={(e) => setReceiptForm({ ...receiptForm, date: e.target.value })} />
+                    <input className="hr-in" type="date" min="1900-01-01" max="9999-12-31" value={receiptForm.date} onChange={(e) => setReceiptForm({ ...receiptForm, date: e.target.value })} />
                   </td>
                   <td style={{ textAlign: 'right' }}>
                     <input
@@ -632,7 +632,7 @@ export default function ArtDetail() {
               {addChange && (
                 <tr>
                   <td>
-                    <input className="hr-in" type="date" value={changeForm.date} onChange={(e) => setChangeForm({ ...changeForm, date: e.target.value })} />
+                    <input className="hr-in" type="date" min="1900-01-01" max="9999-12-31" value={changeForm.date} onChange={(e) => setChangeForm({ ...changeForm, date: e.target.value })} />
                   </td>
                   <td>
                     <select className="hr-in" value={changeForm.type} onChange={(e) => setChangeForm({ ...changeForm, type: e.target.value })}>

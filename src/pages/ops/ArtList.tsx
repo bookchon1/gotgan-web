@@ -480,21 +480,21 @@ export function ArtProjectModal({
           <div style={{ display: 'flex', gap: 10 }}>
             <div className="mfield" style={{ flex: 1 }}>
               <label>계약일</label>
-              <input className="ctl" type="date" value={contractDate} onChange={(e) => setContractDate(e.target.value)} />
+              <input className="ctl" type="date" min="1900-01-01" max="9999-12-31" value={contractDate} onChange={(e) => setContractDate(e.target.value)} />
             </div>
             <div className="mfield" style={{ flex: 1 }}>
               <label>착공일</label>
-              <input className="ctl" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+              <input className="ctl" type="date" min="1900-01-01" max="9999-12-31" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
             </div>
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <div className="mfield" style={{ flex: 1 }}>
               <label>준공 기한(예정)</label>
-              <input className="ctl" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+              <input className="ctl" type="date" min="1900-01-01" max="9999-12-31" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
             </div>
             <div className="mfield" style={{ flex: 1 }}>
               <label>준공일</label>
-              <input className="ctl" type="date" value={doneDate} onChange={(e) => setDoneDate(e.target.value)} />
+              <input className="ctl" type="date" min="1900-01-01" max="9999-12-31" value={doneDate} onChange={(e) => setDoneDate(e.target.value)} />
             </div>
           </div>
           <div className="mfield">

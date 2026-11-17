@@ -262,11 +262,11 @@ function PromoModal({
           <div style={{ display: 'flex', gap: 10 }}>
             <div className="mfield" style={{ flex: 1 }}>
               <label>시작일</label>
-              <input className="ctl" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+              <input className="ctl" type="date" min="1900-01-01" max="9999-12-31" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
             </div>
             <div className="mfield" style={{ flex: 1 }}>
               <label>종료일</label>
-              <input className="ctl" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+              <input className="ctl" type="date" min="1900-01-01" max="9999-12-31" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
             </div>
             <div className="mfield" style={{ width: 120 }}>
               <label>상태</label>

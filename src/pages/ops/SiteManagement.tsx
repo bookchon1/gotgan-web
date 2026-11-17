@@ -294,9 +294,9 @@ function SettleTab({
           ))}
         </select>
         <span style={{ fontSize: 12.5, color: 'var(--muted)', marginLeft: 6 }}>정산 기간</span>
-        <input className="sel" type="date" value={from} onChange={(e) => setFrom(e.target.value)} style={{ width: 150 }} />
+        <input className="sel" type="date" min="1900-01-01" max="9999-12-31" value={from} onChange={(e) => setFrom(e.target.value)} style={{ width: 150 }} />
         <span style={{ color: 'var(--muted)' }}>~</span>
-        <input className="sel" type="date" value={to} onChange={(e) => setTo(e.target.value)} style={{ width: 150 }} />
+        <input className="sel" type="date" min="1900-01-01" max="9999-12-31" value={to} onChange={(e) => setTo(e.target.value)} style={{ width: 150 }} />
       </div>
 
       {note && (
@@ -874,7 +874,7 @@ function DailyDraftModal({
           <div style={{ display: 'flex', gap: 10 }}>
             <div className="mfield" style={{ width: 160 }}>
               <label>작성일</label>
-              <input className="ctl" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <input className="ctl" type="date" min="1900-01-01" max="9999-12-31" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
             <div className="mfield" style={{ flex: 1 }}>
               <label>사업</label>

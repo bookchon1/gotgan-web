@@ -131,11 +131,11 @@ create table if not exists public.budget_changes (
   created_at    timestamptz not null default now()
 );
 
--- 대금 수령 (선금·기성·잔금)
+-- 대금 수령 (선금·기성·준공금)
 create table if not exists public.budget_receipts (
   id          uuid primary key default gen_random_uuid(),
   project_id  uuid not null references public.art_projects(id) on delete cascade,
-  kind        text not null check (kind in ('선금','기성','잔금')),
+  kind        text not null check (kind in ('선금','기성','준공금')),
   date        date not null,
   amount      bigint not null,
   created_at  timestamptz not null default now()

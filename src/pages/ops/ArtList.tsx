@@ -179,7 +179,7 @@ export default function ArtList() {
       <PageHead
         eyebrow="미술 · 사업"
         title="사업관리"
-        desc="전체·진행·완료와 준공·착공 기준 년도로 사업을 찾아보세요. 행을 클릭하면 상세로 이동합니다."
+        desc="전체·진행·완료와 준공·착공 년도로 사업을 찾아보세요. 행을 클릭하면 상세로 이동합니다."
         actions={
           <button className="btn txt add-txt" onClick={() => setAddOpen(true)}>
             + 사업 등록
@@ -208,13 +208,13 @@ export default function ArtList() {
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
               <select
                 className="sel"
-                style={{ width: 98 }}
+                style={{ width: 80 }}
                 value={yearBasis}
                 onChange={(e) => setYearBasis(e.target.value as 'done' | 'start')}
-                aria-label="년도 기준"
+                aria-label="준공·착공"
               >
-                <option value="done">준공 기준</option>
-                <option value="start">착공 기준</option>
+                <option value="done">준공</option>
+                <option value="start">착공</option>
               </select>
               <select
                 className="sel"

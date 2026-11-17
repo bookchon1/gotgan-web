@@ -102,7 +102,7 @@ export default function ArtList() {
   const navigate = useNavigate()
   const [stFilter, setStFilter] = useState<'all' | 'prog' | 'done'>('all')
   const [yearFilter, setYearFilter] = useState('all') // 'all' | '2026' ...
-  const [yearBasis, setYearBasis] = useState<'done' | 'start'>('done') // 준공 기준 / 착공 기준
+  const [yearBasis, setYearBasis] = useState<'' | 'done' | 'start'>('') // '' = 구분 없음(착공·준공 어느 쪽이든)
   const [addOpen, setAddOpen] = useState(false)
 
   const projects = useQuery<ArtProject[]>(
@@ -145,7 +145,12 @@ export default function ArtList() {
     () =>
       all
         .filter((p) => (stFilter === 'all' ? true : stFilter === 'done' ? p.status === '완료' : p.status !== '완료'))
-        .filter((p) => yearFilter === 'all' || basisYear(p, yearBasis) === Number(yearFilter))
+        .filter((p) => {
+          if (yearFilter === 'all') return true
+          const yy = Number(yearFilter)
+          if (yearBasis) return basisYear(p, yearBasis) === yy
+          return basisYear(p, 'start') === yy || basisYear(p, 'done') === yy // 구분 없음: 착공·준공 어느 쪽이든
+        })
         .sort((a, b) => {
           const oa = ST_ORDER[a.status] ?? 2
           const ob = ST_ORDER[b.status] ?? 2
@@ -161,8 +166,10 @@ export default function ArtList() {
   const yearOptions = useMemo(() => {
     const set = new Set<number>([CUR_YEAR])
     for (const p of all) {
-      const y = basisYear(p, yearBasis)
-      if (y) set.add(y)
+      for (const b of yearBasis ? [yearBasis] : (['start', 'done'] as const)) {
+        const y = basisYear(p, b)
+        if (y) set.add(y)
+      }
     }
     return [...set].sort((a, b) => b - a)
   }, [all, yearBasis])
@@ -206,14 +213,14 @@ export default function ArtList() {
               ))}
             </div>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)' }}>구분</span>
               <select
                 className="sel"
                 style={{ width: 80 }}
                 value={yearBasis}
-                onChange={(e) => setYearBasis(e.target.value as 'done' | 'start')}
+                onChange={(e) => setYearBasis(e.target.value as '' | 'done' | 'start')}
                 aria-label="준공·착공"
               >
+                <option value="">구분</option>
                 <option value="start">착공</option>
                 <option value="done">준공</option>
               </select>

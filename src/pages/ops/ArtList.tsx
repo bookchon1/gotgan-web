@@ -20,7 +20,7 @@ const ST_ORDER: Record<string, number> = {
   '탈락/보류': 4,
 }
 
-const CUR_YEAR = 2026
+const CUR_YEAR = new Date().getFullYear()
 
 // 상태 → chip 클래스 (시안 stChip)
 const ST_CHIP: Record<string, string> = {
@@ -90,9 +90,20 @@ function isCurrent(p: ArtProject): boolean {
   return dy === String(CUR_YEAR)
 }
 
+/** 사업이 걸쳐 있는 연도 범위 [시작, 끝] — 계약/착공 ~ 준공(예정) */
+function projYears(p: ArtProject): [number, number] {
+  const y = (d?: string | null) => (d ? parseInt(d.slice(0, 4), 10) : NaN)
+  let a = y(p.start_date) || y(p.contract_date) || y(p.due_date) || Number(p.year) || CUR_YEAR
+  let b = y(p.done_date) || y(p.due_date) || a
+  if (!Number.isFinite(a)) a = CUR_YEAR
+  if (!Number.isFinite(b)) b = a
+  return a <= b ? [a, b] : [b, a]
+}
+
 export default function ArtList() {
   const navigate = useNavigate()
-  const [showDone, setShowDone] = useState(false)
+  const [stFilter, setStFilter] = useState<'all' | 'prog' | 'done'>('all')
+  const [yearFilter, setYearFilter] = useState('all') // 'all' | '2026' ...
   const [addOpen, setAddOpen] = useState(false)
 
   const projects = useQuery<ArtProject[]>(
@@ -100,7 +111,7 @@ export default function ArtList() {
       await supabase
         .from('art_projects')
         .select(
-          'id,name,client,biz_code,proj_type,kind,status,progress,now_text,est_amount,owner_id,contract_base,due_date,done_date,year',
+          'id,name,client,biz_code,proj_type,kind,status,progress,now_text,est_amount,owner_id,contract_base,contract_date,start_date,due_date,done_date,year',
         ),
     [],
   )
@@ -134,7 +145,13 @@ export default function ArtList() {
   const list = useMemo(
     () =>
       all
-        .filter((p) => showDone || isCurrent(p))
+        .filter((p) => (stFilter === 'all' ? true : stFilter === 'done' ? p.status === '완료' : p.status !== '완료'))
+        .filter((p) => {
+          if (yearFilter === 'all') return true
+          const [a, b] = projYears(p)
+          const yy = Number(yearFilter)
+          return a <= yy && yy <= b
+        })
         .sort((a, b) => {
           const oa = ST_ORDER[a.status] ?? 2
           const ob = ST_ORDER[b.status] ?? 2
@@ -144,9 +161,17 @@ export default function ArtList() {
           const bd = (b.due_date || '9999').slice(0, 10)
           return ad < bd ? -1 : ad > bd ? 1 : 0
         }),
-    [all, showDone],
+    [all, stFilter, yearFilter],
   )
-  const hiddenDone = all.filter((p) => !isCurrent(p)).length
+  // 연도 선택지: 사업들이 걸친 모든 연도 + 올해
+  const yearOptions = useMemo(() => {
+    const set = new Set<number>([CUR_YEAR])
+    for (const p of all) {
+      const [a, b] = projYears(p)
+      for (let y = a; y <= b && y - a < 15; y++) set.add(y)
+    }
+    return [...set].sort((a, b) => b - a)
+  }, [all])
 
   let tCon = 0,
     tRec = 0
@@ -160,21 +185,11 @@ export default function ArtList() {
       <PageHead
         eyebrow="미술 · 사업"
         title="사업관리"
-        desc="진행 중이거나 당해연도 사업을 확인하세요. 행을 클릭하면 상세로 이동합니다."
+        desc="전체·진행·완료와 연도로 사업을 찾아보세요. 행을 클릭하면 상세로 이동합니다."
         actions={
-          <>
-            {(hiddenDone > 0 || showDone) && (
-              <button
-                className={`btn ${showDone ? 'pri' : 'sec'}`}
-                onClick={() => setShowDone((v) => !v)}
-              >
-                {showDone ? '진행 사업만 보기' : `완료 사업 보기 (${hiddenDone})`}
-              </button>
-            )}
-            <button className="btn txt add-txt" onClick={() => setAddOpen(true)}>
-              + 사업 등록
-            </button>
-          </>
+          <button className="btn txt add-txt" onClick={() => setAddOpen(true)}>
+            + 사업 등록
+          </button>
         }
       />
 
@@ -187,6 +202,29 @@ export default function ArtList() {
             <h2>
               사업 목록 <span className="count">{projects.loading ? '…' : list.length}</span>
             </h2>
+          </div>
+          <div className="r" style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div className="seg-text">
+              {([['all', '전체'], ['prog', '진행'], ['done', '완료']] as const).map(([k, l]) => (
+                <button key={k} className={stFilter === k ? 'on' : ''} onClick={() => setStFilter(k)}>
+                  {l}
+                </button>
+              ))}
+            </div>
+            <select
+              className="sel"
+              style={{ width: 104 }}
+              value={yearFilter}
+              onChange={(e) => setYearFilter(e.target.value)}
+              aria-label="연도"
+            >
+              <option value="all">전체 연도</option>
+              {yearOptions.map((y) => (
+                <option key={y} value={String(y)}>
+                  {y}년
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 

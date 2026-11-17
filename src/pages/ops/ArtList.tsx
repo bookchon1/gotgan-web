@@ -328,13 +328,10 @@ export function ArtProjectModal({
   const [contractBase, setContractBase] = useState(Number(project?.contract_base) || 0)
   // 입찰·계약
   const [bidMethod, setBidMethod] = useState(project?.bid_method ?? '협상에의한계약')
-  const [bidDate, setBidDate] = useState(project?.bid_date ?? '')
   const [contractDate, setContractDate] = useState(project?.contract_date ?? '')
   const [startDate, setStartDate] = useState(project?.start_date ?? '')
   const [dueDate, setDueDate] = useState(project?.due_date ?? '')
-  // 관계자(발주담당) — 신규 등록 시에만 함께 입력. 수정은 상세에서.
-  const [ownerName, setOwnerName] = useState('')
-  const [ownerPhone, setOwnerPhone] = useState('')
+  const [doneDate, setDoneDate] = useState(project?.done_date ?? '')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
@@ -354,10 +351,10 @@ export function ArtProjectModal({
       status,
       contract_base: contractBase,
       bid_method: bidMethod || null,
-      bid_date: bidDate || null,
       contract_date: contractDate || null,
       start_date: startDate || null,
       due_date: dueDate || null,
+      done_date: doneDate || null,
       year: (dueDate ? +dueDate.slice(0, 4) : null) || project?.year || CUR_YEAR,
     }
 
@@ -372,26 +369,14 @@ export function ArtProjectModal({
       return
     }
 
-    // 신규: 사업 생성 후 발주담당(관계자) 1건 함께 등록
-    const { data, error } = await supabase
+    // 신규 사업 생성
+    const { error } = await supabase
       .from('art_projects')
       .insert({ ...payload, progress: 0, est_amount: 0 })
-      .select('id')
-      .single()
     if (error) {
       setBusy(false)
       setErr(error.message)
       return
-    }
-    if (data?.id && ownerName.trim()) {
-      await supabase.from('art_stakeholders').insert({
-        project_id: data.id,
-        kind: '발주담당',
-        name: ownerName.trim(),
-        org: client.trim() || null,
-        phone: ownerPhone.trim() || null,
-        sort: 0,
-      })
     }
     setBusy(false)
     onSaved()
@@ -494,22 +479,22 @@ export function ArtProjectModal({
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <div className="mfield" style={{ flex: 1 }}>
-              <label>입찰 일정</label>
-              <input className="ctl" type="date" value={bidDate} onChange={(e) => setBidDate(e.target.value)} />
-            </div>
-            <div className="mfield" style={{ flex: 1 }}>
               <label>계약일</label>
               <input className="ctl" type="date" value={contractDate} onChange={(e) => setContractDate(e.target.value)} />
             </div>
-          </div>
-          <div style={{ display: 'flex', gap: 10 }}>
             <div className="mfield" style={{ flex: 1 }}>
               <label>착공일</label>
               <input className="ctl" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
             </div>
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
             <div className="mfield" style={{ flex: 1 }}>
               <label>준공 기한(예정)</label>
               <input className="ctl" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+            </div>
+            <div className="mfield" style={{ flex: 1 }}>
+              <label>준공일</label>
+              <input className="ctl" type="date" value={doneDate} onChange={(e) => setDoneDate(e.target.value)} />
             </div>
           </div>
           <div className="mfield">
@@ -522,25 +507,6 @@ export function ArtProjectModal({
               placeholder="예: 220,000,000"
             />
           </div>
-
-          {/* ③ 관계자 — 신규 등록 시에만 (수정은 상세에서) */}
-          {!editing && (
-            <>
-              <p className="sec-mini" style={{ margin: '16px 0 8px', fontWeight: 700, color: 'var(--brand-ink)' }}>
-                ③ 관계자 <span style={{ fontWeight: 600, color: 'var(--muted)' }}>(발주 담당 · 등록 후 상세에서 추가)</span>
-              </p>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <div className="mfield" style={{ flex: 1 }}>
-                  <label>발주 담당</label>
-                  <input className="ctl" value={ownerName} onChange={(e) => setOwnerName(e.target.value)} placeholder="예: 김○○ 학예사" />
-                </div>
-                <div className="mfield" style={{ flex: 1 }}>
-                  <label>연락처</label>
-                  <input className="ctl" value={ownerPhone} onChange={(e) => setOwnerPhone(e.target.value)} placeholder="010-0000-0000" />
-                </div>
-              </div>
-            </>
-          )}
 
           {err && (
             <div className="login-alert err" style={{ margin: 0 }}>

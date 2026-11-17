@@ -704,10 +704,15 @@ export default function ArtDetail() {
               </tr>
             </thead>
             <tbody>
-              {receipts.map((r) => (
+              {[...receipts].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)).map((r, _i, arr) => (
                 <tr key={r.id}>
                   <td>
-                    <span className="badge">{r.kind}</span>
+                    <span className="badge">
+                      {r.kind}
+                      {r.kind === '기성' && arr.filter((x) => x.kind === '기성').length > 1
+                        ? ` ${arr.filter((x) => x.kind === '기성').indexOf(r) + 1}차`
+                        : ''}
+                    </span>
                   </td>
                   <td className="tnum">{dateOnly(r.date)}</td>
                   <td className="tnum" style={{ textAlign: 'right', fontWeight: 700, color: 'var(--ok)' }}>

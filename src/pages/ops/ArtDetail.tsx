@@ -870,7 +870,7 @@ export default function ArtDetail() {
           </div>
           <div className="bcards">
             {vRows.map((b) => (
-              <div className="bcard" key={b.item}>
+              <div className="bcard click" key={b.item} onClick={() => setBudItem(b.item)} title="클릭하면 집행한 지출결의서 목록을 봅니다">
                 <div className="bt">
                   {b.item}
                   <span className="pct" style={{ color: pctColor(b.pct) }}>
@@ -898,13 +898,11 @@ export default function ArtDetail() {
                     </b>
                   </div>
                 </div>
-                {b.txCount > 0 && (
-                  <div className="detail">
-                    <button className="db" onClick={() => setBudItem(b.item)}>
-                      내역 보기 ({b.txCount}) ›
-                    </button>
-                  </div>
-                )}
+                <div className="detail">
+                  <span className="db">
+                    지출결의서 {b.txCount > 0 ? `${b.txCount}건 ` : ''}보기 ›
+                  </span>
+                </div>
               </div>
             ))}
             {vRows.length === 0 && <CenterNote>등록된 예산 항목이 없습니다.</CenterNote>}

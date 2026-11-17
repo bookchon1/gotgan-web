@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../../components/Icon'
 import { supabase } from '../../lib/supabase'
 import { dateRange } from '../../lib/format'
@@ -9,6 +9,40 @@ import { STEP_LABEL } from './artDetail'
  * 세부 진행 현황 (20공정) — 보기 + 편집. DB(project_steps, step_comments)에 실제 저장.
  * 편집: 이름/상태/날짜 수정, 위치지정 추가, 삭제, 순서이동, 코멘트.
  */
+/** 내용 길이에 맞춰 높이가 자동으로 늘어나는 메모 입력칸 (스크롤바 없음) */
+function AutoTextarea({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string
+  onChange: (v: string) => void
+  placeholder?: string
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null)
+  const fit = () => {
+    const el = ref.current
+    if (!el) return
+    el.style.height = '0px'
+    el.style.height = Math.max(30, el.scrollHeight + 2) + 'px'
+  }
+  useLayoutEffect(fit, [value])
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    let w = el.clientWidth
+    const ro = new ResizeObserver(() => {
+      if (el.clientWidth !== w) {
+        w = el.clientWidth
+        fit()
+      }
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  return <textarea ref={ref} rows={1} placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} />
+}
+
 export function Step20Editor({
   projectId,
   steps,
@@ -234,10 +268,10 @@ export function Step20Editor({
                   </div>
                 )}
                 <div className="cmt-add">
-                  <textarea
+                  <AutoTextarea
                     placeholder="메모 입력"
                     value={cmtDraft[s.id] || ''}
-                    onChange={(e) => setCmtDraft((d) => ({ ...d, [s.id]: e.target.value }))}
+                    onChange={(v) => setCmtDraft((d) => ({ ...d, [s.id]: v }))}
                   />
                   <button className="cadd" onClick={() => addComment(s.id)} disabled={busy}>
                     추가

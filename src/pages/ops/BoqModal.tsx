@@ -346,14 +346,15 @@ export function BoqModal({
             <h3>{projectName}</h3>
           </div>
           <div className="boq-actions">
-            <label className="btn pri">
-              {saved || parsed ? '내역서 다시 올리기' : '내역서 엑셀 올리기'}
+            <label className="btn pri" title="내역서 엑셀 업로드">
+              업로드
               <input type="file" accept=".xlsx,.xlsm,.xls" style={{ display: 'none' }} onChange={onFile} disabled={busy} />
             </label>
-            <button className="btn sec" onClick={onAddItem}>+ 예산 항목</button>
+            
             {sheets.length > 0 && (
-              <button className="btn sec" onClick={download}>엑셀 다운로드</button>
+              <button className="btn sec" onClick={download}>다운로드</button>
             )}
+            <button className="btn sec" onClick={onAddItem} title="예산 항목 직접 추가">추가</button>
             <button className="x" onClick={onClose}>✕</button>
           </div>
         </div>

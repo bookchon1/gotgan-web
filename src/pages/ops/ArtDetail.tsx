@@ -33,14 +33,16 @@ import { BID_METHODS, PROJ_TYPES, ART_STATUSES } from './ArtList'
 // 원가계산서 예산 항목 (시안 기준)
 const BUDGET_ITEMS = ['재료비', '노무비', '경비', '외주가공비', '이윤', '보존처리계획', '훈증', '자문회비']
 
+type StkRow = { id?: string; kind: string; name: string; org: string; phone: string; email: string }
+type AdvRow = { id?: string; name: string; org: string; phone: string; email: string; default_fee: number }
+const STK_KINDS = ['발주담당', '소장자', '재무과', '기타']
+
 export default function ArtDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const detailsRefs = useRef<HTMLDetailsElement[]>([])
   const [budItem, setBudItem] = useState<string | null>(null)
   const [advOpen, setAdvOpen] = useState(false)
-  const [advEdit, setAdvEdit] = useState<null | Advisor | 'new'>(null)
-  const [advForm, setAdvForm] = useState({ name: '', org: '', phone: '', email: '', default_fee: 0 })
   const [addChange, setAddChange] = useState(false)
   const [changeForm, setChangeForm] = useState({ date: '', type: '증액', memo: '', after: 0 })
   const [addReceipt, setAddReceipt] = useState(false)
@@ -48,9 +50,9 @@ export default function ArtDetail() {
   const [addBudget, setAddBudget] = useState(false)
   const [budgetForm, setBudgetForm] = useState({ item: '재료비', alloc: 0 })
   const [budBusy, setBudBusy] = useState(false)
-  const [stkEdit, setStkEdit] = useState<null | ArtStakeholder | 'new'>(null)
-  const [stkForm, setStkForm] = useState({ kind: '발주담당', name: '', org: '', phone: '', email: '' })
-  const [stkBusy, setStkBusy] = useState(false)
+  // 사업 수정 모드에서 함께 편집하는 관계자·자문위원 초안
+  const [stkRows, setStkRows] = useState<StkRow[]>([])
+  const [advRows, setAdvRows] = useState<AdvRow[]>([])
   // 사업개요 인라인 수정 모드 (헤더 + 사업개요 전체)
   const [editing, setEditing] = useState(false)
   const [editBusy, setEditBusy] = useState(false)
@@ -161,47 +163,6 @@ export default function ArtDetail() {
     setReceiptForm({ kind: '기성', date: '', amount: 0 })
     receiptsQ.reload()
   }
-  async function saveStk() {
-    if (!stkForm.name.trim()) return
-    setStkBusy(true)
-    const payload = {
-      kind: stkForm.kind,
-      name: stkForm.name.trim(),
-      org: stkForm.org.trim() || null,
-      phone: stkForm.phone.trim() || null,
-      email: stkForm.email.trim() || null,
-    }
-    const { error } =
-      stkEdit && stkEdit !== 'new'
-        ? await supabase.from('art_stakeholders').update(payload).eq('id', stkEdit.id)
-        : await supabase.from('art_stakeholders').insert({ ...payload, project_id: id!, sort: stakeholders.length })
-    setStkBusy(false)
-    if (error) {
-      alert('관계자 저장 실패: ' + error.message)
-      return
-    }
-    setStkEdit(null)
-    setStkForm({ kind: '발주담당', name: '', org: '', phone: '', email: '' })
-    stkQ.reload()
-  }
-  function openStk(s: ArtStakeholder | 'new') {
-    setStkForm(
-      s === 'new'
-        ? { kind: '발주담당', name: '', org: '', phone: '', email: '' }
-        : { kind: s.kind, name: s.name, org: s.org ?? '', phone: s.phone ?? '', email: s.email ?? '' },
-    )
-    setStkEdit(s)
-  }
-  async function removeStk(s: ArtStakeholder) {
-    if (!window.confirm(`관계자 "${s.name}" 을(를) 삭제할까요?`)) return
-    const { error } = await supabase.from('art_stakeholders').delete().eq('id', s.id)
-    if (error) {
-      alert('삭제 실패: ' + error.message)
-      return
-    }
-    stkQ.reload()
-  }
-
   // 예산 항목 등록/수정 (art_budget upsert — project_id+item 유니크)
   async function saveBudget() {
     if (!budgetForm.item || budgetForm.alloc <= 0) return
@@ -220,40 +181,6 @@ export default function ArtDetail() {
     setAddBudget(false)
     setBudgetForm({ item: BUDGET_ITEMS[0], alloc: 0 })
     budgetQ.reload()
-  }
-
-  // 자문위원 등록/수정/삭제
-  async function saveAdvisor() {
-    if (!advForm.name.trim()) return
-    setStkBusy(true)
-    const payload = {
-      name: advForm.name.trim(),
-      org: advForm.org.trim() || null,
-      phone: advForm.phone.trim() || null,
-      email: advForm.email.trim() || null,
-      default_fee: advForm.default_fee,
-    }
-    const { error } =
-      advEdit && advEdit !== 'new'
-        ? await supabase.from('advisors').update(payload).eq('id', advEdit.id)
-        : await supabase.from('advisors').insert({ ...payload, project_id: id!, sort: advisors.length })
-    setStkBusy(false)
-    if (error) {
-      alert('자문위원 저장 실패: ' + error.message)
-      return
-    }
-    setAdvEdit(null)
-    setAdvForm({ name: '', org: '', phone: '', email: '', default_fee: 0 })
-    reloadAdvisors()
-  }
-  async function removeAdvisor(a: Advisor) {
-    if (!window.confirm(`자문위원 "${a.name}" 을(를) 삭제할까요?`)) return
-    const { error } = await supabase.from('advisors').delete().eq('id', a.id)
-    if (error) {
-      alert('삭제 실패: ' + error.message)
-      return
-    }
-    reloadAdvisors()
   }
 
   // 기본 20단계 보존처리 공정 템플릿
@@ -292,6 +219,8 @@ export default function ArtDetail() {
       contract_date: p.contract_date ?? '', start_date: p.start_date ?? '',
       due_date: p.due_date ?? '', done_date: p.done_date ?? ''
     })
+    setStkRows(stakeholders.map((x) => ({ id: x.id, kind: x.kind, name: x.name, org: x.org ?? '', phone: x.phone ?? '', email: x.email ?? '' })))
+    setAdvRows(advisors.map((x) => ({ id: x.id, name: x.name, org: x.org ?? '', phone: x.phone ?? '', email: x.email ?? '', default_fee: Number(x.default_fee) || 0 })))
     setEditing(true)
   }
   async function saveEdit() {
@@ -317,13 +246,54 @@ export default function ArtDetail() {
         year: (ef.due_date ? +ef.due_date.slice(0, 4) : null) || p?.year || new Date().getFullYear(),
       })
       .eq('id', id!)
-    setEditBusy(false)
     if (error) {
+      setEditBusy(false)
       alert('사업 수정 저장 실패: ' + error.message)
       return
     }
-    setEditing(false)
+
+    // 관계자·자문위원 일괄 반영: 삭제 → 수정 → 추가
+    const errs: string[] = []
+    const stkValid = stkRows.filter((r) => r.name.trim())
+    const stkKeep = new Set(stkValid.filter((r) => r.id).map((r) => r.id))
+    for (const o of stakeholders) {
+      if (!stkKeep.has(o.id)) {
+        const { error: e } = await supabase.from('art_stakeholders').delete().eq('id', o.id)
+        if (e) errs.push('관계자 삭제: ' + e.message)
+      }
+    }
+    for (const [i, r] of stkValid.entries()) {
+      const payload = { kind: r.kind, name: r.name.trim(), org: r.org.trim() || null, phone: r.phone.trim() || null, email: r.email.trim() || null, sort: i }
+      const { error: e } = r.id
+        ? await supabase.from('art_stakeholders').update(payload).eq('id', r.id)
+        : await supabase.from('art_stakeholders').insert({ ...payload, project_id: id! })
+      if (e) errs.push('관계자 저장: ' + e.message)
+    }
+    const advValid = advRows.filter((r) => r.name.trim())
+    const advKeep = new Set(advValid.filter((r) => r.id).map((r) => r.id))
+    for (const o of advisors) {
+      if (!advKeep.has(o.id)) {
+        const { error: e } = await supabase.from('advisors').delete().eq('id', o.id)
+        if (e) errs.push('자문위원 삭제: ' + e.message)
+      }
+    }
+    for (const [i, r] of advValid.entries()) {
+      const payload = { name: r.name.trim(), org: r.org.trim() || null, phone: r.phone.trim() || null, email: r.email.trim() || null, default_fee: r.default_fee, sort: i }
+      const { error: e } = r.id
+        ? await supabase.from('advisors').update(payload).eq('id', r.id)
+        : await supabase.from('advisors').insert({ ...payload, project_id: id! })
+      if (e) errs.push('자문위원 저장: ' + e.message)
+    }
+
+    setEditBusy(false)
     projQ.reload()
+    stkQ.reload()
+    reloadAdvisors()
+    if (errs.length) {
+      alert('일부 저장 실패:\n' + [...new Set(errs)].join('\n'))
+      return
+    }
+    setEditing(false)
   }
 
   async function removeProject() {
@@ -523,14 +493,20 @@ export default function ArtDetail() {
             </div>
           )}
 
-          {/* 관계자 */}
+          {/* 관계자 — 사업 수정 모드에서 함께 편집 */}
           <div className="bud-h" style={{ marginTop: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div className="t">
-              관계자 <span style={{ color: 'var(--muted)', fontWeight: 400 }}>· {stakeholders.length}명</span>
+              관계자 <span style={{ color: 'var(--muted)', fontWeight: 400 }}>· {(editing ? stkRows : stakeholders).length}명</span>
             </div>
-            <button className="btn txt" style={{ padding: 0, fontSize: 11.5, color: 'var(--brand-ink)' }} onClick={() => openStk('new')}>
-              + 관계자
-            </button>
+            {editing && (
+              <button
+                className="btn txt"
+                style={{ padding: 0, fontSize: 11.5, color: 'var(--brand-ink)' }}
+                onClick={() => setStkRows((r) => [...r, { kind: '발주담당', name: '', org: '', phone: '', email: '' }])}
+              >
+                + 관계자
+              </button>
+            )}
           </div>
           <table className="rowtbl">
             <thead>
@@ -540,32 +516,45 @@ export default function ArtDetail() {
                 <th>소속</th>
                 <th>연락처</th>
                 <th>이메일</th>
-                <th style={{ width: 90 }}></th>
+                {editing && <th style={{ width: 36 }}></th>}
               </tr>
             </thead>
             <tbody>
-              {stakeholders.map((s) => (
-                <tr key={s.id}>
-                  <td>{s.kind}</td>
-                  <td>
-                    <b>{s.name}</b>
-                  </td>
-                  <td className="t-sub">{s.org || '—'}</td>
-                  <td className="tnum">{s.phone || '—'}</td>
-                  <td className="t-sub">{s.email || '—'}</td>
-                  <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
-                    <button className="btn txt" style={{ padding: '2px 6px', fontSize: 11 }} onClick={() => openStk(s)}>
-                      수정
-                    </button>
-                    <button className="btn txt" style={{ padding: '2px 6px', fontSize: 11, color: 'var(--danger)' }} onClick={() => removeStk(s)}>
-                      삭제
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {stakeholders.length === 0 && (
+              {editing
+                ? stkRows.map((r, i) => {
+                    const up = (k: keyof StkRow, v: string) => setStkRows((rows) => rows.map((x, j) => (j === i ? { ...x, [k]: v } : x)))
+                    return (
+                      <tr key={r.id ?? `n${i}`}>
+                        <td>
+                          <select className="hr-in" value={r.kind} onChange={(e) => up('kind', e.target.value)}>
+                            {r.kind && !STK_KINDS.includes(r.kind) && <option>{r.kind}</option>}
+                            {STK_KINDS.map((k) => (
+                              <option key={k}>{k}</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td><input className="hr-in" value={r.name} onChange={(e) => up('name', e.target.value)} placeholder="이름" /></td>
+                        <td><input className="hr-in" value={r.org} onChange={(e) => up('org', e.target.value)} placeholder="소속" /></td>
+                        <td><input className="hr-in" value={r.phone} onChange={(e) => up('phone', e.target.value)} placeholder="010-0000-0000" /></td>
+                        <td><input className="hr-in" type="email" value={r.email} onChange={(e) => up('email', e.target.value)} placeholder="name@example.com" /></td>
+                        <td style={{ textAlign: 'center' }}>
+                          <button className="btn txt" title="삭제" style={{ padding: '2px 6px', color: 'var(--danger)' }} onClick={() => setStkRows((rows) => rows.filter((_, j) => j !== i))}>✕</button>
+                        </td>
+                      </tr>
+                    )
+                  })
+                : stakeholders.map((s) => (
+                    <tr key={s.id}>
+                      <td>{s.kind}</td>
+                      <td><b>{s.name}</b></td>
+                      <td className="t-sub">{s.org || '—'}</td>
+                      <td className="tnum">{s.phone || '—'}</td>
+                      <td className="t-sub">{s.email || '—'}</td>
+                    </tr>
+                  ))}
+              {(editing ? stkRows : stakeholders).length === 0 && (
                 <tr>
-                  <td colSpan={6} style={{ color: 'var(--muted)', textAlign: 'center', padding: 16 }}>
+                  <td colSpan={editing ? 6 : 5} style={{ color: 'var(--muted)', textAlign: 'center', padding: 16 }}>
                     등록된 관계자가 없습니다.
                   </td>
                 </tr>
@@ -573,25 +562,26 @@ export default function ArtDetail() {
             </tbody>
           </table>
 
-          {/* 자문위원 */}
+          {/* 자문위원 — 사업 수정 모드에서 함께 편집 */}
           <div className="bud-h" style={{ marginTop: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div className="t">
-              자문위원 <span style={{ color: 'var(--muted)', fontWeight: 400 }}>· {advisors.length}명</span>
+              자문위원 <span style={{ color: 'var(--muted)', fontWeight: 400 }}>· {(editing ? advRows : advisors).length}명</span>
             </div>
-            <div style={{ display: 'flex', gap: 6 }}>
+            {editing ? (
               <button
-                className="btn sec"
-                style={{ padding: '5px 11px', fontSize: 11.5 }}
-                onClick={() => { setAdvForm({ name: '', org: '', phone: '', email: '', default_fee: 0 }); setAdvEdit('new') }}
+                className="btn txt"
+                style={{ padding: 0, fontSize: 11.5, color: 'var(--brand-ink)' }}
+                onClick={() => setAdvRows((r) => [...r, { name: '', org: '', phone: '', email: '', default_fee: 300000 }])}
               >
                 + 자문위원
               </button>
-              {advisors.length > 0 && (
+            ) : (
+              advisors.length > 0 && (
                 <button className="btn pri" style={{ padding: '5px 12px', fontSize: 11.5 }} onClick={() => setAdvOpen(true)}>
                   지출결의서 상신
                 </button>
-              )}
-            </div>
+              )
+            )}
           </div>
           <table className="rowtbl">
             <thead>
@@ -601,40 +591,47 @@ export default function ArtDetail() {
                 <th>연락처</th>
                 <th>이메일</th>
                 <th style={{ textAlign: 'right' }}>기본 자문비</th>
-                <th style={{ textAlign: 'right' }}>관리</th>
+                {editing && <th style={{ width: 36 }}></th>}
               </tr>
             </thead>
             <tbody>
-              {advisors.map((a) => (
-                <tr key={a.id}>
-                  <td>
-                    <b>{a.name}</b>
-                  </td>
-                  <td className="t-sub">{a.org}</td>
-                  <td className="tnum">{a.phone || '—'}</td>
-                  <td className="t-sub">{a.email || '—'}</td>
-                  <td className="tnum" style={{ textAlign: 'right' }}>{a.default_fee ? won(a.default_fee) : '—'}</td>
-                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                    <button
-                      className="btn txt"
-                      style={{ padding: '2px 6px', fontSize: 11 }}
-                      onClick={() => { setAdvForm({ name: a.name, org: a.org ?? '', phone: a.phone ?? '', email: a.email ?? '', default_fee: a.default_fee ?? 0 }); setAdvEdit(a) }}
-                    >
-                      수정
-                    </button>
-                    <button
-                      className="btn txt"
-                      style={{ padding: '2px 6px', fontSize: 11, color: 'var(--danger)' }}
-                      onClick={() => removeAdvisor(a)}
-                    >
-                      삭제
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {advisors.length === 0 && (
+              {editing
+                ? advRows.map((r, i) => {
+                    const up = (k: keyof AdvRow, v: string | number) => setAdvRows((rows) => rows.map((x, j) => (j === i ? { ...x, [k]: v } : x)))
+                    return (
+                      <tr key={r.id ?? `n${i}`}>
+                        <td><input className="hr-in" value={r.name} onChange={(e) => up('name', e.target.value)} placeholder="이름" /></td>
+                        <td><input className="hr-in" value={r.org} onChange={(e) => up('org', e.target.value)} placeholder="소속" /></td>
+                        <td><input className="hr-in" value={r.phone} onChange={(e) => up('phone', e.target.value)} placeholder="010-0000-0000" /></td>
+                        <td><input className="hr-in" type="email" value={r.email} onChange={(e) => up('email', e.target.value)} placeholder="name@example.com" /></td>
+                        <td>
+                          <input
+                            className="hr-in tnum"
+                            style={{ textAlign: 'right' }}
+                            inputMode="numeric"
+                            value={r.default_fee ? won(r.default_fee) : ''}
+                            onChange={(e) => up('default_fee', Number(e.target.value.replace(/[^0-9]/g, '')) || 0)}
+                            placeholder="300,000"
+                          />
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <button className="btn txt" title="삭제" style={{ padding: '2px 6px', color: 'var(--danger)' }} onClick={() => setAdvRows((rows) => rows.filter((_, j) => j !== i))}>✕</button>
+                        </td>
+                      </tr>
+                    )
+                  })
+                : advisors.map((a) => (
+                    <tr key={a.id}>
+                      <td><b>{a.name}</b></td>
+                      <td className="t-sub">{a.org}</td>
+                      <td className="tnum">{a.phone || '—'}</td>
+                      <td className="t-sub">{a.email || '—'}</td>
+                      <td className="tnum" style={{ textAlign: 'right' }}>{a.default_fee ? won(a.default_fee) : '—'}</td>
+                    </tr>
+                  ))}
+              {(editing ? advRows : advisors).length === 0 && (
                 <tr>
-                  <td colSpan={6} style={{ color: 'var(--muted)', textAlign: 'center', padding: 16 }}>
+                  <td colSpan={editing ? 6 : 5} style={{ color: 'var(--muted)', textAlign: 'center', padding: 16 }}>
                     등록된 자문위원이 없습니다.
                   </td>
                 </tr>
@@ -980,103 +977,6 @@ export default function ArtDetail() {
               <button className="btn sec" onClick={() => setAddBudget(false)} disabled={budBusy}>취소</button>
               <button className="btn pri" onClick={saveBudget} disabled={budBusy || budgetForm.alloc <= 0}>
                 {budBusy ? '저장 중…' : '저장'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {stkEdit && (
-        <div className="modal-bg" onClick={() => setStkEdit(null)}>
-          <div className="modal" style={{ maxWidth: 440 }} onClick={(e) => e.stopPropagation()}>
-            <div className="mh">
-              <div>
-                <div className="eyebrow">관계자 {stkEdit === 'new' ? '등록' : '수정'}</div>
-                <h3>관계자</h3>
-              </div>
-              <button className="x" onClick={() => setStkEdit(null)}>✕</button>
-            </div>
-            <div className="mb">
-              <div style={{ display: 'flex', gap: 10 }}>
-                <div className="mfield" style={{ width: 130 }}>
-                  <label>구분</label>
-                  <select className="ctl" value={stkForm.kind} onChange={(e) => setStkForm({ ...stkForm, kind: e.target.value })}>
-                    {['발주담당', '소장자', '재무과', '기타'].map((k) => (
-                      <option key={k}>{k}</option>
-                    ))}
-                    {stkForm.kind && !['발주담당', '소장자', '재무과', '기타'].includes(stkForm.kind) && <option>{stkForm.kind}</option>}
-                  </select>
-                </div>
-                <div className="mfield" style={{ flex: 1 }}>
-                  <label>이름</label>
-                  <input className="ctl" value={stkForm.name} onChange={(e) => setStkForm({ ...stkForm, name: e.target.value })} autoFocus />
-                </div>
-              </div>
-              <div className="mfield">
-                <label>소속</label>
-                <input className="ctl" value={stkForm.org} onChange={(e) => setStkForm({ ...stkForm, org: e.target.value })} />
-              </div>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <div className="mfield" style={{ flex: 1 }}>
-                  <label>연락처</label>
-                  <input className="ctl" value={stkForm.phone} onChange={(e) => setStkForm({ ...stkForm, phone: e.target.value })} placeholder="010-0000-0000" />
-                </div>
-                <div className="mfield" style={{ flex: 1 }}>
-                  <label>이메일</label>
-                  <input className="ctl" type="email" value={stkForm.email} onChange={(e) => setStkForm({ ...stkForm, email: e.target.value })} placeholder="name@example.com" />
-                </div>
-              </div>
-            </div>
-            <div className="mf">
-              <button className="btn sec" onClick={() => setStkEdit(null)} disabled={stkBusy}>취소</button>
-              <button className="btn pri" onClick={saveStk} disabled={stkBusy || !stkForm.name.trim()}>
-                {stkBusy ? '저장 중…' : stkEdit === 'new' ? '등록' : '저장'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {advEdit && (
-        <div className="modal-bg" onClick={() => setAdvEdit(null)}>
-          <div className="modal" style={{ maxWidth: 440 }} onClick={(e) => e.stopPropagation()}>
-            <div className="mh">
-              <div>
-                <div className="eyebrow">자문위원 {advEdit === 'new' ? '등록' : '수정'}</div>
-                <h3>자문위원</h3>
-              </div>
-              <button className="x" onClick={() => setAdvEdit(null)}>✕</button>
-            </div>
-            <div className="mb">
-              <div style={{ display: 'flex', gap: 10 }}>
-                <div className="mfield" style={{ flex: 1 }}>
-                  <label>이름</label>
-                  <input className="ctl" value={advForm.name} onChange={(e) => setAdvForm({ ...advForm, name: e.target.value })} placeholder="예: 홍길동 교수" autoFocus />
-                </div>
-                <div className="mfield" style={{ flex: 1 }}>
-                  <label>소속</label>
-                  <input className="ctl" value={advForm.org} onChange={(e) => setAdvForm({ ...advForm, org: e.target.value })} placeholder="예: ○○대학교" />
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <div className="mfield" style={{ flex: 1 }}>
-                  <label>연락처</label>
-                  <input className="ctl" value={advForm.phone} onChange={(e) => setAdvForm({ ...advForm, phone: e.target.value })} placeholder="010-0000-0000" />
-                </div>
-                <div className="mfield" style={{ flex: 1 }}>
-                  <label>이메일</label>
-                  <input className="ctl" type="email" value={advForm.email} onChange={(e) => setAdvForm({ ...advForm, email: e.target.value })} placeholder="name@example.com" />
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <div className="mfield" style={{ flex: 1 }}>
-                  <label>기본 자문비</label>
-                  <input className="ctl tnum" type="text" inputMode="numeric" value={advForm.default_fee ? advForm.default_fee.toLocaleString('ko-KR') : ''} onChange={(e) => setAdvForm({ ...advForm, default_fee: Number(e.target.value.replace(/[^0-9]/g, '')) || 0 })} placeholder="예: 300,000" />
-                </div>
-              </div>
-            </div>
-            <div className="mf">
-              <button className="btn sec" onClick={() => setAdvEdit(null)} disabled={stkBusy}>취소</button>
-              <button className="btn pri" onClick={saveAdvisor} disabled={stkBusy || !advForm.name.trim()}>
-                {stkBusy ? '저장 중…' : advEdit === 'new' ? '등록' : '저장'}
               </button>
             </div>
           </div>

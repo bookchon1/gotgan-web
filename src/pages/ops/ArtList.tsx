@@ -206,6 +206,7 @@ export default function ArtList() {
               ))}
             </div>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)' }}>구분</span>
               <select
                 className="sel"
                 style={{ width: 80 }}
@@ -213,8 +214,8 @@ export default function ArtList() {
                 onChange={(e) => setYearBasis(e.target.value as 'done' | 'start')}
                 aria-label="준공·착공"
               >
-                <option value="done">준공</option>
                 <option value="start">착공</option>
+                <option value="done">준공</option>
               </select>
               <select
                 className="sel"

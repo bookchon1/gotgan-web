@@ -156,12 +156,14 @@ export function BoqModal({
   budget,
   onClose,
   onApplied,
+  onAddItem,
 }: {
   projectId: string
   projectName: string
   budget: ArtBudget[]
   onClose: () => void
   onApplied: () => void
+  onAddItem: () => void
 }) {
   const { me } = useAuth()
   const [saved, setSaved] = useState<Saved | null>(null)
@@ -295,6 +297,9 @@ export function BoqModal({
               {saved || parsed ? '내역서 다시 올리기' : '내역서 엑셀 올리기'}
               <input type="file" accept=".xlsx,.xlsm,.xls" style={{ display: 'none' }} onChange={onFile} disabled={busy} />
             </label>
+            <button className="btn sec" style={{ padding: '4px 8px', fontSize: 12 }} onClick={onAddItem}>
+              + 예산 항목
+            </button>
             {sheets.length > 0 && (
               <button className="btn sec" style={{ padding: '4px 8px', fontSize: 12 }} onClick={download}>
                 엑셀 다운로드

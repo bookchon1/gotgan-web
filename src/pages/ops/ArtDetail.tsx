@@ -332,7 +332,11 @@ export default function ArtDetail() {
   const fmtDelta = (n: number) => (n > 0 ? '+' : n < 0 ? '−' : '') + won(Math.abs(n))
 
   const used = useMemo(() => usedByItem(tx, id!), [tx, id])
-  const { rows: bRows, totalAlloc, totalUsed } = budgetRows(budget, used, tx, id!)
+  const { rows: bRows } = budgetRows(budget, used, tx, id!)
+  // 지출이 실제로 나가지 않는 이윤·일반관리비는 카드와 집행율에서 제외 (세부내역 팝업에는 그대로 보임)
+  const vRows = bRows.filter((b) => !['이윤', '일반관리비'].includes(b.item))
+  const totalAlloc = vRows.reduce((s, b) => s + b.alloc, 0)
+  const totalUsed = vRows.reduce((s, b) => s + b.used, 0)
   const prog = stepProgress(steps)
 
   // 아코디언 하나만 열기
@@ -862,17 +866,10 @@ export default function ArtDetail() {
               <button className="btn pri" style={{ padding: '4px 9px', fontSize: 11.5 }} onClick={() => setBoqOpen(true)}>
                 세부내역
               </button>
-              <button
-                className="btn sec"
-                style={{ padding: '4px 9px', fontSize: 11.5 }}
-                onClick={() => { setBudgetForm({ item: BUDGET_ITEMS[0], alloc: 0 }); setAddBudget(true) }}
-              >
-                + 예산 항목
-              </button>
             </div>
           </div>
           <div className="bcards">
-            {bRows.map((b) => (
+            {vRows.map((b) => (
               <div className="bcard" key={b.item}>
                 <div className="bt">
                   {b.item}
@@ -910,43 +907,7 @@ export default function ArtDetail() {
                 )}
               </div>
             ))}
-            {/* 합계 카드 */}
-            {bRows.length > 0 && (
-              <div className="bcard total">
-                <div className="bt">
-                  합계
-                  <span className="pct">{totalAlloc > 0 ? Math.round((totalUsed / totalAlloc) * 100) : 0}%</span>
-                </div>
-                <div className="track">
-                  <div
-                    className="fill"
-                    style={{
-                      width: `${Math.min(totalAlloc > 0 ? Math.round((totalUsed / totalAlloc) * 100) : 0, 100)}%`,
-                      background: 'var(--brand)',
-                    }}
-                  />
-                </div>
-                <div className="nums">
-                  <div className="r">
-                    <span className="k">예산액</span>
-                    <b className="tnum">{eok(totalAlloc)}</b>
-                  </div>
-                  <div className="r">
-                    <span className="k">집행액</span>
-                    <b className="tnum" style={{ color: 'var(--expense)' }}>
-                      {eok(totalUsed)}
-                    </b>
-                  </div>
-                  <div className="r left">
-                    <span className="k">잔여예산</span>
-                    <b className="tnum" style={{ color: 'var(--brand-ink)' }}>
-                      {eok(totalAlloc - totalUsed)}
-                    </b>
-                  </div>
-                </div>
-              </div>
-            )}
-            {bRows.length === 0 && <CenterNote>등록된 예산 항목이 없습니다.</CenterNote>}
+            {vRows.length === 0 && <CenterNote>등록된 예산 항목이 없습니다.</CenterNote>}
           </div>
         </div>
       </details>
@@ -993,6 +954,16 @@ export default function ArtDetail() {
           onClose={() => setBudItem(null)}
         />
       )}
+      {boqOpen && (
+        <BoqModal
+          projectId={p.id}
+          projectName={p.name}
+          budget={budget}
+          onClose={() => setBoqOpen(false)}
+          onApplied={() => budgetQ.reload()}
+          onAddItem={() => { setBudgetForm({ item: BUDGET_ITEMS[0], alloc: 0 }); setAddBudget(true) }}
+        />
+      )}
       {addBudget && (
         <div className="modal-bg" onClick={() => setAddBudget(false)}>
           <div className="modal" style={{ maxWidth: 420 }} onClick={(e) => e.stopPropagation()}>
@@ -1035,15 +1006,6 @@ export default function ArtDetail() {
             </div>
           </div>
         </div>
-      )}
-      {boqOpen && (
-        <BoqModal
-          projectId={p.id}
-          projectName={p.name}
-          budget={budget}
-          onClose={() => setBoqOpen(false)}
-          onApplied={() => budgetQ.reload()}
-        />
       )}
       {advOpen && (
         <AdvisorFeeModal

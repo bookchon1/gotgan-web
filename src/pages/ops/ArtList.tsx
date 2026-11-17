@@ -39,10 +39,10 @@ function StChip({ st }: { st: ArtStatus }) {
   )
 }
 
-// 억 단위, 0은 — (시안 bizEok)
+// 만원 단위(예: 5,400만), 0은 —
 function bizEok(n: number): string {
   if (!n) return '—'
-  return (n / 100_000_000).toFixed(1).replace(/\.0$/, '') + '억'
+  return Math.round(n / 10_000).toLocaleString('ko-KR') + '만'
 }
 
 // D-day 배지 (시안 ddayBadge) — 기준일은 오늘

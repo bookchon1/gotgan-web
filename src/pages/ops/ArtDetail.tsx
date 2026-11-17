@@ -130,7 +130,7 @@ export default function ArtDetail() {
     const { error } = await supabase.from('budget_changes').insert({
       project_id: id!,
       date: changeForm.date,
-      type: changeForm.type,
+      type: changeForm.after < contract ? '감액' : '증액',
       memo: changeForm.memo || null,
       after_amount: changeForm.after,
     })
@@ -314,6 +314,20 @@ export default function ArtDetail() {
   const contract = contractAmount(p?.contract_base ?? 0, changes)
   const received = receivedAmount(receipts)
   const balance = contract - received
+  // 설계변경 내역: 당초 계약금 보존 + 변경 전/증감액 계산
+  const base0 = Number(p?.contract_base) || 0
+  const chgRows = (() => {
+    let prev = base0
+    return [...changes]
+      .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
+      .map((c) => {
+        const after = Number(c.after_amount) || 0
+        const row = { c, before: prev, delta: after - prev }
+        prev = after
+        return row
+      })
+  })()
+  const fmtDelta = (n: number) => (n > 0 ? '+' : n < 0 ? '−' : '') + won(Math.abs(n))
 
   const used = useMemo(() => usedByItem(tx, id!), [tx, id])
   const { rows: bRows, totalAlloc, totalUsed } = budgetRows(budget, used, tx, id!)
@@ -744,25 +758,54 @@ export default function ArtDetail() {
               {addChange ? '취소' : '+ 설계변경 추가'}
             </button>
           </div>
+          {/* 당초 → 현재 요약 */}
+          {changes.length > 0 && (
+            <div className="chg-sum">
+              <div><span className="k">당초 계약금</span><b className="tnum">{won(base0)}</b></div>
+              <div className="arr">→</div>
+              <div><span className="k">현재 계약금</span><b className="tnum">{won(contract)}</b></div>
+              <div>
+                <span className="k">총 증감액</span>
+                <b className="tnum" style={{ color: contract - base0 < 0 ? 'var(--danger)' : 'var(--ok)' }}>
+                  {fmtDelta(contract - base0)}
+                </b>
+              </div>
+            </div>
+          )}
           <table className="rowtbl">
             <thead>
               <tr>
                 <th>일자</th>
                 <th>구분</th>
                 <th>사유</th>
+                <th style={{ textAlign: 'right' }}>변경 전</th>
+                <th style={{ textAlign: 'right' }}>증감액</th>
                 <th style={{ textAlign: 'right' }}>변경 후 계약금</th>
               </tr>
             </thead>
             <tbody>
-              {changes.map((c) => (
+              {/* 당초 계약 — 설계변경이 있어도 그대로 보존 */}
+              <tr>
+                <td className="tnum">{dateOnly(p.contract_date) || '—'}</td>
+                <td><span className="badge">당초계약</span></td>
+                <td className="t-sub">최초 계약</td>
+                <td className="tnum" style={{ textAlign: 'right', color: 'var(--muted)' }}>—</td>
+                <td className="tnum" style={{ textAlign: 'right', color: 'var(--muted)' }}>—</td>
+                <td className="tnum" style={{ textAlign: 'right', fontWeight: 700 }}>{won(base0)}</td>
+              </tr>
+              {chgRows.map(({ c, before, delta }) => (
                 <tr key={c.id}>
                   <td className="tnum">{dateOnly(c.date)}</td>
                   <td>
-                    <span className="badge" style={{ color: c.type === '감액' ? 'var(--danger)' : 'var(--brand-ink)' }}>
-                      {c.type}
+                    <span className="badge" style={{ color: delta < 0 ? 'var(--danger)' : 'var(--brand-ink)' }}>
+                      {delta < 0 ? '감액' : '증액'}
                     </span>
                   </td>
                   <td>{c.memo}</td>
+                  <td className="tnum" style={{ textAlign: 'right', color: 'var(--muted)' }}>{won(before)}</td>
+                  <td className="tnum" style={{ textAlign: 'right', fontWeight: 700, color: delta < 0 ? 'var(--danger)' : 'var(--ok)' }}>
+                    {fmtDelta(delta)}
+                  </td>
                   <td className="tnum" style={{ textAlign: 'right', fontWeight: 700 }}>
                     {won(c.after_amount)}
                   </td>
@@ -773,20 +816,19 @@ export default function ArtDetail() {
                   <td>
                     <input className="hr-in" type="date" min="1900-01-01" max="9999-12-31" value={changeForm.date} onChange={(e) => setChangeForm({ ...changeForm, date: e.target.value })} />
                   </td>
-                  <td>
-                    <select className="hr-in" value={changeForm.type} onChange={(e) => setChangeForm({ ...changeForm, type: e.target.value })}>
-                      <option>증액</option>
-                      <option>감액</option>
-                    </select>
-                  </td>
+                  <td className="t-sub">자동</td>
                   <td>
                     <input className="hr-in" placeholder="사유" value={changeForm.memo} onChange={(e) => setChangeForm({ ...changeForm, memo: e.target.value })} />
                   </td>
-                  <td style={{ textAlign: 'right' }}>
+                  <td className="tnum" style={{ textAlign: 'right', color: 'var(--muted)' }}>{won(contract)}</td>
+                  <td className="tnum" style={{ textAlign: 'right', fontWeight: 700, color: changeForm.after && changeForm.after < contract ? 'var(--danger)' : 'var(--ok)' }}>
+                    {changeForm.after ? fmtDelta(changeForm.after - contract) : '—'}
+                  </td>
+                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                     <input
                       className="hr-in tnum"
                       style={{ maxWidth: 110 }}
-                      placeholder="변경 후"
+                      placeholder="변경 후 금액"
                       value={changeForm.after ? won(changeForm.after) : ''}
                       onChange={(e) => setChangeForm({ ...changeForm, after: parseInt(e.target.value.replace(/[^0-9]/g, ''), 10) || 0 })}
                     />
@@ -798,8 +840,8 @@ export default function ArtDetail() {
               )}
               {changes.length === 0 && !addChange && (
                 <tr>
-                  <td colSpan={4} style={{ color: 'var(--muted)', textAlign: 'center', padding: 12 }}>
-                    설계변경 내역이 없습니다.
+                  <td colSpan={6} style={{ color: 'var(--muted)', textAlign: 'center', padding: 12 }}>
+                    설계변경 내역이 없습니다. (변경 시 당초 계약금은 그대로 보존됩니다)
                   </td>
                 </tr>
               )}

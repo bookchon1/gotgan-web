@@ -1003,3 +1003,9 @@ td>.hr-in{max-width:160px}
   .cert-table th{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   @page{size:A4;margin:16mm}
 }
+
+/* 설계변경 — 당초 → 현재 요약 */
+.chg-sum{display:flex;align-items:center;gap:18px;flex-wrap:wrap;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin:0 0 8px}
+.chg-sum .k{display:block;font-size:10.5px;color:var(--muted);font-weight:700;margin-bottom:2px}
+.chg-sum b{font-size:14px;font-weight:800}
+.chg-sum .arr{color:var(--muted);font-size:16px}

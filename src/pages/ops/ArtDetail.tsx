@@ -279,37 +279,39 @@ export default function ArtDetail() {
       return
     }
 
-    // 관계자·자문위원 일괄 반영: 삭제 → 수정 → 추가
+    // 관계자·자문위원 일괄 반영: 삭제 → 수정 → 추가. 권한(RLS) 때문에 0건 처리되는 경우도 실패로 알림
     const errs: string[] = []
+    const chk = (label: string, r: { data: unknown[] | null; error: { message: string } | null }) => {
+      if (r.error) errs.push(`${label}: ${r.error.message}`)
+      else if (!r.data || r.data.length === 0) errs.push(`${label}: 저장되지 않았습니다 (권한 또는 대상 없음)`)
+    }
     const stkValid = stkRows.filter((r) => r.name.trim())
     const stkKeep = new Set(stkValid.filter((r) => r.id).map((r) => r.id))
     for (const o of stakeholders) {
-      if (!stkKeep.has(o.id)) {
-        const { error: e } = await supabase.from('art_stakeholders').delete().eq('id', o.id)
-        if (e) errs.push('관계자 삭제: ' + e.message)
-      }
+      if (!stkKeep.has(o.id)) chk('관계자 삭제', await supabase.from('art_stakeholders').delete().eq('id', o.id).select('id'))
     }
     for (const [i, r] of stkValid.entries()) {
       const payload = { kind: r.kind, name: r.name.trim(), org: r.org.trim() || null, phone: r.phone.trim() || null, email: r.email.trim() || null, sort: i }
-      const { error: e } = r.id
-        ? await supabase.from('art_stakeholders').update(payload).eq('id', r.id)
-        : await supabase.from('art_stakeholders').insert({ ...payload, project_id: id! })
-      if (e) errs.push('관계자 저장: ' + e.message)
+      chk(
+        `관계자 저장(${r.name.trim()})`,
+        r.id
+          ? await supabase.from('art_stakeholders').update(payload).eq('id', r.id).select('id')
+          : await supabase.from('art_stakeholders').insert({ ...payload, project_id: id! }).select('id'),
+      )
     }
     const advValid = advRows.filter((r) => r.name.trim())
     const advKeep = new Set(advValid.filter((r) => r.id).map((r) => r.id))
     for (const o of advisors) {
-      if (!advKeep.has(o.id)) {
-        const { error: e } = await supabase.from('advisors').delete().eq('id', o.id)
-        if (e) errs.push('자문위원 삭제: ' + e.message)
-      }
+      if (!advKeep.has(o.id)) chk('자문위원 삭제', await supabase.from('advisors').delete().eq('id', o.id).select('id'))
     }
     for (const [i, r] of advValid.entries()) {
       const payload = { name: r.name.trim(), org: r.org.trim() || null, phone: r.phone.trim() || null, email: r.email.trim() || null, default_fee: r.default_fee, sort: i }
-      const { error: e } = r.id
-        ? await supabase.from('advisors').update(payload).eq('id', r.id)
-        : await supabase.from('advisors').insert({ ...payload, project_id: id! })
-      if (e) errs.push('자문위원 저장: ' + e.message)
+      chk(
+        `자문위원 저장(${r.name.trim()})`,
+        r.id
+          ? await supabase.from('advisors').update(payload).eq('id', r.id).select('id')
+          : await supabase.from('advisors').insert({ ...payload, project_id: id! }).select('id'),
+      )
     }
 
     setEditBusy(false)

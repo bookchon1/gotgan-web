@@ -185,12 +185,12 @@ export default function ArtDetail() {
     budgetQ.reload()
   }
 
-  // 기본 20단계 보존처리 공정 템플릿
+  // 기본 20단계 공정 (미술실 진행 업무 개요)
   const STEP20 = [
-    '착수 준비', '현장 조사', '사전 조사·기록', '과학적 분석', '촬영·실측',
-    '해체·수습', '이물질 제거', '세척·클리닝', '안정화 처리', '탈염·탈산',
-    '접합', '결손부 복원', '보강', '메움·충전', '색맞춤',
-    '표면 마감', '재조립·설치', '최종 기록·촬영', '보고서 작성', '납품·인수',
+    '계약착공', '착공이운', '인문학조사', '기초조사', '과학적 조사',
+    '환경조사', 'TEST', '설계', '1차 자문', '소위원회',
+    '준비', '과정 1', '2차 자문', '과정 2', '전후이행',
+    '3차 자문', '준공 이운', '준공', '보완보수', 'E수보',
   ]
   // 기본 공정 생성: 이미 있는 seq는 건너뛰고 비어있는 단계만 채움(삭제 후 재생성 가능)
   async function seedSteps() {
@@ -933,9 +933,9 @@ export default function ArtDetail() {
               style={{ padding: '5px 12px', fontSize: 12, marginLeft: steps.length === 0 ? 0 : 'auto' }}
               onClick={seedSteps}
               disabled={budBusy}
-              title="기본 20단계 공정을 추가합니다"
+              title="기본 20단계 공정을 만듭니다 (이미 있는 단계는 건너뜀)"
             >
-              기본 공정 20단계 생성
+              기본생성
             </button>
           </div>
           <Step20Editor projectId={id!} steps={steps} comments={comments} onChanged={reloadSteps} />

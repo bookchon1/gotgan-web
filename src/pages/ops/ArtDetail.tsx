@@ -936,7 +936,7 @@ export default function ArtDetail() {
           <span className="sn">3</span>
           진행현황
           <span className="sc">
-            총 {prog.total}공정 · 완료 {prog.nDone} · 진행 {prog.nProg}
+            <b style={{ color: 'var(--brand-ink)' }}>{prog.pct}%</b> · 완료 {prog.nDone} · 진행 {prog.nProg} · 예정 {prog.nBefore}
           </span>
           <Icon name="chevron" className="icon chev" />
         </summary>

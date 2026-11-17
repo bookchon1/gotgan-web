@@ -3,7 +3,7 @@ import { Icon } from '../../components/Icon'
 import { supabase } from '../../lib/supabase'
 import { dateRange } from '../../lib/format'
 import type { ProjectStep, StepComment } from '../../types/db'
-import { stepProgress, STEP_LABEL } from './artDetail'
+import { STEP_LABEL } from './artDetail'
 
 /**
  * 세부 진행 현황 (20공정) — 보기 + 편집. DB(project_steps, step_comments)에 실제 저장.
@@ -30,7 +30,6 @@ export function Step20Editor({
   const [addName, setAddName] = useState('')
   const [cmtDraft, setCmtDraft] = useState<Record<string, string>>({})
 
-  const prog = stepProgress(steps)
 
   const cmtByStep = useMemo(() => {
     const m: Record<string, StepComment[]> = {}
@@ -116,13 +115,6 @@ export function Step20Editor({
     <div>
       {/* 툴바 — 진행 요약 + 편집 / 기본값 */}
       <div className="step-bar">
-        <div className="step-sum" title={`진행률 = (완료 + 진행중×0.5) ÷ 유효 공정${prog.nNa > 0 ? ` · 해당없음 ${prog.nNa}건 제외` : ''}`}>
-          <b>{prog.pct}%</b>
-          <span>완료 {prog.nDone}</span>
-          <span>진행 {prog.nProg}</span>
-          <span>예정 {prog.nBefore}</span>
-          {prog.nNa > 0 && <span>제외 {prog.nNa}</span>}
-        </div>
         <div className="proj-actions">
           <button
             className={`btn ${edit ? 'pri' : 'sec'}`}

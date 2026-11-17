@@ -6,7 +6,8 @@ import { supabase } from '../../lib/supabase'
 import { useQuery } from '../../lib/useQuery'
 import { won } from '../../lib/format'
 import ArtSchedule from './ArtSchedule'
-import type { ArtProject, BudgetReceipt, ArtStatus } from '../../types/db'
+import type { ArtProject, BudgetReceipt, ArtStatus, ProjectStep } from '../../types/db'
+import { stepProgress } from './artDetail'
 
 export const ART_STATUSES: ArtStatus[] = ['공고/입찰', '예정', '진행', '완료', '탈락/보류']
 
@@ -107,6 +108,20 @@ export default function ArtList() {
     async () => await supabase.from('budget_receipts').select('project_id,amount'),
     [],
   )
+
+  // 진행률: 사업 상세 '진행현황' 공정으로 계산 (공정이 없으면 저장값 사용)
+  const stepsQ = useQuery<Pick<ProjectStep, 'project_id' | 'status'>[]>(
+    async () => await supabase.from('project_steps').select('project_id,status'),
+    [],
+  )
+  const progressMap = useMemo(() => {
+    const by: Record<string, Pick<ProjectStep, 'project_id' | 'status'>[]> = {}
+    for (const st of stepsQ.data ?? []) (by[st.project_id] ??= []).push(st)
+    const m: Record<string, number> = {}
+    for (const [pid, arr] of Object.entries(by)) m[pid] = stepProgress(arr as ProjectStep[]).pct
+    return m
+  }, [stepsQ.data])
+  const pctOf = (p: ArtProject) => progressMap[p.id] ?? p.progress ?? 0
 
   // project_id → 수금 합계
   const receivedMap = useMemo(() => {
@@ -226,10 +241,10 @@ export default function ArtList() {
                           <div className="track">
                             <div
                               className={`fill${p.progress === 100 ? ' full' : ''}`}
-                              style={{ width: `${p.progress}%` }}
+                              style={{ width: `${pctOf(p)}%` }}
                             />
                           </div>
-                          <span>{p.progress}%</span>
+                          <span>{pctOf(p)}%</span>
                         </div>
                       </td>
                       <td className="tnum" style={{ textAlign: 'right' }}>

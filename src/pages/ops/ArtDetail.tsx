@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Icon } from '../../components/Icon'
 import { ErrorBanner, CenterNote } from '../../components/States'
@@ -354,6 +354,14 @@ export default function ArtDetail() {
   const totalAlloc = vRows.reduce((s, b) => s + b.alloc, 0)
   const totalUsed = vRows.reduce((s, b) => s + b.used, 0)
   const prog = stepProgress(steps)
+  // 진행률을 사업 레코드에도 저장 (사업목록·대시보드 등 다른 화면과 일치)
+  useEffect(() => {
+    if (!p || stepsQ.loading || steps.length === 0) return
+    if (Number(p.progress) !== prog.pct) {
+      supabase.from('art_projects').update({ progress: prog.pct }).eq('id', p.id).then(() => {})
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prog.pct, p?.id, p?.progress, steps.length])
 
   // 아코디언 하나만 열기
   const onToggle = (idx: number) => {

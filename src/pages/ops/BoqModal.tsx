@@ -102,8 +102,27 @@ async function parseWorkbook(file: File): Promise<Parsed> {
 
 const isNum = (s: string) => /^-?[\d,]+(\.\d+)?%?$/.test(s.trim()) && s.trim() !== ''
 
+/** 글자 폭 추정(px, 12px 글꼴 기준) — 한글/전각은 넓게 */
+const textPx = (t: string) => {
+  let best = 0
+  for (const line of t.split('\n')) {
+    let w = 0
+    for (const ch of line) {
+      const code = ch.codePointAt(0) ?? 0
+      w += code > 0x2e7f ? 12.5 : code === 32 ? 3.6 : 7.4
+    }
+    best = Math.max(best, w)
+  }
+  return Math.ceil(best) + 14
+}
+
+/**
+ * 엑셀처럼 보이게: 병합 그대로 + 글자가 칸보다 길면 오른쪽 빈 칸으로 넘쳐 보이게(엑셀의 텍스트 넘침) +
+ * 그래도 모자라면 열 너비를 글자에 맞게 늘려서 글씨가 잘리지 않게 한다.
+ */
 function SheetGrid({ s }: { s: SheetData }) {
-  const { span, skip } = useMemo(() => {
+  const { span, skip, colPx } = useMemo(() => {
+    const nCols = s.widths.length
     const span = new Map<string, [number, number]>()
     const skip = new Set<string>()
     for (const [r1, c1, r2, c2] of s.merges) {
@@ -111,14 +130,49 @@ function SheetGrid({ s }: { s: SheetData }) {
       for (let r = r1; r <= r2; r++)
         for (let c = c1; c <= c2; c++) if (r !== r1 || c !== c1) skip.add(`${r},${c}`)
     }
-    return { span, skip }
+    const colPx = s.widths.map((w) => Math.round(w * 7 + 5))
+    // 1) 텍스트 넘침: 오른쪽이 비어 있으면 그 칸까지 합쳐서 보여줌
+    s.rows.forEach((row, r) => {
+      for (let c = 0; c < nCols; c++) {
+        const v = row[c]
+        if (!v || !v.trim() || skip.has(`${r},${c}`) || isNum(v) || span.has(`${r},${c}`)) continue
+        const need = textPx(v)
+        let acc = colPx[c]
+        let k = c
+        while (
+          acc < need &&
+          k + 1 < nCols &&
+          !(row[k + 1] ?? '').trim() &&
+          !skip.has(`${r},${k + 1}`) &&
+          !span.has(`${r},${k + 1}`)
+        ) {
+          k++
+          acc += colPx[k]
+          skip.add(`${r},${k}`)
+        }
+        if (k > c) span.set(`${r},${c}`, [1, k - c + 1])
+      }
+    })
+    // 2) 한 칸짜리 글자는 열 너비를 늘려 잘리지 않게 (너무 긴 글은 280px에서 줄바꿈)
+    s.rows.forEach((row, r) => {
+      for (let c = 0; c < nCols; c++) {
+        const v = row[c]
+        if (!v || !v.trim() || skip.has(`${r},${c}`)) continue
+        const sp = span.get(`${r},${c}`)
+        if (sp && sp[1] > 1) continue
+        colPx[c] = Math.max(colPx[c], Math.min(textPx(v), 280))
+      }
+    })
+    return { span, skip, colPx }
   }, [s])
+
+  const totalW = colPx.reduce((a, b) => a + b, 0)
   return (
     <div className="boq-scroll">
-      <table className="boq-grid">
+      <table className="boq-grid" style={{ width: totalW }}>
         <colgroup>
-          {s.widths.map((w, i) => (
-            <col key={i} style={{ width: Math.round(w * 7.5) + 'px' }} />
+          {colPx.map((w, i) => (
+            <col key={i} style={{ width: w + 'px' }} />
           ))}
         </colgroup>
         <tbody>
@@ -129,12 +183,14 @@ function SheetGrid({ s }: { s: SheetData }) {
                 {row.map((v, c) => {
                   if (skip.has(`${r},${c}`)) return null
                   const sp = span.get(`${r},${c}`)
+                  const w = colPx.slice(c, c + (sp?.[1] ?? 1)).reduce((a, b) => a + b, 0)
+                  const fits = textPx(v) <= w && !v.includes('\n')
                   return (
                     <td
                       key={c}
                       rowSpan={sp?.[0] && sp[0] > 1 ? sp[0] : undefined}
                       colSpan={sp?.[1] && sp[1] > 1 ? sp[1] : undefined}
-                      className={isNum(v) ? 'num' : undefined}
+                      className={(isNum(v) ? 'num ' : '') + (fits ? 'nw' : '')}
                     >
                       {v}
                     </td>
@@ -289,25 +345,21 @@ export function BoqModal({
             <div className="eyebrow">예산 집행 현황 · 세부내역</div>
             <h3>{projectName}</h3>
           </div>
-          <button className="x" onClick={onClose}>✕</button>
-        </div>
-        <div className="mb">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <label className="btn pri" style={{ cursor: 'pointer', padding: '4px 8px', fontSize: 12 }}>
+          <div className="boq-actions">
+            <label className="btn pri">
               {saved || parsed ? '내역서 다시 올리기' : '내역서 엑셀 올리기'}
               <input type="file" accept=".xlsx,.xlsm,.xls" style={{ display: 'none' }} onChange={onFile} disabled={busy} />
             </label>
-            <button className="btn sec" style={{ padding: '4px 8px', fontSize: 12 }} onClick={onAddItem}>
-              + 예산 항목
-            </button>
+            <button className="btn sec" onClick={onAddItem}>+ 예산 항목</button>
             {sheets.length > 0 && (
-              <button className="btn sec" style={{ padding: '4px 8px', fontSize: 12 }} onClick={download}>
-                엑셀 다운로드
-              </button>
+              <button className="btn sec" onClick={download}>엑셀 다운로드</button>
             )}
-            <span className="t-sub" style={{ fontSize: 12 }}>
-              {fileName ? `📄 ${fileName}` : '착공내역서 엑셀을 올리면 원가계산서에서 9대 예산 항목이 자동으로 채워집니다.'}
-            </span>
+            <button className="x" onClick={onClose}>✕</button>
+          </div>
+        </div>
+        <div className="mb">
+          <div className="t-sub" style={{ fontSize: 12 }}>
+            {fileName ? `📄 ${fileName}` : '착공내역서 엑셀을 올리면 원가계산서에서 9대 예산 항목이 자동으로 채워집니다.'}
           </div>
           {loadErr && (
             <div className="login-alert err" style={{ margin: '8px 0 0' }}>

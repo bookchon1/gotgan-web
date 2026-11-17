@@ -38,6 +38,8 @@ export default function ArtDetail() {
   const detailsRefs = useRef<HTMLDetailsElement[]>([])
   const [budItem, setBudItem] = useState<string | null>(null)
   const [advOpen, setAdvOpen] = useState(false)
+  const [advEdit, setAdvEdit] = useState<null | Advisor | 'new'>(null)
+  const [advForm, setAdvForm] = useState({ name: '', org: '', phone: '', default_fee: 0 })
   const [addChange, setAddChange] = useState(false)
   const [changeForm, setChangeForm] = useState({ date: '', type: '증액', memo: '', after: 0 })
   const [addReceipt, setAddReceipt] = useState(false)
@@ -190,6 +192,39 @@ export default function ArtDetail() {
     setAddBudget(false)
     setBudgetForm({ item: BUDGET_ITEMS[0], alloc: 0 })
     budgetQ.reload()
+  }
+
+  // 자문위원 등록/수정/삭제
+  async function saveAdvisor() {
+    if (!advForm.name.trim()) return
+    setStkBusy(true)
+    const payload = {
+      name: advForm.name.trim(),
+      org: advForm.org.trim() || null,
+      phone: advForm.phone.trim() || null,
+      default_fee: advForm.default_fee,
+    }
+    const { error } =
+      advEdit && advEdit !== 'new'
+        ? await supabase.from('advisors').update(payload).eq('id', advEdit.id)
+        : await supabase.from('advisors').insert({ ...payload, project_id: id!, sort: advisors.length })
+    setStkBusy(false)
+    if (error) {
+      alert('자문위원 저장 실패: ' + error.message)
+      return
+    }
+    setAdvEdit(null)
+    setAdvForm({ name: '', org: '', phone: '', default_fee: 0 })
+    reloadAdvisors()
+  }
+  async function removeAdvisor(a: Advisor) {
+    if (!window.confirm(`자문위원 "${a.name}" 을(를) 삭제할까요?`)) return
+    const { error } = await supabase.from('advisors').delete().eq('id', a.id)
+    if (error) {
+      alert('삭제 실패: ' + error.message)
+      return
+    }
+    reloadAdvisors()
   }
 
   // 기본 20단계 보존처리 공정 템플릿
@@ -404,11 +439,20 @@ export default function ArtDetail() {
             <div className="t">
               자문위원 <span style={{ color: 'var(--muted)', fontWeight: 400 }}>· {advisors.length}명</span>
             </div>
-            {advisors.length > 0 && (
-              <button className="btn pri" style={{ padding: '5px 12px', fontSize: 11.5 }} onClick={() => setAdvOpen(true)}>
-                자문비 지출결의서
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button
+                className="btn sec"
+                style={{ padding: '5px 11px', fontSize: 11.5 }}
+                onClick={() => { setAdvForm({ name: '', org: '', phone: '', default_fee: 0 }); setAdvEdit('new') }}
+              >
+                + 자문위원
               </button>
-            )}
+              {advisors.length > 0 && (
+                <button className="btn pri" style={{ padding: '5px 12px', fontSize: 11.5 }} onClick={() => setAdvOpen(true)}>
+                  자문비 지출결의서
+                </button>
+              )}
+            </div>
           </div>
           <table className="rowtbl">
             <thead>
@@ -416,6 +460,8 @@ export default function ArtDetail() {
                 <th>이름</th>
                 <th>소속</th>
                 <th>연락처</th>
+                <th style={{ textAlign: 'right' }}>자문비</th>
+                <th style={{ textAlign: 'right' }}>관리</th>
               </tr>
             </thead>
             <tbody>
@@ -426,11 +472,28 @@ export default function ArtDetail() {
                   </td>
                   <td className="t-sub">{a.org}</td>
                   <td className="tnum">{a.phone}</td>
+                  <td className="tnum" style={{ textAlign: 'right' }}>{a.default_fee ? won(a.default_fee) : '—'}</td>
+                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <button
+                      className="btn txt"
+                      style={{ padding: '2px 6px', fontSize: 11 }}
+                      onClick={() => { setAdvForm({ name: a.name, org: a.org ?? '', phone: a.phone ?? '', default_fee: a.default_fee ?? 0 }); setAdvEdit(a) }}
+                    >
+                      수정
+                    </button>
+                    <button
+                      className="btn txt"
+                      style={{ padding: '2px 6px', fontSize: 11, color: 'var(--danger)' }}
+                      onClick={() => removeAdvisor(a)}
+                    >
+                      삭제
+                    </button>
+                  </td>
                 </tr>
               ))}
               {advisors.length === 0 && (
                 <tr>
-                  <td colSpan={3} style={{ color: 'var(--muted)', textAlign: 'center', padding: 16 }}>
+                  <td colSpan={5} style={{ color: 'var(--muted)', textAlign: 'center', padding: 16 }}>
                     등록된 자문위원이 없습니다.
                   </td>
                 </tr>
@@ -776,6 +839,47 @@ export default function ArtDetail() {
               <button className="btn sec" onClick={() => setAddBudget(false)} disabled={budBusy}>취소</button>
               <button className="btn pri" onClick={saveBudget} disabled={budBusy || budgetForm.alloc <= 0}>
                 {budBusy ? '저장 중…' : '저장'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {advEdit && (
+        <div className="modal-bg" onClick={() => setAdvEdit(null)}>
+          <div className="modal" style={{ maxWidth: 440 }} onClick={(e) => e.stopPropagation()}>
+            <div className="mh">
+              <div>
+                <div className="eyebrow">자문위원 {advEdit === 'new' ? '등록' : '수정'}</div>
+                <h3>자문위원</h3>
+              </div>
+              <button className="x" onClick={() => setAdvEdit(null)}>✕</button>
+            </div>
+            <div className="mb">
+              <div style={{ display: 'flex', gap: 10 }}>
+                <div className="mfield" style={{ flex: 1 }}>
+                  <label>이름</label>
+                  <input className="ctl" value={advForm.name} onChange={(e) => setAdvForm({ ...advForm, name: e.target.value })} placeholder="예: 홍길동 교수" autoFocus />
+                </div>
+                <div className="mfield" style={{ flex: 1 }}>
+                  <label>소속</label>
+                  <input className="ctl" value={advForm.org} onChange={(e) => setAdvForm({ ...advForm, org: e.target.value })} placeholder="예: ○○대학교" />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <div className="mfield" style={{ flex: 1 }}>
+                  <label>연락처</label>
+                  <input className="ctl" value={advForm.phone} onChange={(e) => setAdvForm({ ...advForm, phone: e.target.value })} placeholder="010-0000-0000" />
+                </div>
+                <div className="mfield" style={{ flex: 1 }}>
+                  <label>기본 자문비</label>
+                  <input className="ctl tnum" type="text" inputMode="numeric" value={advForm.default_fee ? advForm.default_fee.toLocaleString('ko-KR') : ''} onChange={(e) => setAdvForm({ ...advForm, default_fee: Number(e.target.value.replace(/[^0-9]/g, '')) || 0 })} placeholder="예: 300,000" />
+                </div>
+              </div>
+            </div>
+            <div className="mf">
+              <button className="btn sec" onClick={() => setAdvEdit(null)} disabled={stkBusy}>취소</button>
+              <button className="btn pri" onClick={saveAdvisor} disabled={stkBusy || !advForm.name.trim()}>
+                {stkBusy ? '저장 중…' : advEdit === 'new' ? '등록' : '저장'}
               </button>
             </div>
           </div>

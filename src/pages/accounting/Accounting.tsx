@@ -18,7 +18,7 @@ import {
 } from './fund'
 import { FundBar, FundDonut } from './FundCharts'
 import { ForecastView } from './Forecast'
-import { InboxView, CardView, PartnerView } from './AcctTabs'
+import { InboxView, CardView } from './AcctTabs'
 
 const NOW = new Date()
 const CUR_YEAR = NOW.getFullYear()
@@ -32,7 +32,7 @@ const MONTHS: readonly (readonly [string, string])[] = [
   }),
 ]
 
-type Tab = 'fund' | 'inbox' | 'ledger' | 'card' | 'forecast' | 'partner'
+type Tab = 'fund' | 'inbox' | 'ledger' | 'card' | 'forecast'
 
 // 전년대비 뱃지
 function DeltaBadge({ d }: { d: Delta }) {
@@ -117,7 +117,6 @@ export default function Accounting() {
           ['ledger', '전표내역'],
           ['card', '카드내역'],
           ['forecast', "F'cast"],
-          ['partner', '업체정보'],
         ] as [Tab, string][]).map(([k, t]) => (
           <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>
             {t}
@@ -146,7 +145,6 @@ export default function Accounting() {
       {tab === 'inbox' && <InboxView onPosted={() => txQ.reload()} />}
       {tab === 'card' && <CardView onPosted={() => txQ.reload()} />}
       {tab === 'forecast' && <ForecastView />}
-      {tab === 'partner' && <PartnerView />}
     </div>
   )
 }

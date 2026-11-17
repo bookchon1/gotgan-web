@@ -5,6 +5,7 @@ export const PAGE_TITLES: Record<string, string> = {
   '': '홈',
   approvals: '전자결재',
   documents: '문서보관',
+  partners: '업체정보',
   calendar: '일정표',
   hr: '인사관리',
   labor: '노무관리',

@@ -23,6 +23,7 @@ import Labor from './pages/labor/Labor'
 import Approvals from './pages/Approvals'
 import Calendar from './pages/Calendar'
 import Documents from './pages/Documents'
+import Partners from './pages/Partners'
 import Users from './pages/admin/Users'
 import Security from './pages/admin/Security'
 import Activity from './pages/admin/Activity'
@@ -124,6 +125,14 @@ export default function App() {
         {/* 공통 */}
         <Route path="/approvals" element={<Approvals />} />
         <Route path="/documents" element={<Documents />} />
+        <Route
+          path="/partners"
+          element={
+            <RequireAdmin>
+              <Partners />
+            </RequireAdmin>
+          }
+        />
         <Route path="/calendar" element={<Calendar />} />
 
         {/* 관리자 */}

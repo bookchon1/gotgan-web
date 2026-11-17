@@ -56,7 +56,7 @@ export default function ArtDetail() {
   const [editBusy, setEditBusy] = useState(false)
   const [ef, setEf] = useState({
     name: '', status: '예정' as ArtStatus, contract_base: 0, kind: '발주', client: '', proj_type: '서화',
-    bid_method: '협상에의한계약', contract_date: '', start_date: '', due_date: '', done_date: '', biz_code: '법인',
+    bid_method: '협상에의한계약', contract_date: '', start_date: '', due_date: '', done_date: '',
   })
   const setE = (k: keyof typeof ef, v: string | number) => setEf((o) => ({ ...o, [k]: v }))
 
@@ -269,7 +269,7 @@ export default function ArtDetail() {
       kind: p.kind ?? '발주', client: p.client ?? '', proj_type: p.proj_type ?? '서화',
       bid_method: p.bid_method ?? '협상에의한계약',
       contract_date: p.contract_date ?? '', start_date: p.start_date ?? '',
-      due_date: p.due_date ?? '', done_date: p.done_date ?? '', biz_code: p.biz_code ?? '법인',
+      due_date: p.due_date ?? '', done_date: p.done_date ?? ''
     })
     setEditing(true)
   }
@@ -293,7 +293,6 @@ export default function ArtDetail() {
         start_date: ef.start_date || null,
         due_date: ef.due_date || null,
         done_date: ef.done_date || null,
-        biz_code: ef.biz_code,
         year: (ef.due_date ? +ef.due_date.slice(0, 4) : null) || p?.year || new Date().getFullYear(),
       })
       .eq('id', id!)
@@ -485,13 +484,6 @@ export default function ArtDetail() {
               </EField>
               <EField l="준공일">
                 <input className="hr-in" type="date" min="1900-01-01" max="9999-12-31" value={ef.done_date} onChange={(e) => setE('done_date', e.target.value)} />
-              </EField>
-              <EField l="사업자">
-                <select className="hr-in" value={ef.biz_code} onChange={(e) => setE('biz_code', e.target.value)}>
-                  <option value="법인">법인(미술)</option>
-                  <option value="개인">개인(도래헌)</option>
-                  <option value="더북촌">더북촌</option>
-                </select>
               </EField>
             </div>
           ) : (

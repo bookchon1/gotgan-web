@@ -323,7 +323,7 @@ export function ArtProjectModal({
   const [client, setClient] = useState(project?.client ?? '')
   const [projType, setProjType] = useState(project?.proj_type ?? '서화')
   const [kind, setKind] = useState<'입찰' | '발주'>(project?.kind ?? '발주')
-  const [bizCode, setBizCode] = useState(project?.biz_code ?? '법인')
+  const bizCode = project?.biz_code ?? '법인' // 미술은 법인 소속 고정
   const [status, setStatus] = useState<ArtStatus>(project?.status ?? '예정')
   const [contractBase, setContractBase] = useState(Number(project?.contract_base) || 0)
   // 입찰·계약
@@ -433,14 +433,6 @@ export function ArtProjectModal({
             </div>
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
-            <div className="mfield" style={{ flex: 1 }}>
-              <label>사업자</label>
-              <select className="ctl" value={bizCode} onChange={(e) => setBizCode(e.target.value)}>
-                <option value="법인">법인(미술)</option>
-                <option value="개인">개인(도래헌)</option>
-                <option value="더북촌">더북촌</option>
-              </select>
-            </div>
             <div className="mfield" style={{ flex: 1 }}>
               <label>진행상태</label>
               <select className="ctl" value={status} onChange={(e) => setStatus(e.target.value as ArtStatus)}>

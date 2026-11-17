@@ -7,6 +7,7 @@ import { useQuery } from '../../lib/useQuery'
 import { eok, won, dateOnly } from '../../lib/format'
 import type {
   ArtProject,
+  ArtStatus,
   ArtBudget,
   BudgetChange,
   BudgetReceipt,
@@ -27,7 +28,7 @@ import {
 import { Step20Editor } from './Step20Editor'
 import { BudgetTxPopup } from './BudgetTxPopup'
 import { AdvisorFeeModal } from './AdvisorFeeModal'
-import { ArtProjectModal } from './ArtList'
+import { BID_METHODS, PROJ_TYPES, ART_STATUSES } from './ArtList'
 
 // 원가계산서 예산 항목 (시안 기준)
 const BUDGET_ITEMS = ['재료비', '노무비', '경비', '외주가공비', '이윤', '보존처리계획', '훈증', '자문회비']
@@ -50,7 +51,14 @@ export default function ArtDetail() {
   const [addStk, setAddStk] = useState(false)
   const [stkForm, setStkForm] = useState({ kind: '발주담당', name: '', org: '', phone: '' })
   const [stkBusy, setStkBusy] = useState(false)
-  const [editOpen, setEditOpen] = useState(false) // 사업개요 전체 수정 모달
+  // 사업개요 인라인 수정 모드 (헤더 + 사업개요 전체)
+  const [editing, setEditing] = useState(false)
+  const [editBusy, setEditBusy] = useState(false)
+  const [ef, setEf] = useState({
+    name: '', status: '예정' as ArtStatus, contract_base: 0, kind: '발주', client: '', proj_type: '서화',
+    bid_method: '협상에의한계약', contract_date: '', start_date: '', due_date: '', done_date: '', biz_code: '법인',
+  })
+  const setE = (k: keyof typeof ef, v: string | number) => setEf((o) => ({ ...o, [k]: v }))
 
   const projQ = useQuery<ArtProject[]>(
     async () => await supabase.from('art_projects').select('*').eq('id', id!),
@@ -254,6 +262,50 @@ export default function ArtDetail() {
     reloadSteps()
   }
 
+  function startEdit() {
+    if (!p) return
+    setEf({
+      name: p.name ?? '', status: p.status, contract_base: Number(p.contract_base) || 0,
+      kind: p.kind ?? '발주', client: p.client ?? '', proj_type: p.proj_type ?? '서화',
+      bid_method: p.bid_method ?? '협상에의한계약',
+      contract_date: p.contract_date ?? '', start_date: p.start_date ?? '',
+      due_date: p.due_date ?? '', done_date: p.done_date ?? '', biz_code: p.biz_code ?? '법인',
+    })
+    setEditing(true)
+  }
+  async function saveEdit() {
+    if (!ef.name.trim()) {
+      alert('사업명을 입력하세요.')
+      return
+    }
+    setEditBusy(true)
+    const { error } = await supabase
+      .from('art_projects')
+      .update({
+        name: ef.name.trim(),
+        status: ef.status,
+        contract_base: ef.contract_base,
+        kind: ef.kind,
+        client: ef.client.trim() || null,
+        proj_type: ef.proj_type || null,
+        bid_method: ef.bid_method || null,
+        contract_date: ef.contract_date || null,
+        start_date: ef.start_date || null,
+        due_date: ef.due_date || null,
+        done_date: ef.done_date || null,
+        biz_code: ef.biz_code,
+        year: (ef.due_date ? +ef.due_date.slice(0, 4) : null) || p?.year || new Date().getFullYear(),
+      })
+      .eq('id', id!)
+    setEditBusy(false)
+    if (error) {
+      alert('사업 수정 저장 실패: ' + error.message)
+      return
+    }
+    setEditing(false)
+    projQ.reload()
+  }
+
   async function removeProject() {
     if (
       !window.confirm(
@@ -313,26 +365,71 @@ export default function ArtDetail() {
           ‹ 사업 목록
         </button>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn sec" onClick={() => setEditOpen(true)}>
-            사업 수정
-          </button>
-          <button className="btn sec" style={{ color: 'var(--danger)' }} onClick={removeProject}>
-            삭제
-          </button>
+          {editing ? (
+            <>
+              <button className="btn sec" onClick={() => setEditing(false)} disabled={editBusy}>
+                취소
+              </button>
+              <button className="btn pri" onClick={saveEdit} disabled={editBusy || !ef.name.trim()}>
+                {editBusy ? '저장 중…' : '저장'}
+              </button>
+            </>
+          ) : (
+            <>
+              <button className="btn sec" onClick={startEdit}>
+                사업 수정
+              </button>
+              <button className="btn sec" style={{ color: 'var(--danger)' }} onClick={removeProject}>
+                삭제
+              </button>
+            </>
+          )}
         </div>
       </div>
 
-      {/* 초록 헤더 — 제목·상태·진행률만 (더 낮게) */}
+      {/* 초록 헤더 — 사업명·상태 / 계약금·진행률 */}
       <div className="proj-head">
-        <div className="pt">
-          <h2>{p.name}</h2>
-          <span className="pst">{p.status}</span>
-        </div>
-        <div className="pprog">
-          <div className="track">
-            <div className={`fill${prog.pct === 100 ? ' full' : ''}`} style={{ width: `${prog.pct}%` }} />
+        <div className="ph-top">
+          <div className="pt">
+            {editing ? (
+              <>
+                <input className="hr-in ph-name" value={ef.name} onChange={(e) => setE('name', e.target.value)} placeholder="사업명" />
+                <select className="hr-in" style={{ width: 110 }} value={ef.status} onChange={(e) => setE('status', e.target.value)}>
+                  {ART_STATUSES.map((st) => (
+                    <option key={st} value={st}>{st}</option>
+                  ))}
+                </select>
+              </>
+            ) : (
+              <>
+                <h2>{p.name}</h2>
+                <span className="pst">{p.status}</span>
+              </>
+            )}
           </div>
-          <b>{prog.pct}%</b>
+          <div className="ph-stats">
+            <div className="ph-stat">
+              <span className="l">{editing ? '계약금(기본)' : '계약금'}</span>
+              {editing ? (
+                <input
+                  className="hr-in tnum"
+                  style={{ width: 150, textAlign: 'right' }}
+                  value={ef.contract_base ? won(ef.contract_base) : ''}
+                  onChange={(e) => setE('contract_base', parseInt(e.target.value.replace(/[^0-9]/g, ''), 10) || 0)}
+                  placeholder="예: 220,000,000"
+                />
+              ) : (
+                <b className="gold">{eok(contract)}</b>
+              )}
+            </div>
+            <div className="ph-stat">
+              <span className="l">진행률</span>
+              <b>{prog.pct}%</b>
+            </div>
+          </div>
+        </div>
+        <div className="ph-bar">
+          <div className={`fill${prog.pct === 100 ? ' full' : ''}`} style={{ width: `${prog.pct}%` }} />
         </div>
       </div>
 
@@ -350,20 +447,68 @@ export default function ArtDetail() {
           <Icon name="chevron" className="icon chev" />
         </summary>
         <div className="sbody">
-          <div className="field-grid">
-            <Field l="구분" v={p.kind ?? '—'} />
-            <Field l="발주기관" v={p.client ?? '—'} />
-            <Field l="사업유형" v={<span className="badge gold">{p.proj_type}</span>} />
-            <Field l="낙찰 방법" v={p.bid_method ?? '—'} />
-            <Field l="계약일" v={dateOnly(p.contract_date) || '—'} />
-            <Field l="착공일" v={dateOnly(p.start_date) || '—'} />
-            <Field l="계약금" v={eok(contract)} />
-            <Field l="준공 예정" v={dateOnly(p.due_date) || '—'} />
-            <Field
-              l="준공 일자"
-              v={p.done_date ? dateOnly(p.done_date) : <span className="chip c-prog"><i />진행중</span>}
-            />
-          </div>
+          {editing ? (
+            <div className="field-grid g4">
+              <EField l="구분">
+                <select className="hr-in" value={ef.kind} onChange={(e) => setE('kind', e.target.value)}>
+                  <option value="발주">발주</option>
+                  <option value="입찰">입찰</option>
+                </select>
+              </EField>
+              <EField l="발주기관">
+                <input className="hr-in" value={ef.client} onChange={(e) => setE('client', e.target.value)} />
+              </EField>
+              <EField l="사업유형">
+                <select className="hr-in" value={ef.proj_type} onChange={(e) => setE('proj_type', e.target.value)}>
+                  {ef.proj_type && !PROJ_TYPES.includes(ef.proj_type) && <option value={ef.proj_type}>{ef.proj_type}</option>}
+                  {PROJ_TYPES.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </EField>
+              <EField l="계약방법">
+                <select className="hr-in" value={ef.bid_method} onChange={(e) => setE('bid_method', e.target.value)}>
+                  {ef.bid_method && !BID_METHODS.includes(ef.bid_method) && <option value={ef.bid_method}>{ef.bid_method}</option>}
+                  {BID_METHODS.map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </EField>
+              <EField l="계약일">
+                <input className="hr-in" type="date" min="1900-01-01" max="9999-12-31" value={ef.contract_date} onChange={(e) => setE('contract_date', e.target.value)} />
+              </EField>
+              <EField l="착공일">
+                <input className="hr-in" type="date" min="1900-01-01" max="9999-12-31" value={ef.start_date} onChange={(e) => setE('start_date', e.target.value)} />
+              </EField>
+              <EField l="준공 예정">
+                <input className="hr-in" type="date" min="1900-01-01" max="9999-12-31" value={ef.due_date} onChange={(e) => setE('due_date', e.target.value)} />
+              </EField>
+              <EField l="준공일">
+                <input className="hr-in" type="date" min="1900-01-01" max="9999-12-31" value={ef.done_date} onChange={(e) => setE('done_date', e.target.value)} />
+              </EField>
+              <EField l="사업자">
+                <select className="hr-in" value={ef.biz_code} onChange={(e) => setE('biz_code', e.target.value)}>
+                  <option value="법인">법인(미술)</option>
+                  <option value="개인">개인(도래헌)</option>
+                  <option value="더북촌">더북촌</option>
+                </select>
+              </EField>
+            </div>
+          ) : (
+            <div className="field-grid g4">
+              <Field l="구분" v={p.kind ?? '—'} />
+              <Field l="발주기관" v={p.client ?? '—'} />
+              <Field l="사업유형" v={<span className="badge gold">{p.proj_type}</span>} />
+              <Field l="계약방법" v={p.bid_method ?? '—'} />
+              <Field l="계약일" v={dateOnly(p.contract_date) || '—'} />
+              <Field l="착공일" v={dateOnly(p.start_date) || '—'} />
+              <Field l="준공 예정" v={dateOnly(p.due_date) || '—'} />
+              <Field
+                l="준공일"
+                v={p.done_date ? dateOnly(p.done_date) : <span className="chip c-prog"><i />진행중</span>}
+              />
+            </div>
+          )}
 
           {/* 관계자 */}
           <div className="bud-h" style={{ marginTop: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -896,16 +1041,15 @@ export default function ArtDetail() {
           }}
         />
       )}
-      {editOpen && (
-        <ArtProjectModal
-          project={p}
-          onClose={() => setEditOpen(false)}
-          onSaved={() => {
-            setEditOpen(false)
-            projQ.reload()
-          }}
-        />
-      )}
+    </div>
+  )
+}
+
+function EField({ l, children }: { l: string; children: React.ReactNode }) {
+  return (
+    <div className="field">
+      <div className="fl">{l}</div>
+      {children}
     </div>
   )
 }

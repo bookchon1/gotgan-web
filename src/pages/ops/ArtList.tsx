@@ -8,7 +8,7 @@ import { won } from '../../lib/format'
 import ArtSchedule from './ArtSchedule'
 import type { ArtProject, BudgetReceipt, ArtStatus } from '../../types/db'
 
-const ART_STATUSES: ArtStatus[] = ['공고/입찰', '예정', '진행', '완료', '탈락/보류']
+export const ART_STATUSES: ArtStatus[] = ['공고/입찰', '예정', '진행', '완료', '탈락/보류']
 
 // 진행상태 정렬 우선순위 (시안: 진행 먼저, 완료·보류 뒤로)
 const ST_ORDER: Record<string, number> = {
@@ -303,10 +303,10 @@ export default function ArtList() {
   )
 }
 
-// 시안 '② 입찰·계약'의 낙찰 방법 옵션
-const BID_METHODS = ['협상에의한계약', '수의계약', '일반경쟁', '제한경쟁']
+// 시안 '② 입찰·계약'의 계약방법 옵션
+export const BID_METHODS = ['협상에의한계약', '수의계약', '일반경쟁', '제한경쟁']
 // 시안 '사업 유형' 옵션
-const PROJ_TYPES = ['서화', '조형', '건축', '기타']
+export const PROJ_TYPES = ['서화', '조형', '건축', '기타']
 
 /** 미술 사업 등록·수정 — art_projects insert/update (시안 사업개요 + 입찰·계약 + 관계자) */
 export function ArtProjectModal({
@@ -459,7 +459,7 @@ export function ArtProjectModal({
           </p>
           <div style={{ display: 'flex', gap: 10 }}>
             <div className="mfield" style={{ flex: 1 }}>
-              <label>낙찰 방법</label>
+              <label>계약방법</label>
               <select className="ctl" value={bidMethod} onChange={(e) => setBidMethod(e.target.value)}>
                 {bidMethod && !BID_METHODS.includes(bidMethod) && <option value={bidMethod}>{bidMethod}</option>}
                 {BID_METHODS.map((m) => (

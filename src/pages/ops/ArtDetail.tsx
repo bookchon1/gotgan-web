@@ -48,8 +48,8 @@ export default function ArtDetail() {
   const [addBudget, setAddBudget] = useState(false)
   const [budgetForm, setBudgetForm] = useState({ item: '재료비', alloc: 0 })
   const [budBusy, setBudBusy] = useState(false)
-  const [addStk, setAddStk] = useState(false)
-  const [stkForm, setStkForm] = useState({ kind: '발주담당', name: '', org: '', phone: '' })
+  const [stkEdit, setStkEdit] = useState<null | ArtStakeholder | 'new'>(null)
+  const [stkForm, setStkForm] = useState({ kind: '발주담당', name: '', org: '', phone: '', email: '' })
   const [stkBusy, setStkBusy] = useState(false)
   // 사업개요 인라인 수정 모드 (헤더 + 사업개요 전체)
   const [editing, setEditing] = useState(false)
@@ -164,21 +164,41 @@ export default function ArtDetail() {
   async function saveStk() {
     if (!stkForm.name.trim()) return
     setStkBusy(true)
-    const { error } = await supabase.from('art_stakeholders').insert({
-      project_id: id!,
+    const payload = {
       kind: stkForm.kind,
       name: stkForm.name.trim(),
       org: stkForm.org.trim() || null,
       phone: stkForm.phone.trim() || null,
-      sort: stakeholders.length,
-    })
+      email: stkForm.email.trim() || null,
+    }
+    const { error } =
+      stkEdit && stkEdit !== 'new'
+        ? await supabase.from('art_stakeholders').update(payload).eq('id', stkEdit.id)
+        : await supabase.from('art_stakeholders').insert({ ...payload, project_id: id!, sort: stakeholders.length })
     setStkBusy(false)
     if (error) {
       alert('관계자 저장 실패: ' + error.message)
       return
     }
-    setAddStk(false)
-    setStkForm({ kind: '발주담당', name: '', org: '', phone: '' })
+    setStkEdit(null)
+    setStkForm({ kind: '발주담당', name: '', org: '', phone: '', email: '' })
+    stkQ.reload()
+  }
+  function openStk(s: ArtStakeholder | 'new') {
+    setStkForm(
+      s === 'new'
+        ? { kind: '발주담당', name: '', org: '', phone: '', email: '' }
+        : { kind: s.kind, name: s.name, org: s.org ?? '', phone: s.phone ?? '', email: s.email ?? '' },
+    )
+    setStkEdit(s)
+  }
+  async function removeStk(s: ArtStakeholder) {
+    if (!window.confirm(`관계자 "${s.name}" 을(를) 삭제할까요?`)) return
+    const { error } = await supabase.from('art_stakeholders').delete().eq('id', s.id)
+    if (error) {
+      alert('삭제 실패: ' + error.message)
+      return
+    }
     stkQ.reload()
   }
 
@@ -507,11 +527,9 @@ export default function ArtDetail() {
             <div className="t">
               관계자 <span style={{ color: 'var(--muted)', fontWeight: 400 }}>· {stakeholders.length}명</span>
             </div>
-            {!addStk && (
-              <button className="btn txt" style={{ padding: 0, fontSize: 11.5, color: 'var(--brand-ink)' }} onClick={() => setAddStk(true)}>
-                + 관계자 추가
-              </button>
-            )}
+            <button className="btn txt" style={{ padding: 0, fontSize: 11.5, color: 'var(--brand-ink)' }} onClick={() => openStk('new')}>
+              + 관계자
+            </button>
           </div>
           <table className="rowtbl">
             <thead>
@@ -520,6 +538,8 @@ export default function ArtDetail() {
                 <th>이름</th>
                 <th>소속</th>
                 <th>연락처</th>
+                <th>이메일</th>
+                <th style={{ width: 90 }}></th>
               </tr>
             </thead>
             <tbody>
@@ -531,38 +551,20 @@ export default function ArtDetail() {
                   </td>
                   <td className="t-sub">{s.org || '—'}</td>
                   <td className="tnum">{s.phone || '—'}</td>
+                  <td className="t-sub">{s.email || '—'}</td>
+                  <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                    <button className="btn txt" style={{ padding: '2px 6px', fontSize: 11 }} onClick={() => openStk(s)}>
+                      수정
+                    </button>
+                    <button className="btn txt" style={{ padding: '2px 6px', fontSize: 11, color: 'var(--danger)' }} onClick={() => removeStk(s)}>
+                      삭제
+                    </button>
+                  </td>
                 </tr>
               ))}
-              {addStk && (
+              {stakeholders.length === 0 && (
                 <tr>
-                  <td>
-                    <select className="ctl" style={{ padding: '4px 6px', fontSize: 11 }} value={stkForm.kind} onChange={(e) => setStkForm({ ...stkForm, kind: e.target.value })}>
-                      <option>발주담당</option>
-                      <option>소장자</option>
-                      <option>재무과</option>
-                      <option>기타</option>
-                    </select>
-                  </td>
-                  <td>
-                    <input className="ctl" style={{ padding: '4px 6px', fontSize: 11 }} value={stkForm.name} onChange={(e) => setStkForm({ ...stkForm, name: e.target.value })} placeholder="이름" autoFocus />
-                  </td>
-                  <td>
-                    <input className="ctl" style={{ padding: '4px 6px', fontSize: 11 }} value={stkForm.org} onChange={(e) => setStkForm({ ...stkForm, org: e.target.value })} placeholder="소속" />
-                  </td>
-                  <td style={{ whiteSpace: 'nowrap' }}>
-                    <input className="ctl" style={{ padding: '4px 6px', fontSize: 11, width: 110 }} value={stkForm.phone} onChange={(e) => setStkForm({ ...stkForm, phone: e.target.value })} placeholder="연락처" />
-                    <button className="btn pri" style={{ padding: '3px 9px', fontSize: 11, marginLeft: 5 }} onClick={saveStk} disabled={stkBusy || !stkForm.name.trim()}>
-                      {stkBusy ? '…' : '저장'}
-                    </button>
-                    <button className="btn sec" style={{ padding: '3px 9px', fontSize: 11, marginLeft: 4 }} onClick={() => { setAddStk(false); setStkForm({ kind: '발주담당', name: '', org: '', phone: '' }) }}>
-                      취소
-                    </button>
-                  </td>
-                </tr>
-              )}
-              {stakeholders.length === 0 && !addStk && (
-                <tr>
-                  <td colSpan={4} style={{ color: 'var(--muted)', textAlign: 'center', padding: 16 }}>
+                  <td colSpan={6} style={{ color: 'var(--muted)', textAlign: 'center', padding: 16 }}>
                     등록된 관계자가 없습니다.
                   </td>
                 </tr>
@@ -975,6 +977,56 @@ export default function ArtDetail() {
               <button className="btn sec" onClick={() => setAddBudget(false)} disabled={budBusy}>취소</button>
               <button className="btn pri" onClick={saveBudget} disabled={budBusy || budgetForm.alloc <= 0}>
                 {budBusy ? '저장 중…' : '저장'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {stkEdit && (
+        <div className="modal-bg" onClick={() => setStkEdit(null)}>
+          <div className="modal" style={{ maxWidth: 440 }} onClick={(e) => e.stopPropagation()}>
+            <div className="mh">
+              <div>
+                <div className="eyebrow">관계자 {stkEdit === 'new' ? '등록' : '수정'}</div>
+                <h3>관계자</h3>
+              </div>
+              <button className="x" onClick={() => setStkEdit(null)}>✕</button>
+            </div>
+            <div className="mb">
+              <div style={{ display: 'flex', gap: 10 }}>
+                <div className="mfield" style={{ width: 130 }}>
+                  <label>구분</label>
+                  <select className="ctl" value={stkForm.kind} onChange={(e) => setStkForm({ ...stkForm, kind: e.target.value })}>
+                    {['발주담당', '소장자', '재무과', '기타'].map((k) => (
+                      <option key={k}>{k}</option>
+                    ))}
+                    {stkForm.kind && !['발주담당', '소장자', '재무과', '기타'].includes(stkForm.kind) && <option>{stkForm.kind}</option>}
+                  </select>
+                </div>
+                <div className="mfield" style={{ flex: 1 }}>
+                  <label>이름</label>
+                  <input className="ctl" value={stkForm.name} onChange={(e) => setStkForm({ ...stkForm, name: e.target.value })} autoFocus />
+                </div>
+              </div>
+              <div className="mfield">
+                <label>소속</label>
+                <input className="ctl" value={stkForm.org} onChange={(e) => setStkForm({ ...stkForm, org: e.target.value })} />
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <div className="mfield" style={{ flex: 1 }}>
+                  <label>연락처</label>
+                  <input className="ctl" value={stkForm.phone} onChange={(e) => setStkForm({ ...stkForm, phone: e.target.value })} placeholder="010-0000-0000" />
+                </div>
+                <div className="mfield" style={{ flex: 1 }}>
+                  <label>이메일</label>
+                  <input className="ctl" type="email" value={stkForm.email} onChange={(e) => setStkForm({ ...stkForm, email: e.target.value })} placeholder="name@example.com" />
+                </div>
+              </div>
+            </div>
+            <div className="mf">
+              <button className="btn sec" onClick={() => setStkEdit(null)} disabled={stkBusy}>취소</button>
+              <button className="btn pri" onClick={saveStk} disabled={stkBusy || !stkForm.name.trim()}>
+                {stkBusy ? '저장 중…' : stkEdit === 'new' ? '등록' : '저장'}
               </button>
             </div>
           </div>

@@ -161,6 +161,7 @@ export interface ArtStakeholder {
   name: string
   org: string | null
   phone: string | null
+  email: string | null
   sort: number
 }
 

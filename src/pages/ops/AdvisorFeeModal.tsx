@@ -19,7 +19,8 @@ export function AdvisorFeeModal({
   onSubmitted: () => void
 }) {
   const { me } = useAuth()
-  const [round, setRound] = useState(3)
+  const [round, setRound] = useState(1)
+  const [roundTouched, setRoundTouched] = useState(false)
   // 기본 전원 선택
   const [sel, setSel] = useState<Set<string>>(new Set(advisors.map((a) => a.id)))
   // 위원별 자문비 (기본 default_fee)
@@ -30,6 +31,22 @@ export function AdvisorFeeModal({
   const [err, setErr] = useState<string | null>(null)
   const [reviewerId, setReviewerId] = useState('')
   const [approverId, setApproverId] = useState('')
+
+  // 차수 자동: 이 사업에 이미 상신된 자문비 지출결의서 수 + 1 (직접 수정 가능)
+  const [prevCount, setPrevCount] = useState(0)
+  useEffect(() => {
+    supabase
+      .from('approvals')
+      .select('id', { count: 'exact', head: true })
+      .eq('project_id', projectId)
+      .eq('kind', '지출결의서')
+      .eq('budget_item', '자문회비')
+      .then(({ count }) => {
+        setPrevCount(count ?? 0)
+        if (!roundTouched) setRound((count ?? 0) + 1)
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId])
 
   // 검토자·승인자 후보 (관리자, 본인 제외)
   const [admins, setAdmins] = useState<Pick<Employee, 'id' | 'name' | 'title'>[]>([])
@@ -123,6 +140,7 @@ export function AdvisorFeeModal({
           <div>
             <div className="eyebrow">자문비 지출결의</div>
             <h3>{docTitle}</h3>
+            {prevCount > 0 && <div className="t-sub" style={{ fontSize: 11.5, marginTop: 2 }}>이전 상신 {prevCount}건 · 이번이 {prevCount + 1}차</div>}
           </div>
           <button className="x" onClick={onClose}>
             ✕
@@ -142,7 +160,10 @@ export function AdvisorFeeModal({
                 type="number"
                 min={1}
                 value={round}
-                onChange={(e) => setRound(parseInt(e.target.value, 10) || 1)}
+                onChange={(e) => {
+                  setRoundTouched(true)
+                  setRound(parseInt(e.target.value, 10) || 1)
+                }}
               />
             </div>
           </div>

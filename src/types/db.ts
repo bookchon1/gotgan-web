@@ -150,6 +150,7 @@ export interface Advisor {
   name: string
   org: string | null
   phone: string | null
+  email: string | null
   default_fee: number
   sort: number
 }

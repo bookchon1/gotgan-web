@@ -40,7 +40,7 @@ export default function ArtDetail() {
   const [budItem, setBudItem] = useState<string | null>(null)
   const [advOpen, setAdvOpen] = useState(false)
   const [advEdit, setAdvEdit] = useState<null | Advisor | 'new'>(null)
-  const [advForm, setAdvForm] = useState({ name: '', org: '', phone: '', default_fee: 0 })
+  const [advForm, setAdvForm] = useState({ name: '', org: '', phone: '', email: '', default_fee: 0 })
   const [addChange, setAddChange] = useState(false)
   const [changeForm, setChangeForm] = useState({ date: '', type: '증액', memo: '', after: 0 })
   const [addReceipt, setAddReceipt] = useState(false)
@@ -230,6 +230,7 @@ export default function ArtDetail() {
       name: advForm.name.trim(),
       org: advForm.org.trim() || null,
       phone: advForm.phone.trim() || null,
+      email: advForm.email.trim() || null,
       default_fee: advForm.default_fee,
     }
     const { error } =
@@ -242,7 +243,7 @@ export default function ArtDetail() {
       return
     }
     setAdvEdit(null)
-    setAdvForm({ name: '', org: '', phone: '', default_fee: 0 })
+    setAdvForm({ name: '', org: '', phone: '', email: '', default_fee: 0 })
     reloadAdvisors()
   }
   async function removeAdvisor(a: Advisor) {
@@ -581,13 +582,13 @@ export default function ArtDetail() {
               <button
                 className="btn sec"
                 style={{ padding: '5px 11px', fontSize: 11.5 }}
-                onClick={() => { setAdvForm({ name: '', org: '', phone: '', default_fee: 0 }); setAdvEdit('new') }}
+                onClick={() => { setAdvForm({ name: '', org: '', phone: '', email: '', default_fee: 0 }); setAdvEdit('new') }}
               >
                 + 자문위원
               </button>
               {advisors.length > 0 && (
                 <button className="btn pri" style={{ padding: '5px 12px', fontSize: 11.5 }} onClick={() => setAdvOpen(true)}>
-                  자문비 지출결의서
+                  지출결의서 상신
                 </button>
               )}
             </div>
@@ -598,7 +599,8 @@ export default function ArtDetail() {
                 <th>이름</th>
                 <th>소속</th>
                 <th>연락처</th>
-                <th style={{ textAlign: 'right' }}>자문비</th>
+                <th>이메일</th>
+                <th style={{ textAlign: 'right' }}>기본 자문비</th>
                 <th style={{ textAlign: 'right' }}>관리</th>
               </tr>
             </thead>
@@ -609,13 +611,14 @@ export default function ArtDetail() {
                     <b>{a.name}</b>
                   </td>
                   <td className="t-sub">{a.org}</td>
-                  <td className="tnum">{a.phone}</td>
+                  <td className="tnum">{a.phone || '—'}</td>
+                  <td className="t-sub">{a.email || '—'}</td>
                   <td className="tnum" style={{ textAlign: 'right' }}>{a.default_fee ? won(a.default_fee) : '—'}</td>
                   <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                     <button
                       className="btn txt"
                       style={{ padding: '2px 6px', fontSize: 11 }}
-                      onClick={() => { setAdvForm({ name: a.name, org: a.org ?? '', phone: a.phone ?? '', default_fee: a.default_fee ?? 0 }); setAdvEdit(a) }}
+                      onClick={() => { setAdvForm({ name: a.name, org: a.org ?? '', phone: a.phone ?? '', email: a.email ?? '', default_fee: a.default_fee ?? 0 }); setAdvEdit(a) }}
                     >
                       수정
                     </button>
@@ -631,7 +634,7 @@ export default function ArtDetail() {
               ))}
               {advisors.length === 0 && (
                 <tr>
-                  <td colSpan={5} style={{ color: 'var(--muted)', textAlign: 'center', padding: 16 }}>
+                  <td colSpan={6} style={{ color: 'var(--muted)', textAlign: 'center', padding: 16 }}>
                     등록된 자문위원이 없습니다.
                   </td>
                 </tr>
@@ -1058,6 +1061,12 @@ export default function ArtDetail() {
                   <label>연락처</label>
                   <input className="ctl" value={advForm.phone} onChange={(e) => setAdvForm({ ...advForm, phone: e.target.value })} placeholder="010-0000-0000" />
                 </div>
+                <div className="mfield" style={{ flex: 1 }}>
+                  <label>이메일</label>
+                  <input className="ctl" type="email" value={advForm.email} onChange={(e) => setAdvForm({ ...advForm, email: e.target.value })} placeholder="name@example.com" />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
                 <div className="mfield" style={{ flex: 1 }}>
                   <label>기본 자문비</label>
                   <input className="ctl tnum" type="text" inputMode="numeric" value={advForm.default_fee ? advForm.default_fee.toLocaleString('ko-KR') : ''} onChange={(e) => setAdvForm({ ...advForm, default_fee: Number(e.target.value.replace(/[^0-9]/g, '')) || 0 })} placeholder="예: 300,000" />

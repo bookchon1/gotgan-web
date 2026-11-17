@@ -119,7 +119,7 @@ export interface BudgetChange {
 export interface BudgetReceipt {
   id: string
   project_id: string
-  kind: '선금' | '기성' | '준공금'
+  kind: '선금' | '기성' | '준공'
   date: string
   amount: number
 }

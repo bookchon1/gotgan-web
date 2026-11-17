@@ -721,7 +721,7 @@ export default function ArtDetail() {
                     <select className="hr-in" value={receiptForm.kind} onChange={(e) => setReceiptForm({ ...receiptForm, kind: e.target.value })}>
                       <option>선금</option>
                       <option>기성</option>
-                      <option>준공금</option>
+                      <option>준공</option>
                     </select>
                   </td>
                   <td>

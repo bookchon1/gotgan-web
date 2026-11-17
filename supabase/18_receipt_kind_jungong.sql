@@ -1,4 +1,4 @@
--- 18. 대금수령 구분 '잔금' → '준공금' 으로 명칭 변경
+-- 18. 대금수령 구분 '잔금'/'준공금' → '준공' 으로 명칭 변경 (이미 18번을 실행했어도 다시 실행 가능)
 -- Supabase SQL Editor 에서 실행하세요.
 begin;
 
@@ -15,18 +15,18 @@ begin
   end loop;
 end $$;
 
-update public.budget_receipts set kind = '준공금' where kind = '잔금';
+update public.budget_receipts set kind = '준공' where kind in ('잔금','준공금');
 alter table public.budget_receipts
-  add constraint budget_receipts_kind_check check (kind in ('선금','기성','준공금'));
+  add constraint budget_receipts_kind_check check (kind in ('선금','기성','준공'));
 
 -- 이미 생성된 매출 전표 적요도 함께 정리
-update public.acct_tx set memo = replace(memo, ' 잔금 수령', ' 준공금 수령')
- where src = '대금수령' and memo like '% 잔금 수령';
+update public.acct_tx set memo = replace(replace(memo, ' 잔금 수령', ' 준공 수령'), ' 준공금 수령', ' 준공 수령')
+ where src = '대금수령' and (memo like '% 잔금 수령' or memo like '% 준공금 수령');
 
 -- 2) 대금수령 RPC (구분 검사에 준공금 반영)
 create or replace function public.art_add_receipt(
   p_project_id uuid,
-  p_kind       text,          -- 선금|기성|준공금
+  p_kind       text,          -- 선금|기성|준공
   p_date       date,
   p_amount     bigint,
   p_make_tx    boolean default true
@@ -45,7 +45,7 @@ begin
   if not public.app_is_active_employee() then
     raise exception '권한이 없습니다(재직 직원만).';
   end if;
-  if p_kind not in ('선금','기성','준공금') then
+  if p_kind not in ('선금','기성','준공') then
     raise exception '수령 구분이 올바르지 않습니다: %', p_kind;
   end if;
 

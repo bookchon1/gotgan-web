@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../../components/Icon'
 import { supabase } from '../../lib/supabase'
 import { dateRange } from '../../lib/format'
@@ -62,7 +62,24 @@ export function Step20Editor({
   const [busy, setBusy] = useState(false)
   const [addPos, setAddPos] = useState(steps.length + 1)
   const [addName, setAddName] = useState('')
-  const [cmtDraft, setCmtDraft] = useState<Record<string, string>>({})
+  // 메모 입력 중 내용(미등록)은 새로고침·재배포 때 사라지지 않도록 이 브라우저에 임시 보관
+  const draftKey = `gotgan:stepdraft:${projectId}`
+  const [cmtDraft, setCmtDraft] = useState<Record<string, string>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(draftKey) || '{}') as Record<string, string>
+    } catch {
+      return {}
+    }
+  })
+  useEffect(() => {
+    try {
+      const clean = Object.fromEntries(Object.entries(cmtDraft).filter(([, v]) => v && v.trim()))
+      if (Object.keys(clean).length) localStorage.setItem(draftKey, JSON.stringify(clean))
+      else localStorage.removeItem(draftKey)
+    } catch {
+      /* 저장소 사용 불가 시 무시 */
+    }
+  }, [cmtDraft, draftKey])
 
 
   const cmtByStep = useMemo(() => {
@@ -269,7 +286,7 @@ export function Step20Editor({
                 )}
                 <div className="cmt-add">
                   <AutoTextarea
-                    placeholder="메모 입력"
+                    placeholder="메모 입력 후 [추가]를 눌러야 저장됩니다"
                     value={cmtDraft[s.id] || ''}
                     onChange={(v) => setCmtDraft((d) => ({ ...d, [s.id]: v }))}
                   />

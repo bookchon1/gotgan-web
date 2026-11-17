@@ -90,20 +90,19 @@ function isCurrent(p: ArtProject): boolean {
   return dy === String(CUR_YEAR)
 }
 
-/** 사업이 걸쳐 있는 연도 범위 [시작, 끝] — 계약/착공 ~ 준공(예정) */
-function projYears(p: ArtProject): [number, number] {
-  const y = (d?: string | null) => (d ? parseInt(d.slice(0, 4), 10) : NaN)
-  let a = y(p.start_date) || y(p.contract_date) || y(p.due_date) || Number(p.year) || CUR_YEAR
-  let b = y(p.done_date) || y(p.due_date) || a
-  if (!Number.isFinite(a)) a = CUR_YEAR
-  if (!Number.isFinite(b)) b = a
-  return a <= b ? [a, b] : [b, a]
+/** 년도 필터 기준: 준공(준공일·없으면 준공 예정일) 또는 착공(착공일·없으면 계약일) 년도 */
+function basisYear(p: ArtProject, basis: 'done' | 'start'): number | null {
+  const d = basis === 'done' ? p.done_date || p.due_date : p.start_date || p.contract_date
+  const y = d ? parseInt(d.slice(0, 4), 10) : NaN
+  if (Number.isFinite(y)) return y
+  return basis === 'done' && p.year ? Number(p.year) : null
 }
 
 export default function ArtList() {
   const navigate = useNavigate()
   const [stFilter, setStFilter] = useState<'all' | 'prog' | 'done'>('all')
   const [yearFilter, setYearFilter] = useState('all') // 'all' | '2026' ...
+  const [yearBasis, setYearBasis] = useState<'done' | 'start'>('done') // 준공 기준 / 착공 기준
   const [addOpen, setAddOpen] = useState(false)
 
   const projects = useQuery<ArtProject[]>(
@@ -146,12 +145,7 @@ export default function ArtList() {
     () =>
       all
         .filter((p) => (stFilter === 'all' ? true : stFilter === 'done' ? p.status === '완료' : p.status !== '완료'))
-        .filter((p) => {
-          if (yearFilter === 'all') return true
-          const [a, b] = projYears(p)
-          const yy = Number(yearFilter)
-          return a <= yy && yy <= b
-        })
+        .filter((p) => yearFilter === 'all' || basisYear(p, yearBasis) === Number(yearFilter))
         .sort((a, b) => {
           const oa = ST_ORDER[a.status] ?? 2
           const ob = ST_ORDER[b.status] ?? 2
@@ -161,17 +155,17 @@ export default function ArtList() {
           const bd = (b.due_date || '9999').slice(0, 10)
           return ad < bd ? -1 : ad > bd ? 1 : 0
         }),
-    [all, stFilter, yearFilter],
+    [all, stFilter, yearFilter, yearBasis],
   )
-  // 연도 선택지: 사업들이 걸친 모든 연도 + 올해
+  // 년도 선택지: 선택한 기준(준공/착공)의 년도들 + 올해
   const yearOptions = useMemo(() => {
     const set = new Set<number>([CUR_YEAR])
     for (const p of all) {
-      const [a, b] = projYears(p)
-      for (let y = a; y <= b && y - a < 15; y++) set.add(y)
+      const y = basisYear(p, yearBasis)
+      if (y) set.add(y)
     }
     return [...set].sort((a, b) => b - a)
-  }, [all])
+  }, [all, yearBasis])
 
   let tCon = 0,
     tRec = 0
@@ -185,7 +179,7 @@ export default function ArtList() {
       <PageHead
         eyebrow="미술 · 사업"
         title="사업관리"
-        desc="전체·진행·완료와 연도로 사업을 찾아보세요. 행을 클릭하면 상세로 이동합니다."
+        desc="전체·진행·완료와 준공·착공 기준 년도로 사업을 찾아보세요. 행을 클릭하면 상세로 이동합니다."
         actions={
           <button className="btn txt add-txt" onClick={() => setAddOpen(true)}>
             + 사업 등록
@@ -211,20 +205,32 @@ export default function ArtList() {
                 </button>
               ))}
             </div>
-            <select
-              className="sel"
-              style={{ width: 104 }}
-              value={yearFilter}
-              onChange={(e) => setYearFilter(e.target.value)}
-              aria-label="연도"
-            >
-              <option value="all">전체 연도</option>
-              {yearOptions.map((y) => (
-                <option key={y} value={String(y)}>
-                  {y}년
-                </option>
-              ))}
-            </select>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <select
+                className="sel"
+                style={{ width: 98 }}
+                value={yearBasis}
+                onChange={(e) => setYearBasis(e.target.value as 'done' | 'start')}
+                aria-label="년도 기준"
+              >
+                <option value="done">준공 기준</option>
+                <option value="start">착공 기준</option>
+              </select>
+              <select
+                className="sel"
+                style={{ width: 104 }}
+                value={yearFilter}
+                onChange={(e) => setYearFilter(e.target.value)}
+                aria-label="년도"
+              >
+                <option value="all">전체</option>
+                {yearOptions.map((y) => (
+                  <option key={y} value={String(y)}>
+                    {y}년도
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 

@@ -1019,3 +1019,15 @@ td>.hr-in{max-width:160px}
 .proj-actions .btn+.btn{position:relative;margin-left:2px}
 .proj-actions .btn+.btn::before{content:"";position:absolute;left:-2px;top:50%;height:11px;width:1px;margin-top:-5.5px;background:var(--line)}
 .proj-actions .btn.del{color:var(--danger)}
+
+/* 내역서(엑셀) 시트 보기 */
+.boq-tabs{display:flex;gap:2px;flex-wrap:wrap;border-bottom:1px solid var(--line);margin-bottom:8px}
+.boq-tabs button{background:none;border:0;border-bottom:2px solid transparent;padding:6px 12px;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;font-family:inherit}
+.boq-tabs button.on{color:var(--brand-ink);border-bottom-color:var(--brand)}
+.boq-scroll{max-height:50vh;overflow:auto;border:1px solid var(--line);border-radius:8px}
+.boq-grid{border-collapse:collapse;table-layout:fixed;font-size:11.5px;background:var(--surface)}
+.boq-grid td{border:1px solid var(--line);padding:3px 6px;overflow:hidden;text-overflow:clip;white-space:pre-wrap;vertical-align:middle;line-height:1.35}
+.boq-grid td.num{text-align:right;font-variant-numeric:tabular-nums}
+.boq-grid tr.blank td{height:5px;padding:0;line-height:0;font-size:0;border-top-color:transparent;border-bottom-color:transparent}
+.boq-sum{display:flex;gap:18px;flex-wrap:wrap;margin-top:8px;font-size:12.5px;color:var(--muted)}
+.boq-sum b{color:var(--ink);margin-left:4px}

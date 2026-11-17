@@ -29,9 +29,10 @@ import { Step20Editor } from './Step20Editor'
 import { BudgetTxPopup } from './BudgetTxPopup'
 import { AdvisorFeeModal } from './AdvisorFeeModal'
 import { BID_METHODS, PROJ_TYPES, ART_STATUSES } from './ArtList'
+import { BoqModal, BUDGET_9 } from './BoqModal'
 
 // 원가계산서 예산 항목 (시안 기준)
-const BUDGET_ITEMS = ['재료비', '노무비', '경비', '외주가공비', '이윤', '보존처리계획', '훈증', '자문회비']
+const BUDGET_ITEMS = BUDGET_9
 
 type StkRow = { id?: string; kind: string; name: string; org: string; phone: string; email: string }
 type AdvRow = { id?: string; name: string; org: string; phone: string; email: string; default_fee: number }
@@ -54,6 +55,7 @@ export default function ArtDetail() {
   const [stkRows, setStkRows] = useState<StkRow[]>([])
   const [advRows, setAdvRows] = useState<AdvRow[]>([])
   // 사업개요 인라인 수정 모드 (헤더 + 사업개요 전체)
+  const [boqOpen, setBoqOpen] = useState(false) // 내역서 불러오기(예산 자동입력)
   const [editing, setEditing] = useState(false)
   const [editBusy, setEditBusy] = useState(false)
   const [ef, setEf] = useState({
@@ -856,13 +858,18 @@ export default function ArtDetail() {
           {/* 9대 예산 카드 */}
           <div className="bud-h" style={{ marginTop: 16, display: 'flex', alignItems: 'center' }}>
             <div className="t">예산 집행 현황</div>
-            <button
-              className="btn sec"
-              style={{ padding: '4px 11px', fontSize: 11.5, marginLeft: 'auto' }}
-              onClick={() => { setBudgetForm({ item: BUDGET_ITEMS[0], alloc: 0 }); setAddBudget(true) }}
-            >
-              + 예산 항목
-            </button>
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 2 }}>
+              <button className="btn pri" style={{ padding: '4px 9px', fontSize: 11.5 }} onClick={() => setBoqOpen(true)}>
+                세부내역
+              </button>
+              <button
+                className="btn sec"
+                style={{ padding: '4px 9px', fontSize: 11.5 }}
+                onClick={() => { setBudgetForm({ item: BUDGET_ITEMS[0], alloc: 0 }); setAddBudget(true) }}
+              >
+                + 예산 항목
+              </button>
+            </div>
           </div>
           <div className="bcards">
             {bRows.map((b) => (
@@ -1028,6 +1035,15 @@ export default function ArtDetail() {
             </div>
           </div>
         </div>
+      )}
+      {boqOpen && (
+        <BoqModal
+          projectId={p.id}
+          projectName={p.name}
+          budget={budget}
+          onClose={() => setBoqOpen(false)}
+          onApplied={() => budgetQ.reload()}
+        />
       )}
       {advOpen && (
         <AdvisorFeeModal

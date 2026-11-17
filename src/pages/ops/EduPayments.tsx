@@ -85,7 +85,7 @@ export default function EduPayments() {
         <ErrorBanner error={stuQ.error ?? payQ.error} table="edu_payments" />
         <div className="toolbar">
           <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>청구월</span>
-          <input className="sel" type="month" value={ym} onChange={(e) => setYm(e.target.value)} style={{ width: 150 }} />
+          <input className="sel" type="month" min="1900-01" max="9999-12" value={ym} onChange={(e) => setYm(e.target.value)} style={{ width: 150 }} />
           <select className="sel" value={stuFilter} onChange={(e) => setStuFilter(e.target.value)}>
             <option value="all">전체 학생</option>
             {students.map((s) => (
@@ -252,7 +252,7 @@ function PaymentModal({
           <div style={{ display: 'flex', gap: 10 }}>
             <div className="mfield" style={{ width: 140 }}>
               <label>청구월</label>
-              <input className="ctl" type="month" value={chargeYm} onChange={(e) => setChargeYm(e.target.value)} />
+              <input className="ctl" type="month" min="1900-01" max="9999-12" value={chargeYm} onChange={(e) => setChargeYm(e.target.value)} />
             </div>
             <div className="mfield" style={{ flex: 1 }}>
               <label>납부 방법</label>

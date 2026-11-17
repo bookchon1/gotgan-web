@@ -192,23 +192,39 @@ export default function ArtDetail() {
     '준비', '과정 1', '2차 자문', '과정 2', '전후이행',
     '3차 자문', '준공 이운', '준공', '보완보수', 'E수보',
   ]
-  // 기본 공정 생성: 이미 있는 seq는 건너뛰고 비어있는 단계만 채움(삭제 후 재생성 가능)
+  // 예전에 자동 생성되던 기본 공정 이름 (이 이름 그대로인 공정만 새 이름으로 교체)
+  const OLD_STEP20 = [
+    '착수 준비', '현장 조사', '사전 조사·기록', '과학적 분석', '촬영·실측',
+    '해체·수습', '이물질 제거', '세척·클리닝', '안정화 처리', '탈염·탈산',
+    '접합', '결손부 복원', '보강', '메움·충전', '색맞춤',
+    '표면 마감', '재조립·설치', '최종 기록·촬영', '보고서 작성', '납품·인수',
+  ]
+  // 기본생성: 비어있는 단계는 새로 만들고, 예전 기본 이름 그대로인 단계는 새 이름으로 교체.
+  // 직접 이름을 고친 공정은 건드리지 않음 (삭제 후 다시 생성 가능)
   async function seedSteps() {
-    const have = new Set((steps ?? []).map((s) => s.seq))
+    const bySeq = new Map((steps ?? []).map((s) => [s.seq, s]))
     const rows = STEP20
       .map((title, i) => ({ project_id: id!, seq: i + 1, title, status: 'before' }))
-      .filter((r) => !have.has(r.seq))
-    if (rows.length === 0) {
+      .filter((r) => !bySeq.has(r.seq))
+    const renames = STEP20
+      .map((title, i) => ({ s: bySeq.get(i + 1), title, old: OLD_STEP20[i] }))
+      .filter((x) => x.s && x.s.title === x.old && x.old !== x.title)
+    if (rows.length === 0 && renames.length === 0) {
       alert('이미 20단계 공정이 모두 등록되어 있습니다.')
       return
     }
     setBudBusy(true)
-    const { error } = await supabase.from('project_steps').insert(rows)
-    setBudBusy(false)
-    if (error) {
-      alert('공정 생성 실패: ' + error.message)
-      return
+    let errMsg: string | null = null
+    if (rows.length) {
+      const { error } = await supabase.from('project_steps').insert(rows)
+      if (error) errMsg = error.message
     }
+    for (const r of renames) {
+      const { error } = await supabase.from('project_steps').update({ title: r.title }).eq('id', r.s!.id)
+      if (error) errMsg = error.message
+    }
+    setBudBusy(false)
+    if (errMsg) alert('공정 생성 실패: ' + errMsg)
     reloadSteps()
   }
 

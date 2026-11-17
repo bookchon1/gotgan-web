@@ -36,7 +36,7 @@ const BUDGET_ITEMS = BUDGET_9
 
 type StkRow = { id?: string; kind: string; name: string; org: string; phone: string; email: string }
 type AdvRow = { id?: string; name: string; org: string; phone: string; email: string; default_fee: number }
-const STK_KINDS = ['발주담당', '소장자', '재무과', '기타']
+const STK_KINDS = ['발주처', '재무과', '학예사', '소장처', '기타']
 
 export default function ArtDetail() {
   const { id } = useParams()
@@ -555,7 +555,7 @@ export default function ArtDetail() {
               <button
                 className="btn txt"
                 style={{ padding: 0, fontSize: 11.5, color: 'var(--brand-ink)' }}
-                onClick={() => setStkRows((r) => [...r, { kind: '발주담당', name: '', org: '', phone: '', email: '' }])}
+                onClick={() => setStkRows((r) => [...r, { kind: '발주처', name: '', org: '', phone: '', email: '' }])}
               >
                 + 관계자
               </button>

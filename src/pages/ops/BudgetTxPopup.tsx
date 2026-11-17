@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { eok, won, dateOnly } from '../../lib/format'
+import { man as eok, won, dateOnly } from '../../lib/format'
 import { supabase } from '../../lib/supabase'
 import type { AcctTx, ArtBudget, Approval } from '../../types/db'
 import { usedByItem } from './artDetail'

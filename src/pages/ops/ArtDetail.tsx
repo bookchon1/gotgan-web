@@ -4,7 +4,7 @@ import { Icon } from '../../components/Icon'
 import { ErrorBanner, CenterNote } from '../../components/States'
 import { supabase } from '../../lib/supabase'
 import { useQuery } from '../../lib/useQuery'
-import { eok, won, dateOnly } from '../../lib/format'
+import { man as eok, won, dateOnly } from '../../lib/format'
 import type {
   ArtProject,
   ArtStatus,

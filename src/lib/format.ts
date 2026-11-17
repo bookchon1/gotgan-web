@@ -14,6 +14,12 @@ export function eok(n: number): string {
   return won(n)
 }
 
+/** 만원 단위 표기: 54,000,000 → 5,400만, 192,000,000 → 19,200만 (억 환산 없음) */
+export function man(n: number): string {
+  if (!n) return '0'
+  return Math.round(n / 10_000).toLocaleString('ko-KR') + '만'
+}
+
 /** 만원 단위 숫자 (차트 라벨용): 6000 → 600 */
 export function toMan(n: number): number {
   return Math.round(n / 10_000)

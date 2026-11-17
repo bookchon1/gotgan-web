@@ -65,7 +65,7 @@ export default function ArtSchedule() {
   const [monthView, setMonthView] = useState(now.getMonth() + 1)
   const curQ = Math.floor(now.getMonth() / 3) + 1
   const [quarterView, setQuarterView] = useState(curQ)
-  const year = now.getFullYear()
+  const [year, setYear] = useState(now.getFullYear()) // 월간·분기 보기 연도
   const navigate = useNavigate()
 
   const projQ = useQuery<Pick<ArtProject, 'id' | 'name'>[]>(
@@ -161,11 +161,16 @@ export default function ArtSchedule() {
             year={year}
             month={monthView}
             todayYmd={todayYmd}
-            onStep={(d) => setMonthView((m) => ((m - 1 + d + 12) % 12) + 1)}
+            onStep={(d) => {
+              // 연도 경계를 넘으면 연도도 함께 이동 (12월 → 다음 해 1월)
+              const idx = year * 12 + (monthView - 1) + d
+              setYear(Math.floor(idx / 12))
+              setMonthView((idx % 12) + 1)
+            }}
             onPick={setStepPopup}
           />
         ) : (
-          <QuarterView works={works} quarter={quarterView} onSet={setQuarterView} onPick={setStepPopup} />
+          <QuarterView works={works} year={year} onYear={(d) => setYear((y) => y + d)} quarter={quarterView} onSet={setQuarterView} onPick={setStepPopup} />
         )}
       </div>
 
@@ -391,11 +396,15 @@ function MonthView({
 /* ── 분기 ── */
 function QuarterView({
   works,
+  year,
+  onYear,
   quarter,
   onSet,
   onPick,
 }: {
   works: WorkItem[]
+  year: number
+  onYear: (d: number) => void
   quarter: number
   onSet: (q: number) => void
   onPick: (w: WorkItem) => void
@@ -407,17 +416,22 @@ function QuarterView({
     [10, 11, 12],
   ][quarter - 1]
 
-  const monthWorks = (mm: number) =>
-    works.filter((w) => {
-      const sm = +w.start.slice(5, 7)
-      const em = +w.end.slice(5, 7)
-      return mm >= sm && mm <= em
-    })
+  // 해당 연도·월과 기간이 겹치는 공정 (연도까지 비교)
+  const monthWorks = (mm: number) => {
+    const first = `${year}-${String(mm).padStart(2, '0')}-01`
+    const last = `${year}-${String(mm).padStart(2, '0')}-${String(new Date(year, mm, 0).getDate()).padStart(2, '0')}`
+    return works.filter((w) => w.start <= last && w.end >= first)
+  }
   const any = months.some((mm) => monthWorks(mm).length > 0)
 
   return (
     <>
       <div className="qtabs">
+        <span className="qyear">
+          <button onClick={() => onYear(-1)} aria-label="이전 해">‹</button>
+          <b>{year}년</b>
+          <button onClick={() => onYear(1)} aria-label="다음 해">›</button>
+        </span>
         {[1, 2, 3, 4].map((i) => (
           <button className={i === quarter ? 'on' : ''} key={i} onClick={() => onSet(i)}>
             {i}분기

@@ -41,7 +41,7 @@ export function parseItems(rows: unknown[][]): Record<string, number> {
   }
   const out: Record<string, number> = Object.fromEntries(BUDGET_9.map((k) => [k, 0]))
   let cur = ''
-  let mat = 0, lab = 0, exp = 0, etc = 0, emp = 0
+  let mat = 0, lab = 0, exp = 0, etc = 0
   const KEYS = ['재료비', '노무비', '경비', '[소계]', '소계', '기타경비', '고용개선지원비', '일반관리비', '이윤', '보존처리계획', '훈증', '자문회비', '자문회의비', '자문비', '자문료']
   for (const row of rows) {
     // 행에서 가장 왼쪽의 항목 이름 칸을 찾는다 (오른쪽 비고·요율표에 같은 이름이 또 나와도 무시)
@@ -65,12 +65,12 @@ export function parseItems(rows: unknown[][]): Record<string, number> {
       else if (cur === '노무비') lab = amt
       else if (cur === '경비') exp = amt
     } else if (key === '기타경비') etc = amt
-    else if (key === '고용개선지원비') emp = amt
+    else if (key === '고용개선지원비') continue // 곳간 예산 항목에 해당 없음 — 세부내역(시트)에서만 확인
     else if (key === '일반관리비' || key === '이윤' || key === '보존처리계획' || key === '훈증') out[key] = amt
     else out['자문회비'] = amt // 자문회비·자문회의비·자문비·자문료
   }
   out['재료비'] = mat
-  out['노무비'] = lab + emp // 고용개선지원비는 노무비에 합산
+  out['노무비'] = lab
   out['기타경비'] = etc
   out['경비'] = exp - etc // 경비 = 경비 소계 − 기타경비
   return out
@@ -444,7 +444,7 @@ export function BoqModal({
                 <span>절삭액 <b className="tnum" style={{ color: calc.cut ? 'var(--danger)' : undefined }}>{calc.cut ? '−' + won(calc.cut) : '0'}</b></span>
               </div>
               <p className="t-sub" style={{ fontSize: 11.5, margin: '6px 0 0' }}>
-                경비 = 경비 소계 − 기타경비, 고용개선지원비는 노무비에 합산됩니다. 절삭되는 금액은 노무비에서 차감해 공급가액+부가세가 절삭 단위에 딱 맞도록 반영합니다. 반영하면 기존 같은 항목은 덮어쓰고 내역서가 사업에 보관됩니다.
+                경비 = 경비 소계 − 기타경비. 고용개선지원비는 예산에 넣지 않고 내역서에서만 확인합니다. 절삭되는 금액은 노무비에서 차감해 공급가액+부가세가 절삭 단위에 딱 맞도록 반영합니다. 반영하면 기존 같은 항목은 덮어쓰고 내역서가 사업에 보관됩니다.
               </p>
             </div>
           )}

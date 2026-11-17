@@ -30,34 +30,47 @@ interface Saved {
   updated_at: string
 }
 
-/** 원가계산서 시트 → 9대 항목 (셀 위치 고정 X, 항목 이름으로 찾음) */
-function parseItems(rows: unknown[][]): Record<string, number> {
-  const num = (v: unknown) => {
-    const n = typeof v === 'number' ? v : parseFloat(String(v ?? '').replace(/,/g, ''))
-    return Number.isFinite(n) ? Math.round(n) : 0
+/** 원가계산서 시트 → 9대 항목.
+ *  셀 위치·열 구조에 의존하지 않고, 한 행에서 '항목 이름 칸'과 '가장 오른쪽 숫자 칸(금액)'을 찾아 읽는다. */
+export function parseItems(rows: unknown[][]): Record<string, number> {
+  const toNum = (v: unknown): number | null => {
+    if (typeof v === 'number') return Number.isFinite(v) ? v : null
+    const t = String(v ?? '').replace(/[,\s원]/g, '')
+    if (!t || !/^-?\d+(\.\d+)?$/.test(t)) return null
+    return parseFloat(t)
   }
   const out: Record<string, number> = Object.fromEntries(BUDGET_9.map((k) => [k, 0]))
   let cur = ''
-  let mat = 0, lab = 0, exp = 0, etc = 0
+  let mat = 0, lab = 0, exp = 0, etc = 0, emp = 0
+  const KEYS = ['재료비', '노무비', '경비', '[소계]', '소계', '기타경비', '고용개선지원비', '일반관리비', '이윤', '보존처리계획', '훈증', '자문회비', '자문회의비', '자문비', '자문료']
   for (const row of rows) {
-    const a = squash(row[0]), b = squash(row[1]), c = squash(row[2]), d = row[3]
-    if (b === '재료비') cur = '재료비'
-    else if (b === '노무비') cur = '노무비'
-    else if (b === '경비') cur = '경비'
-    if (c === '[소계]') {
-      if (cur === '재료비') mat = num(d)
-      else if (cur === '노무비') lab = num(d)
-      else if (cur === '경비') exp = num(d)
+    // 행에서 가장 왼쪽의 항목 이름 칸을 찾는다 (오른쪽 비고·요율표에 같은 이름이 또 나와도 무시)
+    const li = row.findIndex((v) => toNum(v) === null && KEYS.includes(squash(v)))
+    if (li < 0) continue
+    const key = squash(row[li])
+    // 금액 = 그 이름 칸 오른쪽의 첫 숫자 칸
+    let amt = 0
+    for (let i = li + 1; i < row.length; i++) {
+      const n = toNum(row[i])
+      if (n !== null) {
+        amt = Math.round(n)
+        break
+      }
     }
-    if (c === '기타경비') etc = num(d)
-    if (a === '일반관리비') out['일반관리비'] = num(d)
-    else if (a === '이윤') out['이윤'] = num(d)
-    else if (a === '보존처리계획') out['보존처리계획'] = num(d)
-    else if (a === '훈증') out['훈증'] = num(d)
-    else if (a === '자문회비') out['자문회비'] = num(d)
+    if (key === '재료비') cur = '재료비'
+    else if (key === '노무비') cur = '노무비'
+    else if (key === '경비') cur = '경비'
+    else if (key === '[소계]' || key === '소계') {
+      if (cur === '재료비') mat = amt
+      else if (cur === '노무비') lab = amt
+      else if (cur === '경비') exp = amt
+    } else if (key === '기타경비') etc = amt
+    else if (key === '고용개선지원비') emp = amt
+    else if (key === '일반관리비' || key === '이윤' || key === '보존처리계획' || key === '훈증') out[key] = amt
+    else out['자문회비'] = amt // 자문회비·자문회의비·자문비·자문료
   }
   out['재료비'] = mat
-  out['노무비'] = lab
+  out['노무비'] = lab + emp // 고용개선지원비는 노무비에 합산
   out['기타경비'] = etc
   out['경비'] = exp - etc // 경비 = 경비 소계 − 기타경비
   return out
@@ -431,7 +444,7 @@ export function BoqModal({
                 <span>절삭액 <b className="tnum" style={{ color: calc.cut ? 'var(--danger)' : undefined }}>{calc.cut ? '−' + won(calc.cut) : '0'}</b></span>
               </div>
               <p className="t-sub" style={{ fontSize: 11.5, margin: '6px 0 0' }}>
-                경비 = 경비 소계 − 기타경비. 절삭되는 금액은 노무비에서 차감해 공급가액+부가세가 절삭 단위에 딱 맞도록 반영합니다. 반영하면 기존 같은 항목은 덮어쓰고 내역서가 사업에 보관됩니다.
+                경비 = 경비 소계 − 기타경비, 고용개선지원비는 노무비에 합산됩니다. 절삭되는 금액은 노무비에서 차감해 공급가액+부가세가 절삭 단위에 딱 맞도록 반영합니다. 반영하면 기존 같은 항목은 덮어쓰고 내역서가 사업에 보관됩니다.
               </p>
             </div>
           )}

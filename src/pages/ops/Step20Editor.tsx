@@ -89,23 +89,29 @@ export function Step20Editor({
   }, [comments])
 
   // 전체 재정렬: 현재 배열 순서대로 seq 1..N 재부여
+  // 저장 실패(권한·네트워크)가 조용히 넘어가면 입력이 사라진 것처럼 보이므로 반드시 알린다
+  const fail = (what: string, msg: string) => alert(`${what} 저장 실패: ${msg}`)
+
   async function resequence(ordered: ProjectStep[]) {
-    const updates = ordered.map((s, i) =>
-      supabase.from('project_steps').update({ seq: i + 1 }).eq('id', s.id),
+    const res = await Promise.all(
+      ordered.map((s, i) => supabase.from('project_steps').update({ seq: i + 1 }).eq('id', s.id).select('id')),
     )
-    await Promise.all(updates)
+    const bad = res.find((r) => r.error || !r.data || r.data.length === 0)
+    if (bad) fail('순서', bad.error?.message ?? '저장되지 않았습니다 (권한 확인 필요)')
   }
 
   async function setField(id: string, patch: Partial<ProjectStep>) {
     setBusy(true)
-    await supabase.from('project_steps').update(patch).eq('id', id)
+    const { data, error } = await supabase.from('project_steps').update(patch).eq('id', id).select('id')
     setBusy(false)
+    if (error || !data || data.length === 0) fail('공정', error?.message ?? '저장되지 않았습니다 (권한 확인 필요)')
     onChanged()
   }
 
   async function del(step: ProjectStep) {
     setBusy(true)
-    await supabase.from('project_steps').delete().eq('id', step.id)
+    const { error: dErr } = await supabase.from('project_steps').delete().eq('id', step.id)
+    if (dErr) fail('삭제', dErr.message)
     // 남은 것 재정렬
     const rest = steps.filter((s) => s.id !== step.id)
     await resequence(rest)
@@ -137,13 +143,14 @@ export function Step20Editor({
     for (let i = after.length - 1; i >= 0; i--) {
       await supabase.from('project_steps').update({ seq: after[i].seq + 1 }).eq('id', after[i].id)
     }
-    await supabase.from('project_steps').insert({
+    const { error: iErr } = await supabase.from('project_steps').insert({
       project_id: projectId,
       seq: pos,
       title: name,
       status: 'before',
     })
-    setAddName('')
+    if (iErr) fail('공정 추가', iErr.message)
+    else setAddName('')
     setBusy(false)
     onChanged()
   }
@@ -152,13 +159,18 @@ export function Step20Editor({
     const txt = (cmtDraft[stepId] || '').trim()
     if (!txt) return
     setBusy(true)
-    await supabase.from('step_comments').insert({
+    const { error } = await supabase.from('step_comments').insert({
       step_id: stepId,
       text: txt,
       date: new Date().toISOString().slice(0, 10),
     })
-    setCmtDraft((d) => ({ ...d, [stepId]: '' }))
     setBusy(false)
+    if (error) {
+      // 실패 시 입력 내용은 지우지 않고 남겨 둔다
+      fail('메모', error.message)
+      return
+    }
+    setCmtDraft((d) => ({ ...d, [stepId]: '' }))
     onChanged()
   }
 

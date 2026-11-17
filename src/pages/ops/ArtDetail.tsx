@@ -973,6 +973,8 @@ export default function ArtDetail() {
           <Icon name="chevron" className="icon chev" />
         </summary>
         <div className="sbody">
+          <ErrorBanner error={stepsQ.error} table="project_steps" />
+          <ErrorBanner error={cmtQ.error} table="step_comments" />
           <Step20Editor projectId={id!} steps={steps} comments={comments} onChanged={reloadSteps} onSeed={seedSteps} seedBusy={budBusy} />
         </div>
       </details>

@@ -14,11 +14,15 @@ export function Step20Editor({
   steps,
   comments,
   onChanged,
+  onSeed,
+  seedBusy,
 }: {
   projectId: string
   steps: ProjectStep[]
   comments: StepComment[]
   onChanged: () => void
+  onSeed: () => void
+  seedBusy?: boolean
 }) {
   const [edit, setEdit] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -110,33 +114,35 @@ export function Step20Editor({
 
   return (
     <div>
-      {/* 툴바 */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 10,
-          marginBottom: 10,
-          flexWrap: 'wrap',
-        }}
-      >
-        <span className="sec-mini" style={{ margin: 0 }}>
-          기본 공정 템플릿 · <b>유물마다 공정을 추가·삭제·수정</b>하세요. 진행률은 현재 공정 수로 자동 계산.
-        </span>
-        <button
-          className={`btn ${edit ? 'pri' : 'sec'}`}
-          style={{ padding: '5px 12px', fontSize: 11.5 }}
-          onClick={() => setEdit((v) => !v)}
-          disabled={busy}
-        >
-          {edit ? (
-            '편집 완료'
-          ) : (
-            '공정 편집'
-          )}
-        </button>
+      {/* 툴바 — 진행 요약 + 편집 / 기본값 */}
+      <div className="step-bar">
+        <div className="step-sum" title={`진행률 = (완료 + 진행중×0.5) ÷ 유효 공정${prog.nNa > 0 ? ` · 해당없음 ${prog.nNa}건 제외` : ''}`}>
+          <b>{prog.pct}%</b>
+          <span>완료 {prog.nDone}</span>
+          <span>진행 {prog.nProg}</span>
+          <span>예정 {prog.nBefore}</span>
+          {prog.nNa > 0 && <span>제외 {prog.nNa}</span>}
+        </div>
+        <div className="proj-actions">
+          <button
+            className={`btn ${edit ? 'pri' : 'sec'}`}
+            onClick={() => setEdit((v) => !v)}
+            disabled={busy}
+            title="공정 이름·상태·날짜 수정, 추가·삭제, 순서 변경"
+          >
+            {edit ? '완료' : '편집'}
+          </button>
+          <button className="btn sec" onClick={onSeed} disabled={busy || seedBusy} title="기본 20단계 공정을 채웁니다 (이미 있는 단계는 건너뜀)">
+            기본값
+          </button>
+        </div>
       </div>
+
+      {steps.length === 0 && (
+        <div className="t-sub" style={{ textAlign: 'center', padding: 22, fontSize: 12.5 }}>
+          등록된 공정이 없습니다. 우측 위 <b>기본값</b>을 누르면 기본 20단계가 만들어집니다.
+        </div>
+      )}
 
       <div className="step20 sched">
         {steps.map((s, i) => {
@@ -285,12 +291,6 @@ export function Step20Editor({
         )}
       </div>
 
-      {steps.length > 0 && (
-        <p className="sec-mini" style={{ marginTop: 12 }}>
-          진행률 <b>{prog.pct}%</b> = (완료 {prog.nDone} + 진행중 {prog.nProg}×0.5) ÷ 유효 {prog.valid}공정
-          {prog.nNa > 0 && <span style={{ color: 'var(--muted)' }}> · 해당없음 {prog.nNa}건 제외</span>}
-        </p>
-      )}
     </div>
   )
 }

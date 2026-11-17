@@ -941,20 +941,7 @@ export default function ArtDetail() {
           <Icon name="chevron" className="icon chev" />
         </summary>
         <div className="sbody">
-          {/* 기본 공정 생성 — 항상 노출(삭제 후 다시 생성 가능) */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-            {steps.length === 0 && <CenterNote>등록된 공정이 없습니다.</CenterNote>}
-            <button
-              className="btn sec"
-              style={{ padding: '5px 12px', fontSize: 12, marginLeft: steps.length === 0 ? 0 : 'auto' }}
-              onClick={seedSteps}
-              disabled={budBusy}
-              title="기본 20단계 공정을 만듭니다 (이미 있는 단계는 건너뜀)"
-            >
-              기본생성
-            </button>
-          </div>
-          <Step20Editor projectId={id!} steps={steps} comments={comments} onChanged={reloadSteps} />
+          <Step20Editor projectId={id!} steps={steps} comments={comments} onChanged={reloadSteps} onSeed={seedSteps} seedBusy={budBusy} />
         </div>
       </details>
 

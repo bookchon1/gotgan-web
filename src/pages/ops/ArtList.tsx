@@ -281,7 +281,7 @@ export default function ArtList() {
                 <th>유형</th>
                 <th>진행상태</th>
                 <th>진행률</th>
-                <th style={{ textAlign: 'right' }}>계약금</th>
+                <th style={{ textAlign: 'right' }}>계약금액</th>
                 <th style={{ textAlign: 'right' }}>수금</th>
                 <th style={{ textAlign: 'right' }}>미수금</th>
                 <th style={{ textAlign: 'center' }}>D-day</th>
@@ -381,7 +381,7 @@ export default function ArtList() {
           </table>
         </div>
         <div className="table-foot">
-          <span>수금 = 대금 수령 합계 · 미수금 = 계약금(설계변경 반영) − 수금 (예산현황 연동) · D-day = 준공 예정일 기준 · 준공했지만 진행률 100% 미만이면 준공일 표시</span>
+          <span>수금 = 대금 수령 합계 · 미수금 = 계약금액(설계변경 반영) − 수금 (예산현황 연동) · D-day = 준공 예정일 기준 · 준공했지만 진행률 100% 미만이면 준공일 표시</span>
           <span>행을 클릭하면 사업 상세로 이동합니다.</span>
         </div>
       </section>

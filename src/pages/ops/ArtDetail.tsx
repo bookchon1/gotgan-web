@@ -155,6 +155,44 @@ export default function ArtDetail() {
     setChangeForm({ date: '', type: '증액', memo: '', after: 0 })
     changesQ.reload()
   }
+  // 대금 수령 수정·삭제 (행 클릭 → 인라인 편집)
+  const [editRid, setEditRid] = useState<string | null>(null)
+  const [rEdit, setREdit] = useState({ kind: '기성', date: '', amount: 0 })
+  const [rDelConfirm, setRDelConfirm] = useState(false)
+  async function updateReceipt() {
+    if (!editRid || !rEdit.date || !rEdit.amount) return
+    setBudBusy(true)
+    const { error } = await supabase.rpc('art_update_receipt', {
+      p_receipt_id: editRid,
+      p_kind: rEdit.kind,
+      p_date: rEdit.date,
+      p_amount: rEdit.amount,
+    })
+    setBudBusy(false)
+    if (error) {
+      alert('대금 수령 수정 실패: ' + error.message + (/art_update_receipt/.test(error.message) ? '\n(SQL 23 실행이 필요합니다)' : ''))
+      return
+    }
+    setEditRid(null)
+    receiptsQ.reload()
+  }
+  async function deleteReceipt() {
+    if (!editRid) return
+    if (!rDelConfirm) {
+      setRDelConfirm(true)
+      return
+    }
+    setBudBusy(true)
+    const { error } = await supabase.rpc('art_delete_receipt', { p_receipt_id: editRid })
+    setBudBusy(false)
+    if (error) {
+      alert('대금 수령 삭제 실패: ' + error.message)
+      return
+    }
+    setEditRid(null)
+    setRDelConfirm(false)
+    receiptsQ.reload()
+  }
   async function saveReceipt() {
     if (!receiptForm.date || !receiptForm.amount) return
     setBudBusy(true)
@@ -761,22 +799,65 @@ export default function ArtDetail() {
               </tr>
             </thead>
             <tbody>
-              {[...receipts].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)).map((r, _i, arr) => (
-                <tr key={r.id}>
-                  <td>
-                    <span className="badge">
-                      {r.kind}
-                      {r.kind === '기성' && arr.filter((x) => x.kind === '기성').length > 1
-                        ? ` ${arr.filter((x) => x.kind === '기성').indexOf(r) + 1}차`
-                        : ''}
-                    </span>
-                  </td>
-                  <td className="tnum">{dateOnly(r.date)}</td>
-                  <td className="tnum" style={{ textAlign: 'right', fontWeight: 700, color: 'var(--ok)' }}>
-                    {won(r.amount)}
-                  </td>
-                </tr>
-              ))}
+              {[...receipts].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)).map((r, _i, arr) =>
+                editRid === r.id ? (
+                  <tr key={r.id} className="rc-edit">
+                    <td>
+                      <select className="hr-in" value={rEdit.kind} onChange={(e) => setREdit({ ...rEdit, kind: e.target.value })}>
+                        <option>선금</option>
+                        <option>기성</option>
+                        <option>준공</option>
+                      </select>
+                    </td>
+                    <td>
+                      <input className="hr-in" type="date" min="1900-01-01" max="9999-12-31" value={rEdit.date} onChange={(e) => setREdit({ ...rEdit, date: e.target.value })} />
+                    </td>
+                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <input
+                        className="hr-in tnum"
+                        style={{ maxWidth: 110 }}
+                        value={rEdit.amount ? won(rEdit.amount) : ''}
+                        onChange={(e) => setREdit({ ...rEdit, amount: parseInt(e.target.value.replace(/[^0-9]/g, ''), 10) || 0 })}
+                      />
+                      <div style={{ display: 'inline-flex', gap: 4, marginLeft: 6, verticalAlign: 'middle' }}>
+                        <button className="btn txt" style={{ padding: '3px 7px', fontSize: 11, color: rDelConfirm ? 'var(--danger)' : 'var(--muted)', fontWeight: rDelConfirm ? 800 : 400 }} onClick={deleteReceipt} disabled={budBusy}>
+                          {rDelConfirm ? '정말 삭제' : '삭제'}
+                        </button>
+                        <button className="btn sec" style={{ padding: '3px 9px', fontSize: 11 }} onClick={() => { setEditRid(null); setRDelConfirm(false) }} disabled={budBusy}>
+                          취소
+                        </button>
+                        <button className="btn pri" style={{ padding: '3px 9px', fontSize: 11 }} onClick={updateReceipt} disabled={budBusy || !rEdit.date || !rEdit.amount}>
+                          저장
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  <tr
+                    key={r.id}
+                    style={{ cursor: 'pointer' }}
+                    title="클릭하여 수정·삭제"
+                    onClick={() => {
+                      setEditRid(r.id)
+                      setRDelConfirm(false)
+                      setREdit({ kind: r.kind, date: dateOnly(r.date) || '', amount: Number(r.amount) || 0 })
+                    }}
+                  >
+                    <td>
+                      <span className="badge">
+                        {r.kind}
+                        {r.kind === '기성' && arr.filter((x) => x.kind === '기성').length > 1
+                          ? ` ${arr.filter((x) => x.kind === '기성').indexOf(r) + 1}차`
+                          : ''}
+                      </span>
+                    </td>
+                    <td className="tnum">{dateOnly(r.date)}</td>
+                    <td className="tnum" style={{ textAlign: 'right', fontWeight: 700, color: 'var(--ok)' }}>
+                      {won(r.amount)}
+                    </td>
+                  </tr>
+                ),
+              )}
               {addReceipt && (
                 <tr>
                   <td>

@@ -138,22 +138,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }, remain || IDLE_MS)
     }
     const bump = () => {
+      // 마지막 활동 이후 제한 시간이 이미 지났다면(PC 재부팅·절전 후 복귀 등) 시각을 갱신하기 전에 로그아웃
+      const last = Number(localStorage.getItem(KEY) || 0)
+      if (last && Date.now() - last >= IDLE_MS) {
+        logout()
+        return
+      }
       try { localStorage.setItem(KEY, String(Date.now())) } catch { /* 무시 */ }
       schedule()
     }
 
-    // 최초 기준 시각 설정 + 타이머 시작
+    // 최초 기준 시각 확인(오래 비웠다면 로그아웃) + 타이머 시작
     bump()
     const events: (keyof WindowEventMap)[] = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click']
     events.forEach((e) => window.addEventListener(e, bump, { passive: true }))
     // 다른 탭의 활동/로그아웃 감지
     const onStorage = (e: StorageEvent) => { if (e.key === KEY) schedule() }
     window.addEventListener('storage', onStorage)
+    // 절전·백그라운드에서 돌아왔을 때도 즉시 확인
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return
+      const last = Number(localStorage.getItem(KEY) || 0)
+      if (last && Date.now() - last >= IDLE_MS) logout()
+    }
+    document.addEventListener('visibilitychange', onVisible)
 
     return () => {
       clearTimeout(timer)
       events.forEach((e) => window.removeEventListener(e, bump))
       window.removeEventListener('storage', onStorage)
+      document.removeEventListener('visibilitychange', onVisible)
     }
   }, [session])
 

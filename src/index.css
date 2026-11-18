@@ -1065,3 +1065,8 @@ td>.hr-in{max-width:160px}
 .csug-i .o{color:var(--muted);font-weight:400}
 .csug-i .k{margin-left:6px;font-size:10px;padding:1px 6px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
 .csug-i .c{font-size:11px;color:var(--muted)}
+/* 진행현황: 상태 선택은 항상 노출 — 우측 정렬 + 상태별 색 */
+.s20c .top .s20stsel{margin-left:auto;cursor:pointer}
+.s20c .top .s20stsel.st-done{color:var(--ok);border-color:var(--ok)}
+.s20c .top .s20stsel.st-prog{color:var(--warn);border-color:var(--warn)}
+.s20c .top .s20stsel.st-na{color:var(--muted)}

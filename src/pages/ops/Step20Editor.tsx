@@ -183,7 +183,7 @@ export function Step20Editor({
             className={`btn ${edit ? 'pri' : 'sec'}`}
             onClick={() => setEdit((v) => !v)}
             disabled={busy}
-            title="공정 이름·상태·날짜 수정, 추가·삭제, 순서 변경"
+            title="공정 추가·삭제·이름·순서 변경 (상태·날짜·메모는 편집 없이 바로 수정)"
           >
             {edit ? '완료' : '편집'}
           </button>
@@ -220,21 +220,19 @@ export function Step20Editor({
                   ) : (
                     <span>{s.title}</span>
                   )}
-                  {edit ? (
-                    <select
-                      className="s20stsel"
-                      value={s.status}
-                      onChange={(e) => setField(s.id, { status: e.target.value as ProjectStep['status'] })}
-                    >
-                      {(['done', 'prog', 'before', 'na'] as const).map((k) => (
-                        <option key={k} value={k}>
-                          {STEP_LABEL[k][1]}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <span className={`stt ${STEP_LABEL[s.status][0]}`}>{STEP_LABEL[s.status][1]}</span>
-                  )}
+                  {/* 진행 상태 — 편집 모드와 무관하게 항상 수정 가능 */}
+                  <select
+                    className={`s20stsel st-${s.status}`}
+                    value={s.status}
+                    disabled={busy}
+                    onChange={(e) => setField(s.id, { status: e.target.value as ProjectStep['status'] })}
+                  >
+                    {(['done', 'prog', 'before', 'na'] as const).map((k) => (
+                      <option key={k} value={k}>
+                        {STEP_LABEL[k][1]}
+                      </option>
+                    ))}
+                  </select>
                   {edit && (
                     <>
                       <button className="s20mv" title="위로" onClick={() => move(i, -1)} disabled={i === 0 || busy}>
@@ -262,25 +260,20 @@ export function Step20Editor({
                 </div>
                 <div className="sch">
                   <Icon name="calendar" size={13} style={{ color: 'var(--muted)', flex: 'none' }} />
-                  {edit ? (
-                    <>
-                      <input
-                        type="date" min="1900-01-01" max="9999-12-31"
-                        defaultValue={s.from_date ?? ''}
-                        onChange={(e) => setField(s.id, { from_date: e.target.value || null })}
-                      />
-                      <span>~</span>
-                      <input
-                        type="date" min="1900-01-01" max="9999-12-31"
-                        defaultValue={s.to_date ?? ''}
-                        onChange={(e) => setField(s.id, { to_date: e.target.value || null })}
-                      />
-                    </>
-                  ) : (
-                    <span className="dur">
-                      {s.from_date ? dateRange(s.from_date, s.to_date) : <span style={{ color: 'var(--muted)' }}>일정 미정</span>}
-                    </span>
-                  )}
+                  {/* 일정 — 항상 수정 가능 */}
+                  <input
+                    type="date" min="1900-01-01" max="9999-12-31"
+                    key={`f${s.id}${s.from_date ?? ''}`}
+                    defaultValue={s.from_date ?? ''}
+                    onChange={(e) => setField(s.id, { from_date: e.target.value || null })}
+                  />
+                  <span>~</span>
+                  <input
+                    type="date" min="1900-01-01" max="9999-12-31"
+                    key={`t${s.id}${s.to_date ?? ''}`}
+                    defaultValue={s.to_date ?? ''}
+                    onChange={(e) => setField(s.id, { to_date: e.target.value || null })}
+                  />
                 </div>
               </div>
               {/* 코멘트 (적요) */}

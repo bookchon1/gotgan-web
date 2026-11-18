@@ -143,6 +143,8 @@ export interface StepComment {
   by_id: string | null
   date: string
   text: string
+  created_at?: string
+  updated_at?: string | null // 수정한 시각 (SQL 22)
 }
 
 export interface Advisor {

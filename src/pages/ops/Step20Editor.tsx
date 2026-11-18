@@ -8,16 +8,32 @@ import { STEP_LABEL } from './artDetail'
  * 세부 진행 현황 (20공정) — 보기 + 편집. DB(project_steps, step_comments)에 실제 저장.
  * 편집: 이름/상태/날짜 수정, 위치지정 추가, 삭제, 순서이동, 코멘트.
  */
+/** 'MM-DD HH:mm' (로컬 시각). 시각 정보가 없으면 날짜만 */
+function fmtDt(iso?: string | null, fallbackDate?: string): string {
+  if (iso) {
+    const d = new Date(iso)
+    if (!isNaN(d.getTime())) {
+      const z = (n: number) => String(n).padStart(2, '0')
+      return `${z(d.getMonth() + 1)}-${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}`
+    }
+  }
+  return (fallbackDate || '').slice(5)
+}
+
 /** 내용 길이에 맞춰 높이가 자동으로 늘어나는 메모 입력칸 (스크롤바 없음) */
 function AutoTextarea({
   value,
   onChange,
   onBlur,
+  onEscape,
+  autoFocus,
   placeholder,
 }: {
   value: string
   onChange: (v: string) => void
   onBlur?: () => void
+  onEscape?: () => void
+  autoFocus?: boolean
   placeholder?: string
 }) {
   const ref = useRef<HTMLTextAreaElement>(null)
@@ -41,7 +57,20 @@ function AutoTextarea({
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
-  return <textarea ref={ref} rows={1} placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} onBlur={onBlur} />
+  return (
+    <textarea
+      ref={ref}
+      rows={1}
+      autoFocus={autoFocus}
+      placeholder={placeholder}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      onBlur={onBlur}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape' && onEscape) onEscape()
+      }}
+    />
+  )
 }
 
 export function Step20Editor({
@@ -88,6 +117,7 @@ export function Step20Editor({
   const cmtByStep = useMemo(() => {
     const m: Record<string, StepComment[]> = {}
     for (const c of comments) (m[c.step_id] ??= []).push(c)
+    for (const k of Object.keys(m)) m[k].sort((a, b) => (a.created_at ?? a.date ?? '').localeCompare(b.created_at ?? b.date ?? ''))
     return m
   }, [comments])
 
@@ -155,6 +185,30 @@ export function Step20Editor({
     if (iErr) fail('공정 추가', iErr.message)
     else setAddName('')
     setBusy(false)
+    onChanged()
+  }
+
+  // 저장된 메모 수정/삭제 — 수정하면 수정 시각(updated_at)이 함께 기록됨
+  const [editCmt, setEditCmt] = useState<{ id: string; text: string } | null>(null)
+  async function saveCmtEdit(orig: StepComment) {
+    const cur = editCmt
+    setEditCmt(null)
+    if (!cur || cur.id !== orig.id) return
+    const txt = cur.text.trim()
+    if (!txt || txt === orig.text) return // 비우거나 그대로면 변경 없음 (삭제는 × 버튼)
+    const now = new Date().toISOString()
+    let { data, error } = await supabase.from('step_comments').update({ text: txt, updated_at: now }).eq('id', orig.id).select('id')
+    if (error && /updated_at/.test(error.message)) {
+      // SQL 22 미적용: 시각 없이 내용만 저장
+      ;({ data, error } = await supabase.from('step_comments').update({ text: txt }).eq('id', orig.id).select('id'))
+    }
+    if (error || !data || data.length === 0) fail('메모 수정', error?.message ?? '저장되지 않았습니다 (권한 확인 필요)')
+    onChanged()
+  }
+  async function delCmt(c: StepComment) {
+    if (!confirm('이 메모를 삭제할까요?')) return
+    const { error } = await supabase.from('step_comments').delete().eq('id', c.id)
+    if (error) fail('메모 삭제', error.message)
     onChanged()
   }
 
@@ -292,13 +346,35 @@ export function Step20Editor({
               <div className="s20-cmt">
                 {cmts.length > 0 && (
                   <div className="cmt-log">
-                    {cmts.map((c) => (
-                      <div className="ci" key={c.id}>
-                        <b>{c.by_id ? '담당' : '메모'}</b>
-                        <span className="dt">{(c.date || '').slice(5)}</span>
-                        <div>{c.text}</div>
-                      </div>
-                    ))}
+                    {cmts.map((c) => {
+                      const editingThis = editCmt?.id === c.id
+                      return (
+                        <div className="ci" key={c.id}>
+                          <b>{c.by_id ? '담당' : '메모'}</b>
+                          <span className="dt">{fmtDt(c.created_at, c.date)}</span>
+                          {c.updated_at && <span className="dt ed">· 수정 {fmtDt(c.updated_at)}</span>}
+                          {!editingThis && (
+                            <span className="ci-act">
+                              <button title="수정" onClick={() => setEditCmt({ id: c.id, text: c.text })}>수정</button>
+                              <button title="삭제" onClick={() => delCmt(c)}>삭제</button>
+                            </span>
+                          )}
+                          {editingThis ? (
+                            <div className="ci-edit">
+                              <AutoTextarea
+                                value={editCmt!.text}
+                                autoFocus
+                                onChange={(v) => setEditCmt({ id: c.id, text: v })}
+                                onBlur={() => saveCmtEdit(c)}
+                                onEscape={() => setEditCmt(null)}
+                              />
+                            </div>
+                          ) : (
+                            <div className="ci-text" onDoubleClick={() => setEditCmt({ id: c.id, text: c.text })}>{c.text}</div>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
                 <div className="cmt-add">

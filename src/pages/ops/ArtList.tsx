@@ -6,8 +6,8 @@ import { supabase } from '../../lib/supabase'
 import { useQuery } from '../../lib/useQuery'
 import { won } from '../../lib/format'
 import ArtSchedule from './ArtSchedule'
-import type { ArtProject, BudgetReceipt, ArtStatus, ProjectStep } from '../../types/db'
-import { stepProgress } from './artDetail'
+import type { ArtProject, BudgetReceipt, BudgetChange, ArtStatus, ProjectStep } from '../../types/db'
+import { stepProgress, contractAmount } from './artDetail'
 
 export const ART_STATUSES: ArtStatus[] = ['공고/입찰', '예정', '진행', '완료', '탈락/보류']
 
@@ -119,6 +119,19 @@ export default function ArtList() {
     [],
   )
 
+  // 설계변경: 변경 후 계약금(최종)을 계약금으로 사용 — 사업 상세 예산현황과 동일 기준
+  const changesQ = useQuery<Pick<BudgetChange, 'project_id' | 'date' | 'after_amount'>[]>(
+    async () => await supabase.from('budget_changes').select('project_id,date,after_amount'),
+    [],
+  )
+  const contractMap = useMemo(() => {
+    const by: Record<string, BudgetChange[]> = {}
+    for (const c of changesQ.data ?? []) (by[c.project_id] ??= []).push(c as BudgetChange)
+    const m: Record<string, number> = {}
+    for (const p of projects.data ?? []) m[p.id] = contractAmount(Number(p.contract_base) || 0, by[p.id] ?? [])
+    return m
+  }, [projects.data, changesQ.data])
+
   // 진행률: 사업 상세 '진행현황' 공정으로 계산 (공정이 없으면 저장값 사용)
   const stepsQ = useQuery<Pick<ProjectStep, 'project_id' | 'status'>[]>(
     async () => await supabase.from('project_steps').select('project_id,status'),
@@ -177,7 +190,7 @@ export default function ArtList() {
   let tCon = 0,
     tRec = 0
   for (const p of list) {
-    tCon += Number(p.contract_base) || 0
+    tCon += contractMap[p.id] ?? (Number(p.contract_base) || 0)
     tRec += receivedMap[p.id] || 0
   }
 
@@ -254,7 +267,7 @@ export default function ArtList() {
                 <th>진행률</th>
                 <th style={{ textAlign: 'right' }}>계약금</th>
                 <th style={{ textAlign: 'right' }}>수금</th>
-                <th style={{ textAlign: 'right' }}>잔금</th>
+                <th style={{ textAlign: 'right' }}>미수금</th>
                 <th style={{ textAlign: 'center' }}>D-day</th>
               </tr>
             </thead>
@@ -263,7 +276,8 @@ export default function ArtList() {
               {!projects.loading &&
                 list.map((p) => {
                   const recv = receivedMap[p.id] || 0
-                  const bal = (p.contract_base || 0) - recv
+                  const contract = contractMap[p.id] ?? (p.contract_base || 0)
+                  const bal = contract - recv
                   const pastDone = p.status === '완료' && !isCurrent(p)
                   return (
                     <tr
@@ -300,7 +314,7 @@ export default function ArtList() {
                         </div>
                       </td>
                       <td className="tnum" style={{ textAlign: 'right' }}>
-                        {bizEok(p.contract_base)}
+                        {bizEok(contract)}
                       </td>
                       <td className="tnum" style={{ textAlign: 'right', color: 'var(--ok)' }}>
                         {bizEok(recv)}
@@ -351,7 +365,7 @@ export default function ArtList() {
           </table>
         </div>
         <div className="table-foot">
-          <span>수금 = 대금 수령 합계 · 잔금 = 계약금 − 수금 (예산현황 연동) · D-day = 준공 예정일 기준</span>
+          <span>수금 = 대금 수령 합계 · 미수금 = 계약금(설계변경 반영) − 수금 (예산현황 연동) · D-day = 준공 예정일 기준</span>
           <span>행을 클릭하면 사업 상세로 이동합니다.</span>
         </div>
       </section>

@@ -60,7 +60,7 @@ export default function ArtDetail() {
   const [editing, setEditing] = useState(false)
   const [editBusy, setEditBusy] = useState(false)
   const [ef, setEf] = useState({
-    name: '', status: '예정' as ArtStatus, contract_base: 0, kind: '발주', client: '', proj_type: '서화',
+    name: '', short_name: '', status: '예정' as ArtStatus, contract_base: 0, kind: '발주', client: '', proj_type: '서화',
     bid_method: '협상에의한계약', contract_date: '', start_date: '', due_date: '', done_date: '',
   })
   // 준공일을 입력하면 진행상태가 자동으로 '완료', 지우면 '완료'였던 상태는 '진행'으로
@@ -241,7 +241,7 @@ export default function ArtDetail() {
   function startEdit() {
     if (!p) return
     setEf({
-      name: p.name ?? '', status: p.status, contract_base: Number(p.contract_base) || 0,
+      name: p.name ?? '', short_name: p.short_name ?? '', status: p.status, contract_base: Number(p.contract_base) || 0,
       kind: p.kind ?? '발주', client: p.client ?? '', proj_type: p.proj_type ?? '서화',
       bid_method: p.bid_method ?? '협상에의한계약',
       contract_date: p.contract_date ?? '', start_date: p.start_date ?? '',
@@ -261,6 +261,8 @@ export default function ArtDetail() {
       .from('art_projects')
       .update({
         name: ef.name.trim(),
+        // 약칭 컬럼은 SQL 21 실행 후 사용 — 바뀐 경우에만 전송해 미적용 상태에서도 저장이 막히지 않게 함
+        ...(ef.short_name.trim() !== (p?.short_name ?? '') ? { short_name: ef.short_name.trim() || null } : {}),
         status: ef.status,
         contract_base: ef.contract_base,
         kind: ef.kind,
@@ -452,6 +454,7 @@ export default function ArtDetail() {
             {editing ? (
               <>
                 <input className="hr-in ph-name" value={ef.name} onChange={(e) => setE('name', e.target.value)} placeholder="사업명" />
+                <input className="hr-in" style={{ width: 150 }} value={ef.short_name} onChange={(e) => setE('short_name', e.target.value)} placeholder="약칭 (일정표 표시)" title="업무일정 등 좁은 화면에 표시되는 짧은 사업 이름 (예: 한양도성)" />
                 <select className="hr-in" style={{ width: 110 }} value={ef.status} onChange={(e) => setE('status', e.target.value)}>
                   {ART_STATUSES.map((st) => (
                     <option key={st} value={st}>{st}</option>

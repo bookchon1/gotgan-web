@@ -387,6 +387,7 @@ export function ArtProjectModal({
 }) {
   const editing = !!project
   const [name, setName] = useState(project?.name ?? '')
+  const [shortName, setShortName] = useState(project?.short_name ?? '')
   const [client, setClient] = useState(project?.client ?? '')
   const [projType, setProjType] = useState(project?.proj_type ?? '서화')
   const [kind, setKind] = useState<'입찰' | '발주'>(project?.kind ?? '발주')
@@ -411,6 +412,7 @@ export function ArtProjectModal({
     setErr(null)
     const payload = {
       name: name.trim(),
+      ...(shortName.trim() !== (project?.short_name ?? '') ? { short_name: shortName.trim() || null } : {}),
       client: client.trim() || null,
       biz_code: bizCode,
       proj_type: projType || null,
@@ -475,6 +477,10 @@ export function ArtProjectModal({
               placeholder="예: 삼국유사 목판 보존처리"
               autoFocus
             />
+          </div>
+          <div className="mfield">
+            <label>약칭 <span style={{ fontWeight: 400, color: 'var(--muted)' }}>(업무일정 등에 짧게 표시 · 비우면 자동)</span></label>
+            <input className="ctl" value={shortName} onChange={(e) => setShortName(e.target.value)} placeholder="예: 한양도성" />
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <div className="mfield" style={{ flex: 1 }}>

@@ -79,6 +79,7 @@ export type ArtStatus = '공고/입찰' | '예정' | '진행' | '완료' | '탈�
 export interface ArtProject {
   id: string
   name: string
+  short_name?: string | null // 약칭 (업무일정 등 좁은 곳 표시용)
   client: string | null
   biz_code: string | null
   proj_type: string | null

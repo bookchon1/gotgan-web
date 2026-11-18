@@ -15,6 +15,7 @@ interface WorkItem {
   biz: string
   projectId: string
   stepTitle: string
+  short: string // 사업 약칭
   start: string // YYYY-MM-DD
   end: string
   status: '완료' | '진행중' | '대기' | '보류'
@@ -43,6 +44,18 @@ const PROJ_PALETTE = [
 
 const WD = ['월', '화', '수', '목', '금', '토', '일']
 
+/** 사업 약칭: 지정값 우선, 없으면 「」 안의 이름 → 연도·일반 접미어를 뺀 앞 두 단어 */
+function shortOf(name: string, short?: string | null): string {
+  if (short && short.trim()) return short.trim()
+  const br = name.match(/[「『“"<《](.+?)[」』”">》]/)
+  if (br) return br[1].trim()
+  const toks = name
+    .replace(/^\s*\d{4}\s*년?\s*/, '')
+    .split(/\s+/)
+    .filter((t) => t && !/^(보존처리|공사|용역|제작|수리|복원|사업)$/.test(t))
+  return toks.slice(0, 2).join(' ') || name
+}
+
 function ymd(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
@@ -68,8 +81,9 @@ export default function ArtSchedule() {
   const [year, setYear] = useState(now.getFullYear()) // 월간·분기 보기 연도
   const navigate = useNavigate()
 
-  const projQ = useQuery<Pick<ArtProject, 'id' | 'name'>[]>(
-    async () => await supabase.from('art_projects').select('id,name').order('created_at', { ascending: true }),
+  const projQ = useQuery<Pick<ArtProject, 'id' | 'name' | 'short_name'>[]>(
+    // short_name 컬럼이 아직 없어도 조회가 실패하지 않도록 * 로 조회
+    async () => await supabase.from('art_projects').select('*').order('created_at', { ascending: true }),
     [],
   )
   const stepQ = useQuery<ProjectStep[]>(
@@ -79,6 +93,10 @@ export default function ArtSchedule() {
 
   const projName = useMemo(
     () => Object.fromEntries((projQ.data ?? []).map((p) => [p.id, p.name])),
+    [projQ.data],
+  )
+  const projShort = useMemo(
+    () => Object.fromEntries((projQ.data ?? []).map((p) => [p.id, shortOf(p.name, p.short_name)])),
     [projQ.data],
   )
   // 사업별 색상 (등록 순서대로 팔레트 배정)
@@ -100,6 +118,7 @@ export default function ArtSchedule() {
         biz,
         projectId: s.project_id,
         stepTitle: s.title,
+        short: projShort[s.project_id] ?? '',
         start,
         end: dateOnly(s.to_date) || start,
         status: STEP_STATUS[s.status] ?? '대기',
@@ -108,7 +127,7 @@ export default function ArtSchedule() {
       })
     }
     return out
-  }, [stepQ.data, projName, projColor])
+  }, [stepQ.data, projName, projColor, projShort])
 
   const loading = projQ.loading || stepQ.loading
   // 공정 클릭 시 상세 팝업
@@ -135,18 +154,6 @@ export default function ArtSchedule() {
           </div>
         </div>
       </div>
-
-      {/* 사업별 색상 범례 */}
-      {!loading && (projQ.data ?? []).length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, padding: '0 2px 10px', fontSize: 11.5 }}>
-          {(projQ.data ?? []).map((p) => (
-            <span key={p.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'var(--ink-soft)' }}>
-              <i style={{ width: 10, height: 10, borderRadius: 3, background: projColor[p.id], display: 'inline-block' }} />
-              {p.name}
-            </span>
-          ))}
-        </div>
-      )}
 
       <div id="artplan-body">
         {loading ? (
@@ -230,7 +237,7 @@ function WeekView({ works, todayYmd, baseMon, onPick }: { works: WorkItem[]; tod
               {isToday ? ' 오늘' : ''}
             </span>
             {dayWorks.map((w, j) => {
-              const short = w.name.includes('—') ? w.name.split('—').pop()!.trim() : w.name
+              const short = `${w.short ? w.short + ' ' : ''}${w.stepTitle}`
               return (
                 <span
                   className="wk-ev"
@@ -326,7 +333,7 @@ function MonthView({
               </span>
               {ws.slice(0, MAXSHOW).map((w, j) => (
                 <span className="mev" key={j} style={{ background: w.color }} title={w.name}>
-                  {w.name}
+                  {w.short ? `${w.short} ` : ''}{w.stepTitle}
                 </span>
               ))}
               {ws.length > MAXSHOW && <span className="mmore">+{ws.length - MAXSHOW} 더보기</span>}
@@ -465,7 +472,7 @@ function QuarterView({
                             <td style={{ width: '55%' }}>
                               <div className="t-title" style={{ fontSize: 12.5 }}>
                                 <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, background: w.color, marginRight: 6 }} />
-                                {w.stepTitle}
+                                {w.short ? `${w.short} · ` : ''}{w.stepTitle}
                               </div>
                               {w.biz && <div className="t-sub">사업: {w.biz}</div>}
                             </td>

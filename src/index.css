@@ -1080,3 +1080,18 @@ td>.hr-in{max-width:160px}
 .s20c .cmt-log .ci .ci-text{white-space:pre-wrap;word-break:break-word}
 .s20c .cmt-log .ci .ci-edit textarea{width:100%;font-size:11px;padding:4px 6px;border:1px solid var(--brand);border-radius:6px;background:var(--surface);color:var(--ink);font-family:inherit;resize:none;overflow:hidden;box-sizing:border-box;line-height:1.35}
 @media(hover:none){.s20c .cmt-log .ci .ci-act{display:inline-flex}}
+
+/* 업체정보: 팝업 없는 인라인 등록·수정 폼 */
+.pf{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--brand);border-radius:10px;padding:12px 14px;margin:0 0 12px}
+.pf-h{font-size:12px;font-weight:800;color:var(--brand-ink);margin-bottom:10px}
+.pf-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 12px}
+.pf-f{display:flex;flex-direction:column;gap:3px;min-width:0}
+.pf-f>span{font-size:10.5px;font-weight:700;color:var(--muted)}
+.pf-f .hr-in{width:100%;box-sizing:border-box}
+.pf-act{display:flex;align-items:center;gap:8px;margin-top:12px}
+.pf-del{color:var(--muted);font-size:12px}
+.pf-del.on{color:#fff;background:var(--danger,#c0392b);border-radius:7px;padding:4px 10px}
+.pf-row.on td{background:var(--brand-soft,rgba(0,0,0,.04))}
+.pf-edit>td{padding:8px 10px !important;background:var(--bg,transparent)}
+.pf-edit .pf{margin:0}
+@media(max-width:760px){.pf-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.pf-grid>*{grid-column:span 2 !important}}

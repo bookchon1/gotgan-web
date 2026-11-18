@@ -48,18 +48,23 @@ function bizEok(n: number): string {
 // D-day 배지 (시안 ddayBadge) — 기준일은 오늘
 function DdayBadge({ p, pct }: { p: ArtProject; pct: number }) {
   if (p.done_date || p.status === '완료') {
-    // 준공됐지만 진행현황이 100% 가 아니면 준공일을 표기해 확인하도록 눈에 띄게 표시
+    // 준공됐지만 진행현황이 100% 가 아니면: 준공일 기준 경과일을 D+N 으로 표시
     if (pct < 100) {
       const d = p.done_date || p.due_date || ''
-      const y = d.slice(0, 4)
-      const label = d ? (y === String(new Date().getFullYear()) ? d.slice(5) : d.slice(2)).replace(/-/g, '.') : '일자 미입력'
+      let txt = '—'
+      if (d) {
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        const diff = Math.round((+today - +new Date(d)) / 86_400_000) // 준공일로부터 경과일
+        txt = diff === 0 ? 'D-DAY' : diff > 0 ? 'D+' + diff : 'D-' + -diff
+      }
       return (
         <span
           className="badge"
-          title={`준공일 ${d || '미입력'} · 진행률 ${pct}% (진행현황이 100% 가 아닙니다)`}
-          style={{ fontSize: 10, fontWeight: 800, background: 'transparent', border: '1px solid var(--warn)', color: 'var(--warn)' }}
+          title={`준공일 ${d || '미입력'} 기준 · 진행률 ${pct}% (진행현황이 100% 가 아닙니다)`}
+          style={{ fontSize: 10, fontWeight: 800, background: 'transparent', border: '1px solid var(--danger)', color: 'var(--danger)' }}
         >
-          준공 {label}
+          {txt}
         </span>
       )
     }
@@ -381,7 +386,7 @@ export default function ArtList() {
           </table>
         </div>
         <div className="table-foot">
-          <span>수금 = 대금 수령 합계 · 미수금 = 계약금액(설계변경 반영) − 수금 (예산현황 연동) · D-day = 준공 예정일 기준 · 준공했지만 진행률 100% 미만이면 준공일 표시</span>
+          <span>수금 = 대금 수령 합계 · 미수금 = 계약금액(설계변경 반영) − 수금 (예산현황 연동) · D-day = 준공 예정일 기준 · 준공했지만 진행률 100% 미만이면 준공일 기준 D+경과일</span>
           <span>행을 클릭하면 사업 상세로 이동합니다.</span>
         </div>
       </section>

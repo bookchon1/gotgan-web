@@ -43,6 +43,7 @@ export const AREAS: Area[] = [
     views: [
       { k: 'ops-art', t: '사업관리' },
       { k: 'ops-art-field', t: '현장관리' },
+      { k: 'ops-art-supplies', t: '재고관리' },
       { k: 'tasks', t: '업무현황' },
     ],
   },

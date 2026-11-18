@@ -10,6 +10,7 @@ import Tasks from './pages/Tasks'
 import ArtList from './pages/ops/ArtList'
 import ArtDetail from './pages/ops/ArtDetail'
 import Inventory from './pages/ops/Inventory'
+import ArtSupplies from './pages/ops/ArtSupplies'
 import {
   ArtField,
   Promotion,
@@ -88,6 +89,7 @@ export default function App() {
         <Route path="/ops/art" element={<ArtList />} />
         <Route path="/ops/art/:id" element={<ArtDetail />} />
         <Route path="/ops/art-field" element={<ArtField />} />
+        <Route path="/ops/art-supplies" element={<ArtSupplies />} />
         {/* 기타 영역 */}
         <Route path="/ops/product" element={<Inventory />} />
         <Route path="/ops/promotion" element={<Promotion />} />

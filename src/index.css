@@ -674,7 +674,7 @@ td>.hr-in{max-width:160px}
 .wk-cal .cell{min-height:92px;border:1px solid var(--line-2);border-radius:9px;background:var(--surface-2);padding:6px;display:flex;flex-direction:column;gap:4px}
 .wk-cal .cell .dn{font-size:11px;font-weight:700;color:var(--ink-soft)}
 .wk-cal .cell.today{border-color:var(--brand);background:var(--brand-soft)}
-.wk-cal .wk-ev{font-size:10px;font-weight:700;color:#fff;border-radius:5px;padding:2px 5px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wk-cal .wk-ev{font-size:10px;font-weight:700;color:#fff;border-radius:5px;padding:2px 5px;line-height:1.3;white-space:normal;overflow-wrap:anywhere;word-break:keep-all}
 /* 모바일: 주간계획을 세로 목록으로 */
 @media(max-width:620px){
   .wk-cal{grid-template-columns:1fr;gap:4px}

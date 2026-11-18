@@ -28,7 +28,7 @@ export default function SiteManagement() {
   const { me } = useAuth()
   const [tab, setTab] = useState<Tab>('daily')
   const [draftOpen, setDraftOpen] = useState(false)
-  const [draftFrom, setDraftFrom] = useState<SiteLog | null>(null) // "복사하여 작성" 원본
+  const [editing, setEditing] = useState<SiteLog | null>(null) // 수정 중인 일일기록
 
   // 공통 데이터: 사업 목록, 작업자 명부, 일일기록
   const projQ = useQuery<Pick<ArtProject, 'id' | 'name'>[]>(
@@ -57,7 +57,7 @@ export default function SiteManagement() {
 
   const topBtn =
     tab === 'daily' ? (
-      <button className="btn txt add-txt" onClick={() => { setDraftFrom(null); setDraftOpen(true) }}>
+      <button className="btn txt add-txt" onClick={() => { setEditing(null); setDraftOpen(true) }}>
         + 일일기록 작성
       </button>
     ) : undefined
@@ -85,7 +85,8 @@ export default function SiteManagement() {
           logs={logs}
           loading={logQ.loading}
           projects={projects}
-          onCopy={(log) => { setDraftFrom(log); setDraftOpen(true) }}
+          onEdit={(log) => { setEditing(log); setDraftOpen(true) }}
+          onChanged={() => logQ.reload()}
         />
       )}
       {tab === 'settle' && (
@@ -97,7 +98,7 @@ export default function SiteManagement() {
         <DailyDraftModal
           projects={projects}
           workers={workers.filter((w) => w.active)}
-          copyFrom={draftFrom}
+          editing={editing}
           me={me?.id ?? null}
           onClose={() => setDraftOpen(false)}
           onSaved={() => {
@@ -115,13 +116,26 @@ function DailyTab({
   logs,
   loading,
   projects,
-  onCopy,
+  onEdit,
+  onChanged,
 }: {
   logs: SiteLog[]
   loading: boolean
   projects: Pick<ArtProject, 'id' | 'name'>[]
-  onCopy: (log: SiteLog) => void
+  onEdit: (log: SiteLog) => void
+  onChanged: () => void
 }) {
+  const [delId, setDelId] = useState<string | null>(null)
+  const [rowErr, setRowErr] = useState<string | null>(null)
+  async function del(id: string) {
+    if (delId !== id) return setDelId(id)
+    setRowErr(null)
+    const { data, error } = await supabase.from('site_logs').delete().eq('id', id).select('id')
+    setDelId(null)
+    if (error) return setRowErr(error.message)
+    if (!data || data.length === 0) return setRowErr('삭제되지 않았습니다 (권한 확인 — SQL 25 실행 필요)')
+    onChanged()
+  }
   const [proj, setProj] = useState('all')
   const [q, setQ] = useState('')
 
@@ -154,13 +168,14 @@ function DailyTab({
           <input placeholder="작성일 검색" value={q} onChange={(e) => setQ(e.target.value)} />
         </label>
       </div>
+      {rowErr && <div className="login-alert err" style={{ margin: '0 0 8px' }}>{rowErr}</div>}
       <div className="tbl-wrap">
         <table>
           <thead>
             <tr>
               <th>작성일 / 사업</th>
               <th>현장 업무</th>
-              <th>작업자 / 일당</th>
+              <th>작업자</th>
               <th style={{ textAlign: 'right' }}>식대</th>
               <th style={{ textAlign: 'right' }}>인건비</th>
               <th>정산 진행사항</th>
@@ -182,9 +197,7 @@ function DailyTab({
                     <td>
                       <div className="crew">
                         {l.crew.map((c, i) => (
-                          <span key={i}>
-                            {c.name} · <b>{eok(c.wage)}</b>
-                          </span>
+                          <span key={i}>{c.name}</span>
                         ))}
                       </div>
                     </td>
@@ -206,9 +219,19 @@ function DailyTab({
                           🔒 잠금
                         </span>
                       ) : (
-                        <button className="btn txt" style={{ padding: '4px 6px' }} onClick={() => onCopy(l)}>
-                          복사하여 작성
-                        </button>
+                        <>
+                          <button className="btn txt" style={{ padding: '4px 6px' }} onClick={() => onEdit(l)}>
+                            수정
+                          </button>
+                          <button
+                            className="btn txt"
+                            style={{ padding: '4px 6px', color: delId === l.id ? 'var(--danger,#c0392b)' : undefined, fontWeight: delId === l.id ? 800 : undefined }}
+                            onClick={() => del(l.id)}
+                            onBlur={() => setDelId(null)}
+                          >
+                            {delId === l.id ? '정말 삭제' : '삭제'}
+                          </button>
+                        </>
                       )}
                     </td>
                   </tr>
@@ -221,7 +244,7 @@ function DailyTab({
         </table>
       </div>
       <div className="sec-mini" style={{ marginTop: 10 }}>
-        결의서와 연결된 일일기록은 원본 보존을 위해 잠깁니다. '복사하여 작성'으로 전날 명단을 그대로 불러올 수 있습니다.
+        결의서와 연결된 일일기록은 원본 보존을 위해 잠겨 수정·삭제할 수 없습니다.
       </div>
     </section>
   )
@@ -786,29 +809,43 @@ function WorkerModal({
 function DailyDraftModal({
   projects,
   workers,
-  copyFrom,
+  editing,
   me,
   onClose,
   onSaved,
 }: {
   projects: Pick<ArtProject, 'id' | 'name'>[]
   workers: SiteWorker[]
-  copyFrom: SiteLog | null
+  editing: SiteLog | null
   me: string | null
   onClose: () => void
   onSaved: () => void
 }) {
-  const [date, setDate] = useState(TODAY) // 복사 시에도 오늘 날짜
-  const [projectId, setProjectId] = useState(copyFrom?.project_id ?? '')
-  const [workText, setWorkText] = useState(copyFrom?.work_text ?? '')
-  const [meal, setMeal] = useState(copyFrom?.meal_cost ?? 0)
-  // 선택된 작업자 id 집합 (복사 원본의 crew 중 아직 활성인 작업자만 미리 선택)
+  const [date, setDate] = useState(editing ? dateOnly(editing.log_date) : TODAY)
+  const [projectId, setProjectId] = useState(editing?.project_id ?? '')
+  const [workText, setWorkText] = useState(editing?.work_text ?? '')
+  const [meal, setMeal] = useState(editing?.meal_cost ?? 0)
+  // 선택 가능한 작업자: 활성 작업자 + (수정 시) 기존 기록에 있던 작업자(이미 비활성이어도 유지)
+  const pool = useMemo(() => {
+    const list = workers.map((w) => ({ key: w.id, worker_id: w.id as string | null, name: w.name, wage: w.daily_wage }))
+    if (editing) {
+      const keys = new Set(list.map((x) => x.key))
+      for (const c of editing.crew) {
+        const key = c.worker_id ?? 'n:' + c.name
+        if (!keys.has(key)) list.push({ key, worker_id: c.worker_id, name: c.name, wage: c.wage })
+      }
+    }
+    return list
+  }, [workers, editing])
+  // 수정 시 기존 투입 인원의 일당은 기록 당시 스냅샷을 유지한다
+  const snap = useMemo(() => {
+    const m: Record<string, number> = {}
+    for (const c of editing?.crew ?? []) m[c.worker_id ?? 'n:' + c.name] = c.wage
+    return m
+  }, [editing])
   const [picked, setPicked] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {}
-    if (copyFrom) {
-      const activeIds = new Set(workers.map((w) => w.id))
-      for (const c of copyFrom.crew) if (c.worker_id && activeIds.has(c.worker_id)) init[c.worker_id] = true
-    }
+    for (const c of editing?.crew ?? []) init[c.worker_id ?? 'n:' + c.name] = true
     return init
   })
   const [busy, setBusy] = useState(false)
@@ -816,8 +853,8 @@ function DailyDraftModal({
 
   // crew 스냅샷 = 선택된 활성 작업자 (현재 일당으로 스냅샷)
   const crew: SiteCrewMember[] = useMemo(
-    () => workers.filter((w) => picked[w.id]).map((w) => ({ worker_id: w.id, name: w.name, wage: w.daily_wage })),
-    [workers, picked],
+    () => pool.filter((w) => picked[w.key]).map((w) => ({ worker_id: w.worker_id, name: w.name, wage: snap[w.key] ?? w.wage })),
+    [pool, picked, snap],
   )
   const laborCost = crew.reduce((s, c) => s + c.wage, 0)
   const totalCost = laborCost + (Number(meal) || 0)
@@ -838,7 +875,7 @@ function DailyDraftModal({
     setBusy(true)
     setErr(null)
     const projName = projects.find((p) => p.id === projectId)?.name ?? null
-    const { error } = await supabase.from('site_logs').insert({
+    const fields = {
       project_id: projectId || null,
       project_name: projName,
       log_date: date,
@@ -846,10 +883,15 @@ function DailyDraftModal({
       crew,
       meal_cost: Number(meal) || 0,
       labor_cost: laborCost,
-      settle_status: '미정산',
-      locked: false,
-      created_by: me,
-    })
+    }
+    if (editing) {
+      const { data, error } = await supabase.from('site_logs').update(fields).eq('id', editing.id).eq('locked', false).select('id')
+      setBusy(false)
+      if (error) return setErr(error.message)
+      if (!data || data.length === 0) return setErr('저장되지 않았습니다 (잠긴 기록이거나 권한 없음)')
+      return onSaved()
+    }
+    const { error } = await supabase.from('site_logs').insert({ ...fields, settle_status: '미정산', locked: false, created_by: me })
     setBusy(false)
     if (error) {
       setErr(error.message)
@@ -864,7 +906,7 @@ function DailyDraftModal({
         <div className="mh">
           <div>
             <div className="eyebrow">현장 · 일일기록</div>
-            <h3>{copyFrom ? '일일기록 작성 (복사)' : '일일기록 작성'}</h3>
+            <h3>{editing ? '일일기록 수정' : '일일기록 작성'}</h3>
           </div>
           <button className="x" onClick={onClose}>
             ✕
@@ -895,25 +937,25 @@ function DailyDraftModal({
           </div>
 
           <div className="mfield">
-            <label>작업자 (선택 시 그날 일당이 스냅샷됩니다)</label>
-            {workers.length === 0 ? (
+            <label>작업자</label>
+            {pool.length === 0 ? (
               <div className="sec-mini" style={{ display: 'block', margin: 0, color: 'var(--muted)' }}>
                 활성 작업자가 없습니다. '작업자·일당' 탭에서 먼저 등록하세요.
               </div>
             ) : (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-                {workers.map((w) => {
-                  const on = !!picked[w.id]
+                {pool.map((w) => {
+                  const on = !!picked[w.key]
                   return (
                     <button
-                      key={w.id}
+                      key={w.key}
                       type="button"
                       className={on ? 'chip set-done' : 'chip'}
                       style={{ cursor: 'pointer', border: on ? undefined : '1px solid var(--line)' }}
-                      onClick={() => toggle(w.id)}
+                      onClick={() => toggle(w.key)}
                     >
                       <i />
-                      {w.name} · {eok(w.daily_wage)}
+                      {w.name}
                     </button>
                   )
                 })}
@@ -962,7 +1004,7 @@ function DailyDraftModal({
             취소
           </button>
           <button className="btn pri" onClick={save} disabled={busy}>
-            {busy ? '저장 중…' : '기록 저장'}
+            {busy ? '저장 중…' : editing ? '수정 저장' : '기록 저장'}
           </button>
         </div>
       </div>

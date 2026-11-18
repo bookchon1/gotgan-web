@@ -13,10 +13,12 @@ import { STEP_LABEL } from './artDetail'
 function AutoTextarea({
   value,
   onChange,
+  onBlur,
   placeholder,
 }: {
   value: string
   onChange: (v: string) => void
+  onBlur?: () => void
   placeholder?: string
 }) {
   const ref = useRef<HTMLTextAreaElement>(null)
@@ -40,7 +42,7 @@ function AutoTextarea({
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
-  return <textarea ref={ref} rows={1} placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} />
+  return <textarea ref={ref} rows={1} placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} onBlur={onBlur} />
 }
 
 export function Step20Editor({
@@ -71,6 +73,8 @@ export function Step20Editor({
       return {}
     }
   })
+  const draftRef = useRef(cmtDraft)
+  draftRef.current = cmtDraft
   useEffect(() => {
     try {
       const clean = Object.fromEntries(Object.entries(cmtDraft).filter(([, v]) => v && v.trim()))
@@ -155,23 +159,32 @@ export function Step20Editor({
     onChanged()
   }
 
+  // 메모 저장: 입력칸을 벗어나거나 [저장]을 누르면 등록. 같은 내용이 두 번 저장되지 않도록 ref 로 즉시 비움
   async function addComment(stepId: string) {
-    const txt = (cmtDraft[stepId] || '').trim()
+    const txt = (draftRef.current[stepId] || '').trim()
     if (!txt) return
-    setBusy(true)
+    draftRef.current = { ...draftRef.current, [stepId]: '' }
+    setCmtDraft((d) => ({ ...d, [stepId]: '' }))
     const { error } = await supabase.from('step_comments').insert({
       step_id: stepId,
       text: txt,
       date: new Date().toISOString().slice(0, 10),
     })
-    setBusy(false)
     if (error) {
-      // 실패 시 입력 내용은 지우지 않고 남겨 둔다
+      // 실패 시 입력 내용을 되돌려 남겨 둔다
+      setCmtDraft((d) => ({ ...d, [stepId]: d[stepId] ? d[stepId] : txt }))
       fail('메모', error.message)
       return
     }
-    setCmtDraft((d) => ({ ...d, [stepId]: '' }))
     onChanged()
+  }
+
+  // 저장: 아직 등록되지 않은 메모를 모두 저장하고 편집 종료 (상태·날짜·공정 변경은 수정 즉시 저장됨)
+  async function saveAll() {
+    setBusy(true)
+    for (const id of Object.keys(draftRef.current)) await addComment(id)
+    setBusy(false)
+    setEdit(false)
   }
 
   return (
@@ -181,11 +194,11 @@ export function Step20Editor({
         <div className="proj-actions">
           <button
             className={`btn ${edit ? 'pri' : 'sec'}`}
-            onClick={() => setEdit((v) => !v)}
+            onClick={() => (edit ? saveAll() : setEdit(true))}
             disabled={busy}
-            title="공정 추가·삭제·이름·순서 변경 (상태·날짜·메모는 편집 없이 바로 수정)"
+            title="공정 추가·삭제·이름·순서 변경 (상태·날짜·메모는 편집 없이 바로 수정·저장)"
           >
-            {edit ? '완료' : '편집'}
+            {edit ? '저장' : '편집'}
           </button>
           <button className="btn sec" onClick={onSeed} disabled={busy || seedBusy} title="기본 20단계 공정을 채웁니다 (이미 있는 단계는 건너뜀)">
             기본값
@@ -291,13 +304,11 @@ export function Step20Editor({
                 )}
                 <div className="cmt-add">
                   <AutoTextarea
-                    placeholder="메모 입력 후 [추가]를 눌러야 저장됩니다"
+                    placeholder="메모 입력"
                     value={cmtDraft[s.id] || ''}
                     onChange={(v) => setCmtDraft((d) => ({ ...d, [s.id]: v }))}
+                    onBlur={() => addComment(s.id)}
                   />
-                  <button className="cadd" onClick={() => addComment(s.id)} disabled={busy}>
-                    추가
-                  </button>
                 </div>
               </div>
             </div>

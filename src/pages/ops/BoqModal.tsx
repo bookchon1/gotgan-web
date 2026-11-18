@@ -21,6 +21,7 @@ interface SheetData {
 }
 interface Parsed {
   file: string
+  changed: boolean // 설계변경 내역서(당초·변경 열이 있는 경우) — 변경금액 기준으로 읽음
   items: Record<string, number>
   sheets: SheetData[]
 }
@@ -32,7 +33,17 @@ interface Saved {
 
 /** 원가계산서 시트 → 9대 항목.
  *  셀 위치·열 구조에 의존하지 않고, 한 행에서 '항목 이름 칸'과 '가장 오른쪽 숫자 칸(금액)'을 찾아 읽는다. */
+/** 설계변경 내역서: 머리글 행에 '당초금액'·'변경금액' 열이 있으면 변경금액 열 번호, 없으면 -1 */
+export function findChangeCol(rows: unknown[][]): number {
+  for (const row of rows.slice(0, 15)) {
+    const ci = row.findIndex((v) => ['변경금액', '변경후금액', '변경후'].includes(squash(v)))
+    if (ci >= 0) return ci
+  }
+  return -1
+}
+
 export function parseItems(rows: unknown[][]): Record<string, number> {
+  const chgCol = findChangeCol(rows)
   const toNum = (v: unknown): number | null => {
     if (typeof v === 'number') return Number.isFinite(v) ? v : null
     const t = String(v ?? '').replace(/[,\s원]/g, '')
@@ -48,15 +59,18 @@ export function parseItems(rows: unknown[][]): Record<string, number> {
     const li = row.findIndex((v) => toNum(v) === null && KEYS.includes(squash(v)))
     if (li < 0) continue
     const key = squash(row[li])
-    // 금액 = 그 이름 칸 오른쪽의 첫 숫자 칸
+    // 금액 = 설계변경 내역서면 '변경금액' 열, 아니면 그 이름 칸 오른쪽의 첫 숫자 칸
     let amt = 0
-    for (let i = li + 1; i < row.length; i++) {
-      const n = toNum(row[i])
-      if (n !== null) {
-        amt = Math.round(n)
-        break
+    const nc = chgCol > li ? toNum(row[chgCol]) : null
+    if (nc !== null) amt = Math.round(nc)
+    else
+      for (let i = li + 1; i < row.length; i++) {
+        const n = toNum(row[i])
+        if (n !== null) {
+          amt = Math.round(n)
+          break
+        }
       }
-    }
     if (key === '재료비') cur = '재료비'
     else if (key === '노무비') cur = '노무비'
     else if (key === '경비') cur = '경비'
@@ -81,6 +95,7 @@ async function parseWorkbook(file: File): Promise<Parsed> {
   const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' })
   const sheets: SheetData[] = []
   let items: Record<string, number> | null = null
+  let changed = false
 
   for (const target of SHEETS) {
     const sn = wb.SheetNames.find((n) => squash(n) === target)
@@ -94,7 +109,10 @@ async function parseWorkbook(file: File): Promise<Parsed> {
     ws['!ref'] = XLSX.utils.encode_range(rg)
 
     const raw = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, raw: true, defval: '', blankrows: true })
-    if (target === '원가계산서') items = parseItems(raw)
+    if (target === '원가계산서') {
+      items = parseItems(raw)
+      changed = findChangeCol(raw) >= 0
+    }
     const shown = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, raw: false, defval: '', blankrows: true })
 
     let rowsOut = shown.slice(0, MAX_ROWS).map((r) => r.slice(0, MAX_COLS).map((x) => String(x ?? '')))
@@ -110,7 +128,7 @@ async function parseWorkbook(file: File): Promise<Parsed> {
     sheets.push({ name: target, rows: rowsOut, merges, widths })
   }
   if (!items) throw new Error('"원가계산서" 시트를 찾을 수 없습니다. 시트 이름을 확인해 주세요.')
-  return { file: file.name, items, sheets }
+  return { file: file.name, changed, items, sheets }
 }
 
 const isNum = (s: string) => /^-?[\d,]+(\.\d+)?%?$/.test(s.trim()) && s.trim() !== ''
@@ -387,7 +405,10 @@ export function BoqModal({
           {items && calc && (
             <div style={{ marginTop: 12 }}>
               <div className="bud-h" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                <div className="t">원가계산서에서 자동 파악한 예산</div>
+                <div className="t">
+                  원가계산서에서 자동 파악한 예산
+                  {parsed?.changed && <span className="badge" style={{ marginLeft: 8, fontSize: 10.5 }}>설계변경 · 변경금액 기준</span>}
+                </div>
                 <label className="t-sub" style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 5, marginLeft: 'auto' }}>
                   절삭 단위
                   <select className="hr-in" style={{ width: 110 }} value={truncUnit} onChange={(e) => setTruncUnit(Number(e.target.value))}>

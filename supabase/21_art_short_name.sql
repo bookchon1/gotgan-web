@@ -7,3 +7,6 @@ update public.art_projects set short_name = '한양도성'    where short_name i
 update public.art_projects set short_name = '석불사 산신도' where short_name is null and name like '%석불사%';
 update public.art_projects set short_name = '영남읍도'    where short_name is null and name like '%영남읍도%';
 update public.art_projects set short_name = '달동네박물관' where short_name is null and name like '%달동네%';
+
+-- API(PostgREST)가 새 컬럼을 바로 인식하도록 스키마 캐시 갱신
+notify pgrst, 'reload schema';

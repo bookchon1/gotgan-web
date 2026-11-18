@@ -91,3 +91,6 @@ where trim(coalesce(a.name,'')) <> ''
       and lower(trim(coalesce(p.person,''))) = lower(trim(a.name)));
 
 commit;
+
+-- API(PostgREST)가 새 함수를 바로 인식하도록 스키마 캐시 갱신
+notify pgrst, 'reload schema';

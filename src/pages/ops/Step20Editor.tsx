@@ -1,7 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../../components/Icon'
 import { supabase } from '../../lib/supabase'
-import { dateRange } from '../../lib/format'
 import type { ProjectStep, StepComment } from '../../types/db'
 import { STEP_LABEL } from './artDetail'
 

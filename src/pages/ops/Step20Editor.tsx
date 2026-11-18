@@ -206,6 +206,7 @@ export function Step20Editor({
     onChanged()
   }
   async function delCmt(c: StepComment) {
+    if (!confirm('이 메모를 삭제할까요?')) return
     const { error } = await supabase.from('step_comments').delete().eq('id', c.id)
     if (error) fail('메모 삭제', error.message)
     onChanged()
@@ -352,9 +353,12 @@ export function Step20Editor({
                           <b>{c.by_id ? '담당' : '메모'}</b>
                           <span className="dt">{fmtDt(c.created_at, c.date)}</span>
                           {c.updated_at && <span className="dt ed">· 수정 {fmtDt(c.updated_at)}</span>}
-                          <button className="ci-x" title="메모 삭제" aria-label="메모 삭제" onClick={() => delCmt(c)}>
-                            ×
-                          </button>
+                          {!editingThis && (
+                            <span className="ci-act">
+                              <button title="수정" onClick={() => setEditCmt({ id: c.id, text: c.text })}>수정</button>
+                              <button title="삭제" onClick={() => delCmt(c)}>삭제</button>
+                            </span>
+                          )}
                           {editingThis ? (
                             <div className="ci-edit">
                               <AutoTextarea
@@ -366,7 +370,7 @@ export function Step20Editor({
                               />
                             </div>
                           ) : (
-                            <div className="ci-text" title="클릭하여 수정" onClick={() => setEditCmt({ id: c.id, text: c.text })}>{c.text}</div>
+                            <div className="ci-text" onDoubleClick={() => setEditCmt({ id: c.id, text: c.text })}>{c.text}</div>
                           )}
                         </div>
                       )

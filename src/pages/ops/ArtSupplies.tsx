@@ -619,6 +619,8 @@ export default function ArtSupplies() {
                         <td style={{ whiteSpace: 'nowrap' }}>
                           {l > 0 ? (
                             <span className="chip set-hold"><i />부족 {l}</span>
+                          ) : s.min_qty === 0 && s.stock === 0 ? (
+                            <span className="chip sp-asneeded" title="적정재고 0 · 현재고 0 — 필요할 때만 구입하는 품목"><i />필요 시 구매</span>
                           ) : (
                             <span className="chip c-done"><i />충분</span>
                           )}

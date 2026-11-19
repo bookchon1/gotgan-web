@@ -5,7 +5,7 @@ import { ErrorBanner, LoadingRow, EmptyRow } from '../../components/States'
 import { supabase } from '../../lib/supabase'
 import { useQuery } from '../../lib/useQuery'
 import { useAuth } from '../../lib/auth'
-import { won, approverLabel } from '../../lib/format'
+import { won, approverLabel, sortApprovers } from '../../lib/format'
 import type { Employee } from '../../types/db'
 
 // ===================== 미술 · 재고관리 (보존처리 재료·소모품) =====================
@@ -260,9 +260,8 @@ function OrderPanel({
     supabase
       .from('employees')
       .select('id,name,title')
-      .eq('role', 'admin')
       .eq('status', '재직')
-      .then(({ data }) => setAdmins((data ?? []).filter((e) => e.id !== me?.id)))
+      .then(({ data }) => setAdmins(sortApprovers((data ?? []).filter((e) => e.id !== me?.id))))
   }, [me?.id])
 
   const active = lines.filter((l) => l.qty > 0)
@@ -397,14 +396,14 @@ function OrderPanel({
         <label className="pf-f">
           <span>검토</span>
           <select className="hr-in" value={reviewerId} onChange={(e) => setReviewerId(e.target.value)}>
-            <option value="">검토선택</option>
+            <option value="">검토</option>
             {admins.map((e) => (<option key={e.id} value={e.id}>{approverLabel(e)}</option>))}
           </select>
         </label>
         <label className="pf-f">
           <span>승인</span>
           <select className="hr-in" value={approverId} onChange={(e) => setApproverId(e.target.value)}>
-            <option value="">승인선택</option>
+            <option value="">승인</option>
             {admins.map((e) => (<option key={e.id} value={e.id}>{approverLabel(e)}</option>))}
           </select>
         </label>

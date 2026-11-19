@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { approverLabel } from '../lib/format'
+import { approverLabel, sortApprovers } from '../lib/format'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 
@@ -15,7 +15,7 @@ export function CcPicker({ value, onChange, className = 'mfield' }: { value: str
       .select('id,name,title')
       .eq('status', '재직')
       .order('name', { ascending: true })
-      .then(({ data }) => setEmps(((data ?? []) as Emp[]).filter((e) => e.id !== me?.id)))
+      .then(({ data }) => setEmps(sortApprovers(((data ?? []) as Emp[]).filter((e) => e.id !== me?.id))))
   }, [me?.id])
   const byId = Object.fromEntries(emps.map((e) => [e.id, e]))
   return (
@@ -30,7 +30,7 @@ export function CcPicker({ value, onChange, className = 'mfield' }: { value: str
             if (e.target.value && !value.includes(e.target.value)) onChange([...value, e.target.value])
           }}
         >
-          <option value="">참조선택</option>
+          <option value="">참조</option>
           {emps.filter((e) => !value.includes(e.id)).map((e) => (
             <option key={e.id} value={e.id}>{approverLabel(e)}</option>
           ))}

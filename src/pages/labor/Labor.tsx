@@ -5,7 +5,7 @@ import { ErrorBanner, LoadingRow, EmptyRow } from '../../components/States'
 import { supabase } from '../../lib/supabase'
 import { useQuery } from '../../lib/useQuery'
 import { useAuth } from '../../lib/auth'
-import { won, dateOnly, mmdd, approverLabel } from '../../lib/format'
+import { won, dateOnly, mmdd, approverLabel, sortApprovers } from '../../lib/format'
 import { ANNUAL_DEDUCT, grantedAnnual } from './leave'
 import { prevMonth, recentMonths, payrollMonths, monthRange } from './month'
 import Certificates from './Certificates'
@@ -1206,12 +1206,11 @@ function PaySubmitModal({
       await supabase
         .from('employees')
         .select('id,name,title')
-        .eq('role', 'admin')
         .eq('status', '재직'),
     [],
   )
   const admins = useMemo(
-    () => (lineQ.data ?? []).filter((e) => e.id !== me?.id),
+    () => sortApprovers((lineQ.data ?? []).filter((e) => e.id !== me?.id)),
     [lineQ.data, me?.id],
   )
 
@@ -1321,7 +1320,7 @@ function PaySubmitModal({
             <label>결재선</label>
             <div style={{ display: 'flex', gap: 8 }}>
               <select className="ctl" value={reviewerId} onChange={(e) => setReviewerId(e.target.value)} style={{ flex: 1 }}>
-                <option value="">검토선택</option>
+                <option value="">검토</option>
                 {admins.map((e) => (
                   <option key={e.id} value={e.id}>
                     {approverLabel(e)}
@@ -1329,7 +1328,7 @@ function PaySubmitModal({
                 ))}
               </select>
               <select className="ctl" value={approverId} onChange={(e) => setApproverId(e.target.value)} style={{ flex: 1 }}>
-                <option value="">승인선택</option>
+                <option value="">승인</option>
                 {admins.map((e) => (
                   <option key={e.id} value={e.id}>
                     {approverLabel(e)}

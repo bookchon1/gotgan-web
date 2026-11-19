@@ -5,7 +5,7 @@ import { ErrorBanner, LoadingRow, EmptyRow } from '../../components/States'
 import { supabase } from '../../lib/supabase'
 import { useQuery } from '../../lib/useQuery'
 import { useAuth } from '../../lib/auth'
-import { won, invShort, approverLabel } from '../../lib/format'
+import { won, invShort, approverLabel, sortApprovers } from '../../lib/format'
 import type { Inventory as Inv, Employee } from '../../types/db'
 import { PurchaseHistModal } from './PurchaseHistModal'
 
@@ -431,9 +431,8 @@ function OrderExpenseModal({
     supabase
       .from('employees')
       .select('id,name,title')
-      .eq('role', 'admin')
       .eq('status', '재직')
-      .then(({ data }) => setAdmins((data ?? []).filter((e) => e.id !== me?.id)))
+      .then(({ data }) => setAdmins(sortApprovers((data ?? []).filter((e) => e.id !== me?.id))))
   }, [me?.id])
 
   const total = lines.reduce((s, d) => s + (d.qty || 0) * (d.price || 0), 0)
@@ -634,7 +633,7 @@ function OrderExpenseModal({
             <label>결재선</label>
             <div style={{ display: 'flex', gap: 8 }}>
               <select className="ctl" value={reviewerId} onChange={(e) => setReviewerId(e.target.value)} style={{ flex: 1 }}>
-                <option value="">검토선택</option>
+                <option value="">검토</option>
                 {admins.map((e) => (
                   <option key={e.id} value={e.id}>
                     {approverLabel(e)}
@@ -642,7 +641,7 @@ function OrderExpenseModal({
                 ))}
               </select>
               <select className="ctl" value={approverId} onChange={(e) => setApproverId(e.target.value)} style={{ flex: 1 }}>
-                <option value="">승인선택</option>
+                <option value="">승인</option>
                 {admins.map((e) => (
                   <option key={e.id} value={e.id}>
                     {approverLabel(e)}

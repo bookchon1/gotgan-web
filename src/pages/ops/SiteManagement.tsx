@@ -5,7 +5,7 @@ import { ErrorBanner, LoadingRow, EmptyRow } from '../../components/States'
 import { supabase } from '../../lib/supabase'
 import { useQuery } from '../../lib/useQuery'
 import { useAuth } from '../../lib/auth'
-import { eok, won, mmdd, dateOnly, approverLabel } from '../../lib/format'
+import { eok, won, mmdd, dateOnly, approverLabel, sortApprovers } from '../../lib/format'
 import type { SiteWorker, SiteCrewMember, SiteLog, ArtProject, Employee } from '../../types/db'
 
 type Tab = 'daily' | 'settle' | 'workers'
@@ -459,9 +459,8 @@ function SettleSubmitModal({
     supabase
       .from('employees')
       .select('id,name,title')
-      .eq('role', 'admin')
       .eq('status', '재직')
-      .then(({ data }) => setAdmins((data ?? []).filter((e) => e.id !== me)))
+      .then(({ data }) => setAdmins(sortApprovers((data ?? []).filter((e) => e.id !== me))))
   }, [me])
 
   const periodTxt = `${from || '…'}~${to || '…'}`
@@ -595,7 +594,7 @@ function SettleSubmitModal({
           <div className="mfield" style={{ marginTop: 10 }}>
             <label>결재선</label>
             <select className="ctl" value={reviewerId} onChange={(e) => setReviewerId(e.target.value)}>
-              <option value="">검토선택</option>
+              <option value="">검토</option>
               {admins.map((e) => (
                 <option key={e.id} value={e.id}>
                   {approverLabel(e)}

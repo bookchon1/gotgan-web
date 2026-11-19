@@ -58,3 +58,13 @@ export function dateRange(from: string | null, to: string | null): string {
 export function approverLabel(e: { name: string; title?: string | null }): string {
   return e.name === '김도래' || e.name === '김성헌' ? `${e.name} ${e.title ?? ''}`.trim() : e.name
 }
+
+/** 결재선 후보 정렬: 김도래·김성헌 먼저, 나머지는 가나다순 */
+export function sortApprovers<T extends { name: string }>(list: T[]): T[] {
+  const top = ['김도래', '김성헌']
+  const rank = (n: string) => {
+    const i = top.indexOf(n)
+    return i < 0 ? top.length : i
+  }
+  return [...list].sort((a, b) => rank(a.name) - rank(b.name) || a.name.localeCompare(b.name, 'ko'))
+}

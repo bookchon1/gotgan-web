@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CcPicker, ccLines } from '../../components/CcPicker'
 import { supabase } from '../../lib/supabase'
-import { won, approverLabel } from '../../lib/format'
+import { won, approverLabel, sortApprovers } from '../../lib/format'
 import { useAuth } from '../../lib/auth'
 import type { Advisor, Employee } from '../../types/db'
 
@@ -56,9 +56,8 @@ export function AdvisorFeeModal({
     supabase
       .from('employees')
       .select('id,name,title')
-      .eq('role', 'admin')
       .eq('status', '재직')
-      .then(({ data }) => setAdmins((data ?? []).filter((e) => e.id !== me?.id)))
+      .then(({ data }) => setAdmins(sortApprovers((data ?? []).filter((e) => e.id !== me?.id))))
   }, [me?.id])
 
   const shortName = projectName.split(' ')[0] // 약칭
@@ -255,7 +254,7 @@ export function AdvisorFeeModal({
             <label>결재선</label>
             <div style={{ display: 'flex', gap: 8 }}>
               <select className="ctl" value={reviewerId} onChange={(e) => setReviewerId(e.target.value)} style={{ flex: 1 }}>
-                <option value="">검토선택</option>
+                <option value="">검토</option>
                 {admins.map((e) => (
                   <option key={e.id} value={e.id}>
                     {approverLabel(e)}
@@ -263,7 +262,7 @@ export function AdvisorFeeModal({
                 ))}
               </select>
               <select className="ctl" value={approverId} onChange={(e) => setApproverId(e.target.value)} style={{ flex: 1 }}>
-                <option value="">승인선택</option>
+                <option value="">승인</option>
                 {admins.map((e) => (
                   <option key={e.id} value={e.id}>
                     {approverLabel(e)}

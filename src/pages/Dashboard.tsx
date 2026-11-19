@@ -49,25 +49,27 @@ function dueLabel(due: string | null, todayYmd: string): { text: string; soon: b
 }
 
 export default function Dashboard() {
-  const { me, isAdmin } = useAuth()
+  const { me } = useAuth()
   const nav = useNavigate()
   const name = me?.name ?? '구성원'
   const myId = me?.id ?? null
 
-  // 업무관리 바로가기 대상: 내 소속 부서 (부서 키 = 영역 id). 대표·미지정이면 미술.
-  const myArea = AREAS.some((x) => x.id === me?.dept_key) ? (me!.dept_key as string) : 'art'
   const now = new Date()
   const todayYmd = ymd(now)
   const mon = mondayOf(now)
 
-  // 업무: 관리자=전체, 일반=본인 것
+  // 업무관리 바로가기 대상: 내 소속 부서 (부서 키 = 영역 id). 대표·미지정이면 미술.
+  // 소속 부서가 없는 계정(대표)은 모든 부서의 업무를, 그 외에는 소속 부서 업무만 본다.
+  const isRep = !AREAS.some((x) => x.id === me?.dept_key)
+  const myArea = AREAS.some((x) => x.id === me?.dept_key) ? (me!.dept_key as string) : 'art'
+  // 업무: 대표=전 부서, 그 외=소속 부서
   const taskQ = useQuery<WorkTask[]>(
     async () => {
       let q = supabase.from('work_tasks').select('*')
-      if (!isAdmin && myId) q = q.eq('owner_id', myId)
+      if (!isRep) q = q.eq('area', myArea)
       return await q
     },
-    [isAdmin, myId],
+    [isRep, myArea],
   )
   const empQ = useQuery<Pick<Employee, 'id' | 'name'>[]>(
     async () => await supabase.from('employees').select('id,name'),
@@ -269,9 +271,11 @@ export default function Dashboard() {
                 </h2>
                 <p>진행 중인 업무를 마감이 가까운 순으로 보여줍니다.</p>
               </div>
-              <button className="btn txt r" onClick={() => nav(`/tasks/${myArea}`)}>
-                {AREAS.find((x) => x.id === myArea)?.label ?? ''} 업무 전체 보기 ›
-              </button>
+              {!isRep && (
+                <button className="btn txt r" onClick={() => nav(`/tasks/${myArea}`)}>
+                  {AREAS.find((x) => x.id === myArea)?.label ?? ''} 업무 전체 보기 ›
+                </button>
+              )}
             </div>
             <div className="tbl-wrap">
               <table>
@@ -290,7 +294,7 @@ export default function Dashboard() {
                     const dl = dueLabel(t.due_date, todayYmd)
                     const owner = t.owner_id ? empName[t.owner_id] ?? '—' : '—'
                     return (
-                      <tr key={t.id}>
+                      <tr key={t.id} style={{ cursor: 'pointer' }} onClick={() => nav(`/tasks/${t.area ?? myArea}`)}>
                         <td>
                           <div className="t-title">{t.title}</div>
                           <div className="t-sub">

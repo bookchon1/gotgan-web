@@ -324,7 +324,7 @@ tr:last-child td{border-bottom:0}
 .table-foot{display:none}  /* 표 하단 주석 전부 숨김 (요청) */
 
 /* 폴더 그리드 */
-.folders{display:grid;grid-template-columns:repeat(4,1fr);gap:11px;margin-bottom:14px}
+.folders{display:grid;grid-template-columns:repeat(5,1fr);gap:11px;margin-bottom:14px}@media(max-width:1100px){.folders{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:760px){.folders{grid-template-columns:repeat(2,1fr)}}
 .folder{display:flex;align-items:center;gap:11px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:13px 14px;box-shadow:var(--shadow-s)}
 .folder:hover{border-color:var(--brand)} .folder.on{border-color:var(--brand);background:var(--brand-soft)}

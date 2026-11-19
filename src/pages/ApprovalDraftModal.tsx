@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { CcPicker, ccLines } from '../components/CcPicker'
 import { supabase } from '../lib/supabase'
 import { won } from '../lib/format'
 import { useAuth } from '../lib/auth'
@@ -16,6 +17,7 @@ export function ApprovalDraftModal({ onClose, onCreated }: { onClose: () => void
   const [projectId, setProjectId] = useState('')
   const [budgetItem, setBudgetItem] = useState('')
   const [reviewerId, setReviewerId] = useState('')
+  const [ccIds, setCcIds] = useState<string[]>([])
   const [approverId, setApproverId] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -94,13 +96,14 @@ export function ApprovalDraftModal({ onClose, onCreated }: { onClose: () => void
       approval_id: string
       seq: number
       approver_id: string | null
-      role: '기안' | '검토' | '승인' | '회계접수'
+      role: '기안' | '검토' | '승인' | '회계접수' | '참조'
       decided: string
     }[] = [{ approval_id: appr.id, seq: 1, approver_id: me?.id ?? null, role: '기안', decided: '승인' }]
     if (reviewerId) lines.push({ approval_id: appr.id, seq: lines.length + 1, approver_id: reviewerId, role: '검토', decided: '대기' })
     if (approverId) lines.push({ approval_id: appr.id, seq: lines.length + 1, approver_id: approverId, role: '승인', decided: '대기' })
     if (kind === '지출결의서')
       lines.push({ approval_id: appr.id, seq: lines.length + 1, approver_id: me?.id ?? null, role: '회계접수', decided: '대기' })
+    lines.push(...ccLines(appr.id, lines.length + 1, ccIds))
     await supabase.from('approval_lines').insert(lines)
 
     setBusy(false)
@@ -248,6 +251,7 @@ export function ApprovalDraftModal({ onClose, onCreated }: { onClose: () => void
             </div>
           </div>
 
+          <CcPicker value={ccIds} onChange={setCcIds} className="mfield" />
           {err && <div className="login-alert err" style={{ margin: 0 }}>{err}</div>}
         </div>
         <div className="mf">

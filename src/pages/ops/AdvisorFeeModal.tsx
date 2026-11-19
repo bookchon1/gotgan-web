@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { CcPicker, ccLines } from '../../components/CcPicker'
 import { supabase } from '../../lib/supabase'
 import { won } from '../../lib/format'
 import { useAuth } from '../../lib/auth'
@@ -30,6 +31,7 @@ export function AdvisorFeeModal({
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [reviewerId, setReviewerId] = useState('')
+  const [ccIds, setCcIds] = useState<string[]>([])
   const [approverId, setApproverId] = useState('')
 
   // 차수 자동: 이 사업에 이미 상신된 자문비 지출결의서 수 + 1 (직접 수정 가능)
@@ -118,12 +120,13 @@ export function AdvisorFeeModal({
       approval_id: string
       seq: number
       approver_id: string | null
-      role: '기안' | '검토' | '승인' | '회계접수'
+      role: '기안' | '검토' | '승인' | '회계접수' | '참조'
       decided: '대기' | '승인' | '반려'
     }[] = [{ approval_id: appr.id, seq: 1, approver_id: me?.id ?? null, role: '기안', decided: '승인' }]
     if (reviewerId) lines.push({ approval_id: appr.id, seq: lines.length + 1, approver_id: reviewerId, role: '검토', decided: '대기' })
     lines.push({ approval_id: appr.id, seq: lines.length + 1, approver_id: approverId || null, role: '승인', decided: '대기' })
     lines.push({ approval_id: appr.id, seq: lines.length + 1, approver_id: null, role: '회계접수', decided: '대기' })
+    lines.push(...ccLines(appr.id, lines.length + 1, ccIds))
     const { error: lineErr } = await supabase.from('approval_lines').insert(lines)
     setBusy(false)
     if (lineErr) {
@@ -276,6 +279,7 @@ export function AdvisorFeeModal({
             </div>
           </div>
 
+          <CcPicker value={ccIds} onChange={setCcIds} className="mfield" />
           {err && <div className="login-alert err" style={{ margin: 0 }}>{err}</div>}
         </div>
         <div className="mf">

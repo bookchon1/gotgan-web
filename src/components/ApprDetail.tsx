@@ -191,7 +191,7 @@ export function ApprDetail({ a, lines, empName }: { a: Approval; lines: Approval
       )}
       <div className="ad-sec">결재선</div>
       <div className="ad-lines">
-        {lines.map((l) => (
+        {lines.filter((l) => l.role !== '참조').map((l) => (
           <div key={l.id} className={`ad-ln st-${l.decided}`}>
             <small>{l.role}</small>
             <b>{l.approver_id ? empName[l.approver_id] ?? '—' : l.role === '회계접수' ? '회계 담당' : '미지정'}</b>
@@ -199,6 +199,20 @@ export function ApprDetail({ a, lines, empName }: { a: Approval; lines: Approval
           </div>
         ))}
       </div>
+      {lines.some((l) => l.role === '참조') && (
+        <>
+          <div className="ad-sec">참조</div>
+          <div className="ad-lines">
+            {lines.filter((l) => l.role === '참조').map((l) => (
+              <div key={l.id} className="ad-ln">
+                <small>참조</small>
+                <b>{l.approver_id ? empName[l.approver_id] ?? '—' : '—'}</b>
+                <span>열람</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   )
 }

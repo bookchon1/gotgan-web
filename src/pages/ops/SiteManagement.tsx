@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { CcPicker, ccLines } from '../../components/CcPicker'
 import { PageHead } from '../../components/PageHead'
 import { ErrorBanner, LoadingRow, EmptyRow } from '../../components/States'
 import { supabase } from '../../lib/supabase'
@@ -450,6 +451,7 @@ function SettleSubmitModal({
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [reviewerId, setReviewerId] = useState('')
+  const [ccIds, setCcIds] = useState<string[]>([])
 
   // 검토자 후보 (관리자, 본인 제외)
   const [admins, setAdmins] = useState<Pick<Employee, 'id' | 'name' | 'title'>[]>([])
@@ -506,13 +508,14 @@ function SettleSubmitModal({
       approval_id: string
       seq: number
       approver_id: string | null
-      role: '기안' | '검토' | '승인' | '회계접수'
+      role: '기안' | '검토' | '승인' | '회계접수' | '참조'
       decided: string
       decided_at: string | null
     }[] = [{ approval_id: appr.id, seq: 1, approver_id: me, role: '기안', decided: '승인', decided_at: now }]
     if (reviewerId) lns.push({ approval_id: appr.id, seq: lns.length + 1, approver_id: reviewerId, role: '검토', decided: '대기', decided_at: null })
     lns.push({ approval_id: appr.id, seq: lns.length + 1, approver_id: bossId, role: '승인', decided: '대기', decided_at: null })
     lns.push({ approval_id: appr.id, seq: lns.length + 1, approver_id: null, role: '회계접수', decided: '대기', decided_at: null })
+    lns.push(...ccLines(appr.id, lns.length + 1, ccIds))
     await supabase.from('approval_lines').insert(lns)
 
     // 3) 포함된 일일기록 잠금 + 상태 전환 + 결의서 연결
@@ -618,6 +621,7 @@ function SettleSubmitModal({
             상신하면 포함된 일일기록 {logs.length}건이 <b>잠기고</b> 중복 청구가 차단됩니다. 계정과목은 <b>노무비</b>로 등록됩니다.
           </div>
 
+          <CcPicker value={ccIds} onChange={setCcIds} className="mfield" />
           {err && (
             <div className="login-alert err" style={{ margin: '8px 0 0' }}>
               {err}

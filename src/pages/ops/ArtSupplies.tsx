@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { CcPicker, ccLines } from '../../components/CcPicker'
 import { PageHead } from '../../components/PageHead'
 import { ErrorBanner, LoadingRow, EmptyRow } from '../../components/States'
 import { supabase } from '../../lib/supabase'
@@ -250,6 +251,7 @@ function OrderPanel({
   const [title, setTitle] = useState('보존처리 재료 구입 품의')
   const [reason, setReason] = useState('재고 부족 품목 구입')
   const [reviewerId, setReviewerId] = useState('')
+  const [ccIds, setCcIds] = useState<string[]>([])
   const [approverId, setApproverId] = useState('')
   const [admins, setAdmins] = useState<Pick<Employee, 'id' | 'name' | 'title'>[]>([])
   const [busy, setBusy] = useState(false)
@@ -303,12 +305,13 @@ function OrderPanel({
       setBusy(false)
       return setErr(error?.message ?? '상신 실패')
     }
-    const lns: { approval_id: string; seq: number; approver_id: string | null; role: '기안' | '검토' | '승인' | '회계접수'; decided: string }[] = [
+    const lns: { approval_id: string; seq: number; approver_id: string | null; role: '기안' | '검토' | '승인' | '회계접수' | '참조'; decided: string }[] = [
       { approval_id: appr.id, seq: 1, approver_id: me?.id ?? null, role: '기안', decided: '승인' },
     ]
     if (reviewerId) lns.push({ approval_id: appr.id, seq: lns.length + 1, approver_id: reviewerId, role: '검토', decided: '대기' })
     lns.push({ approval_id: appr.id, seq: lns.length + 1, approver_id: approverId || null, role: '승인', decided: '대기' })
     lns.push({ approval_id: appr.id, seq: lns.length + 1, approver_id: null, role: '회계접수', decided: '대기' })
+    lns.push(...ccLines(appr.id, lns.length + 1, ccIds))
     const { error: lErr } = await supabase.from('approval_lines').insert(lns)
     if (lErr) {
       setBusy(false)
@@ -406,7 +409,8 @@ function OrderPanel({
           </select>
         </label>
       </div>
-      {err && <div className="login-alert err" style={{ margin: '8px 0 0' }}>{err}</div>}
+      <CcPicker value={ccIds} onChange={setCcIds} className="pf-f" />
+          {err && <div className="login-alert err" style={{ margin: '8px 0 0' }}>{err}</div>}
       <div className="pf-act">
         <span className="t-sub" style={{ fontSize: 11 }}>기안 {me?.name ?? '—'} › 검토 › 승인</span>
         <span style={{ flex: 1 }} />

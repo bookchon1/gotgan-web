@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { CcPicker, ccLines } from '../../components/CcPicker'
 import { PageHead } from '../../components/PageHead'
 import { ErrorBanner, LoadingRow, EmptyRow } from '../../components/States'
 import { supabase } from '../../lib/supabase'
@@ -1194,6 +1195,7 @@ function PaySubmitModal({
   const [title, setTitle] = useState(`${ym} 급여 지급`)
   const [account, setAccount] = useState('급여 (판매관리비)')
   const [reviewerId, setReviewerId] = useState('')
+  const [ccIds, setCcIds] = useState<string[]>([])
   const [approverId, setApproverId] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -1246,12 +1248,13 @@ function PaySubmitModal({
       approval_id: string
       seq: number
       approver_id: string | null
-      role: '기안' | '검토' | '승인' | '회계접수'
+      role: '기안' | '검토' | '승인' | '회계접수' | '참조'
       decided: string
     }[] = [{ approval_id: appr.id, seq: 1, approver_id: me?.id ?? null, role: '기안', decided: '승인' }]
     if (reviewerId) lns.push({ approval_id: appr.id, seq: lns.length + 1, approver_id: reviewerId, role: '검토', decided: '대기' })
     if (approverId) lns.push({ approval_id: appr.id, seq: lns.length + 1, approver_id: approverId, role: '승인', decided: '대기' })
     lns.push({ approval_id: appr.id, seq: lns.length + 1, approver_id: null, role: '회계접수', decided: '대기' })
+    lns.push(...ccLines(appr.id, lns.length + 1, ccIds))
     await supabase.from('approval_lines').insert(lns)
 
     // 3) payroll_runs.status = '상신완료'
@@ -1355,6 +1358,7 @@ function PaySubmitModal({
           <div className="sec-mini" style={{ margin: '4px 0 0' }}>
             <b>상신하면 자동으로:</b> ① 전자결재에 지출결의서 1건 등록(급여 명세 첨부) ② 최종 승인 시 <b>회계 › 접수 대기</b>로 이동 ③ 담당자 접수 시 장부에 <b>급여 지출</b>로 반영 — 개별 직원 전표가 아니라 <b>월 급여 1건</b>으로 처리됩니다.
           </div>
+          <CcPicker value={ccIds} onChange={setCcIds} className="mfield" />
           {err && (
             <div className="login-alert err" style={{ margin: '8px 0 0' }}>
               {err}

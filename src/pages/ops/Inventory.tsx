@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { CcPicker, ccLines } from '../../components/CcPicker'
 import { PageHead } from '../../components/PageHead'
 import { ErrorBanner, LoadingRow, EmptyRow } from '../../components/States'
 import { supabase } from '../../lib/supabase'
@@ -420,6 +421,7 @@ function OrderExpenseModal({
   const [memo, setMemo] = useState('재고 부족 품목 발주 (최소재고 기준 보충)')
   const [account, setAccount] = useState('상품·재료 매입')
   const [reviewerId, setReviewerId] = useState('')
+  const [ccIds, setCcIds] = useState<string[]>([])
   const [approverId, setApproverId] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -482,12 +484,13 @@ function OrderExpenseModal({
       approval_id: string
       seq: number
       approver_id: string | null
-      role: '기안' | '검토' | '승인' | '회계접수'
+      role: '기안' | '검토' | '승인' | '회계접수' | '참조'
       decided: string
     }[] = [{ approval_id: appr.id, seq: 1, approver_id: me?.id ?? null, role: '기안', decided: '승인' }]
     if (reviewerId) lns.push({ approval_id: appr.id, seq: lns.length + 1, approver_id: reviewerId, role: '검토', decided: '대기' })
     if (approverId) lns.push({ approval_id: appr.id, seq: lns.length + 1, approver_id: approverId, role: '승인', decided: '대기' })
     lns.push({ approval_id: appr.id, seq: lns.length + 1, approver_id: null, role: '회계접수', decided: '대기' })
+    lns.push(...ccLines(appr.id, lns.length + 1, ccIds))
     await supabase.from('approval_lines').insert(lns)
 
     // 3) 시안 동작: 상신 즉시 각 품목 incoming 누적 + 단가 갱신
@@ -670,6 +673,7 @@ function OrderExpenseModal({
             <b>상신하면 자동으로:</b> ① 전자결재에 지출결의서 1건 등록 ② 승인 후 <b>회계 › 접수 대기</b>로 이동 ③ 상신 즉시 선택 품목이 <b>입고예정</b>으로 누적되고 매입단가가 갱신됩니다.
           </div>
 
+          <CcPicker value={ccIds} onChange={setCcIds} className="mfield" />
           {err && (
             <div className="login-alert err" style={{ margin: '8px 0 0' }}>
               {err}

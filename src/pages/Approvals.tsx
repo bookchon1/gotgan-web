@@ -17,7 +17,7 @@ const KIND_BADGE: Record<string, { cls: string; label: string }> = {
   일반: { cls: 'badge', label: '일반' },
 }
 
-type Folder = 'pending' | 'received' | 'drafted' | 'done'
+type Folder = 'pending' | 'received' | 'drafted' | 'done' | 'cc'
 
 export default function Approvals() {
   const { me } = useAuth()
@@ -84,6 +84,8 @@ export default function Approvals() {
     return sorted.slice(0, myIdx).every((l) => l.decided === '승인')
   })
   const drafted = all.filter((a) => a.drafter_id === myId)
+  // 참조 문서: 내가 참조자로 지정된 문서 (열람 전용)
+  const ccDocs = all.filter((a) => (linesByAppr[a.id] ?? []).some((l) => l.role === '참조' && l.approver_id === myId))
   const done = all.filter((a) => {
     if (a.status === '회계접수') return true
     if (a.status !== '승인' || a.kind === '지출결의서') return false
@@ -91,7 +93,7 @@ export default function Approvals() {
     return !(linesByAppr[a.id] ?? []).some((l) => l.role === '회계접수' && l.decided === '대기')
   })
 
-  const list = folder === 'pending' ? pending : folder === 'drafted' ? drafted : done
+  const list = folder === 'pending' ? pending : folder === 'drafted' ? drafted : folder === 'cc' ? ccDocs : done
   const title =
     folder === 'pending'
       ? '내 결재 대기'
@@ -99,7 +101,9 @@ export default function Approvals() {
         ? '수신 문서함'
         : folder === 'drafted'
           ? '상신한 문서'
-          : '완료 문서'
+          : folder === 'cc'
+            ? '참조 문서'
+            : '완료 문서'
 
   const loading = apprQ.loading || linesQ.loading
   const [busy, setBusy] = useState(false)
@@ -180,6 +184,7 @@ export default function Approvals() {
         <Fold k="received" cur={folder} set={setFolder} icon="approval" title="수신 문서함" n={mySlips.length} />
         <Fold k="drafted" cur={folder} set={setFolder} icon="clock" title="상신한 문서" n={drafted.length} />
         <Fold k="done" cur={folder} set={setFolder} icon="check" title="완료 문서" n={done.length} />
+        <Fold k="cc" cur={folder} set={setFolder} icon="doc" title="참조 문서" n={ccDocs.length} />
       </div>
 
       {folder === 'received' ? (
@@ -319,7 +324,8 @@ function Fold({
 }
 
 // 결재선 진행 표시 (시안 appr-flow)
-function ApprFlow({ lines }: { lines: ApprovalLine[] }) {
+function ApprFlow({ lines: all }: { lines: ApprovalLine[] }) {
+  const lines = all.filter((l) => l.role !== '참조')
   if (lines.length === 0) return <span className="t-sub">—</span>
   return (
     <div className="appr-flow">

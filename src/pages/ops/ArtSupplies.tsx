@@ -123,12 +123,12 @@ function SupplyForm({
           </select>
         </label>
         {fld('규격', 'spec', { ph: '예: 500g' })}
+        {isNew && fld('현재고', 'stock', { numeric: true })}
         {fld('단위', 'unit', { ph: '개·병·통·장' })}
-        {isNew ? fld('현재고', 'stock', { numeric: true }) : <div />}
         {fld('적정(최소) 재고', 'min_qty', { numeric: true })}
         {fld('단가(원)', 'unit_price', { numeric: true })}
-        {fld('보관 위치', 'location', { ph: '예: 약품장 2단', span: 2 })}
-        {fld('메모', 'memo', { span: 4 })}
+        {isNew ? fld('보관 위치', 'location', { ph: '예: 약품장 2단', span: 2 }) : fld('보관 위치', 'location', { ph: '예: 약품장 2단' })}
+        {isNew ? fld('메모', 'memo', { span: 2 }) : fld('메모', 'memo', { span: 4 })}
       </div>
       {err && <div className="login-alert err" style={{ margin: '8px 0 0' }}>{err}</div>}
       <div className="pf-act">
@@ -138,8 +138,8 @@ function SupplyForm({
           </button>
         )}
         <span style={{ flex: 1 }} />
-        <button className="sp-btn sec" onClick={onCancel} disabled={busy}>취소</button>
-        <button className="sp-btn pri" onClick={save} disabled={busy || !f.name.trim()}>{busy ? '저장 중…' : '저장'}</button>
+        <button className="sp-btn b2" onClick={onCancel} disabled={busy}>취소</button>
+        <button className="sp-btn b1" onClick={save} disabled={busy || !f.name.trim()}>{busy ? '저장 중…' : '저장'}</button>
       </div>
     </div>
   )
@@ -191,8 +191,8 @@ function MovePanel({ s, onChanged }: { s: Supply; onChanged: () => void }) {
         <input className="hr-in" style={{ width: 80 }} inputMode="numeric" placeholder="수량" value={qty} onChange={(e) => setQty(String(num(e.target.value) || ''))} />
         <span className="t-sub">{s.unit}</span>
         <input className="hr-in" style={{ flex: 1, minWidth: 140 }} placeholder="메모 (예: 한양도성 사업 사용 / 구매 입고)" value={memo} onChange={(e) => setMemo(e.target.value)} />
-        <button className="sp-btn pri" onClick={() => apply('입고')} disabled={busy}>입고</button>
-        <button className="sp-btn sec" onClick={() => apply('출고')} disabled={busy}>출고</button>
+        <button className="sp-btn b1" onClick={() => apply('입고')} disabled={busy}>입고</button>
+        <button className="sp-btn b2" onClick={() => apply('출고')} disabled={busy}>출고</button>
       </div>
       {s.incoming > 0 && <div className="t-sub" style={{ fontSize: 11 }}>입고예정 {s.incoming}{s.unit} — 물품이 도착하면 수량을 넣고 <b>입고</b>를 누르세요.</div>}
       {err && <div className="login-alert err" style={{ margin: '6px 0 0' }}>{err}</div>}
@@ -382,8 +382,8 @@ function OrderPanel({
       <div className="pf-act">
         <span className="t-sub" style={{ fontSize: 11 }}>기안 {me?.name ?? '—'} › 검토 › 승인</span>
         <span style={{ flex: 1 }} />
-        <button className="sp-btn sec" onClick={onClose} disabled={busy}>취소</button>
-        <button className="sp-btn pri" onClick={submit} disabled={busy}>{busy ? '상신 중…' : '품의 상신'}</button>
+        <button className="sp-btn b2" onClick={onClose} disabled={busy}>취소</button>
+        <button className="sp-btn b1" onClick={submit} disabled={busy}>{busy ? '상신 중…' : '품의 상신'}</button>
       </div>
     </div>
   )
@@ -509,10 +509,10 @@ export default function ArtSupplies() {
               <input placeholder="품목·규격·위치 검색" value={q} onChange={(e) => setQ(e.target.value)} />
             </label>
             {lowCount > 0 && (
-              <button className="sp-btn sec" onClick={selectLow}>부족 품목 선택</button>
+              <button className="sp-btn b2" onClick={selectLow}>부족 품목 선택</button>
             )}
             <button
-              className="sp-btn pri"
+              className="sp-btn b1"
               disabled={picked.length === 0}
               onClick={() => {
                 setOrderOpen(true)

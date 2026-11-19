@@ -5,7 +5,7 @@ import { ErrorBanner, LoadingRow, EmptyRow } from '../../components/States'
 import { supabase } from '../../lib/supabase'
 import { useQuery } from '../../lib/useQuery'
 import { useAuth } from '../../lib/auth'
-import { won } from '../../lib/format'
+import { won, approverLabel } from '../../lib/format'
 import type { Employee } from '../../types/db'
 
 // ===================== 미술 · 재고관리 (보존처리 재료·소모품) =====================
@@ -398,14 +398,14 @@ function OrderPanel({
           <span>검토</span>
           <select className="hr-in" value={reviewerId} onChange={(e) => setReviewerId(e.target.value)}>
             <option value="">검토선택</option>
-            {admins.map((e) => (<option key={e.id} value={e.id}>{e.name} {e.title}</option>))}
+            {admins.map((e) => (<option key={e.id} value={e.id}>{approverLabel(e)}</option>))}
           </select>
         </label>
         <label className="pf-f">
           <span>승인</span>
           <select className="hr-in" value={approverId} onChange={(e) => setApproverId(e.target.value)}>
             <option value="">승인선택</option>
-            {admins.map((e) => (<option key={e.id} value={e.id}>{e.name} {e.title}</option>))}
+            {admins.map((e) => (<option key={e.id} value={e.id}>{approverLabel(e)}</option>))}
           </select>
         </label>
       </div>

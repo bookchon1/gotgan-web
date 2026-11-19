@@ -5,7 +5,7 @@ import { ErrorBanner, LoadingRow, EmptyRow } from '../../components/States'
 import { supabase } from '../../lib/supabase'
 import { useQuery } from '../../lib/useQuery'
 import { useAuth } from '../../lib/auth'
-import { eok, won, mmdd, dateOnly } from '../../lib/format'
+import { eok, won, mmdd, dateOnly, approverLabel } from '../../lib/format'
 import type { SiteWorker, SiteCrewMember, SiteLog, ArtProject, Employee } from '../../types/db'
 
 type Tab = 'daily' | 'settle' | 'workers'
@@ -598,7 +598,7 @@ function SettleSubmitModal({
               <option value="">검토선택</option>
               {admins.map((e) => (
                 <option key={e.id} value={e.id}>
-                  {e.name} {e.title}
+                  {approverLabel(e)}
                 </option>
               ))}
             </select>

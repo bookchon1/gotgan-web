@@ -53,3 +53,8 @@ export function dateRange(from: string | null, to: string | null): string {
   const days = Math.round((+new Date(t) - +new Date(f)) / 86_400_000) + 1
   return `${mmdd(f)}~${mmdd(t)} (${days}일)`
 }
+
+/** 결재 선택 목록 표기: 대표·실장(김도래·김성헌)만 직책을 붙이고, 나머지는 이름만 */
+export function approverLabel(e: { name: string; title?: string | null }): string {
+  return e.name === '김도래' || e.name === '김성헌' ? `${e.name} ${e.title ?? ''}`.trim() : e.name
+}

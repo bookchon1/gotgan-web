@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { CcPicker, ccLines } from '../components/CcPicker'
 import { supabase } from '../lib/supabase'
-import { won } from '../lib/format'
+import { won, approverLabel } from '../lib/format'
 import { useAuth } from '../lib/auth'
 import type { ArtProject, ArtBudget, Employee } from '../types/db'
 
@@ -215,7 +215,7 @@ export function ApprovalDraftModal({ onClose, onCreated }: { onClose: () => void
                 <option value="">검토선택</option>
                 {admins.map((e) => (
                   <option key={e.id} value={e.id}>
-                    {e.name} {e.title}
+                    {approverLabel(e)}
                   </option>
                 ))}
               </select>
@@ -223,7 +223,7 @@ export function ApprovalDraftModal({ onClose, onCreated }: { onClose: () => void
                 <option value="">승인선택</option>
                 {admins.map((e) => (
                   <option key={e.id} value={e.id}>
-                    {e.name} {e.title}
+                    {approverLabel(e)}
                   </option>
                 ))}
               </select>

@@ -5,7 +5,7 @@ import { ErrorBanner, LoadingRow, EmptyRow } from '../../components/States'
 import { supabase } from '../../lib/supabase'
 import { useQuery } from '../../lib/useQuery'
 import { useAuth } from '../../lib/auth'
-import { won, invShort } from '../../lib/format'
+import { won, invShort, approverLabel } from '../../lib/format'
 import type { Inventory as Inv, Employee } from '../../types/db'
 import { PurchaseHistModal } from './PurchaseHistModal'
 
@@ -637,7 +637,7 @@ function OrderExpenseModal({
                 <option value="">검토선택</option>
                 {admins.map((e) => (
                   <option key={e.id} value={e.id}>
-                    {e.name} {e.title}
+                    {approverLabel(e)}
                   </option>
                 ))}
               </select>
@@ -645,7 +645,7 @@ function OrderExpenseModal({
                 <option value="">승인선택</option>
                 {admins.map((e) => (
                   <option key={e.id} value={e.id}>
-                    {e.name} {e.title}
+                    {approverLabel(e)}
                   </option>
                 ))}
               </select>

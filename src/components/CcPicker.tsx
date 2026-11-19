@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { approverLabel } from '../lib/format'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 
@@ -31,7 +32,7 @@ export function CcPicker({ value, onChange, className = 'mfield' }: { value: str
         >
           <option value="">참조선택</option>
           {emps.filter((e) => !value.includes(e.id)).map((e) => (
-            <option key={e.id} value={e.id}>{e.name} {e.title}</option>
+            <option key={e.id} value={e.id}>{approverLabel(e)}</option>
           ))}
         </select>
         {value.map((id) => (

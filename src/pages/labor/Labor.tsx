@@ -5,7 +5,7 @@ import { ErrorBanner, LoadingRow, EmptyRow } from '../../components/States'
 import { supabase } from '../../lib/supabase'
 import { useQuery } from '../../lib/useQuery'
 import { useAuth } from '../../lib/auth'
-import { won, dateOnly, mmdd } from '../../lib/format'
+import { won, dateOnly, mmdd, approverLabel } from '../../lib/format'
 import { ANNUAL_DEDUCT, grantedAnnual } from './leave'
 import { prevMonth, recentMonths, payrollMonths, monthRange } from './month'
 import Certificates from './Certificates'
@@ -1324,7 +1324,7 @@ function PaySubmitModal({
                 <option value="">검토선택</option>
                 {admins.map((e) => (
                   <option key={e.id} value={e.id}>
-                    {e.name} {e.title}
+                    {approverLabel(e)}
                   </option>
                 ))}
               </select>
@@ -1332,7 +1332,7 @@ function PaySubmitModal({
                 <option value="">승인선택</option>
                 {admins.map((e) => (
                   <option key={e.id} value={e.id}>
-                    {e.name} {e.title}
+                    {approverLabel(e)}
                   </option>
                 ))}
               </select>

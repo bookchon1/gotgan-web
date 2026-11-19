@@ -108,7 +108,7 @@ export default function Dashboard() {
     if (!myId) return 0
     const lines = lineQ.data ?? []
     return (apQ.data ?? []).filter((a) => {
-      if (a.status === '반려' || a.status === '회계접수') return false
+      if (a.status === '반려' || a.status === '회계접수' || a.status === '회수') return false
       const sorted = lines.filter((l) => l.approval_id === a.id).sort((x, y) => x.seq - y.seq)
       const myIdx = sorted.findIndex((l) => l.approver_id === myId && l.decided === '대기')
       if (myIdx < 0) return false

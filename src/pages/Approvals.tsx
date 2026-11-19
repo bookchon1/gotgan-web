@@ -77,7 +77,7 @@ export default function Approvals() {
   const pending = all.filter((a) => {
     const lines = linesByAppr[a.id] ?? []
     // 내 차례 = 내게 아직 대기인 결재선이 있고, 그 앞 단계가 모두 승인됨 (반려/회계접수완료 제외)
-    if (a.status === '반려' || a.status === '회계접수') return false
+    if (a.status === '반려' || a.status === '회계접수' || a.status === '회수') return false
     const sorted = lines.slice().sort((x, y) => x.seq - y.seq)
     const myIdx = sorted.findIndex((l) => l.approver_id === myId && l.decided === '대기')
     if (myIdx < 0) return false
@@ -114,6 +114,34 @@ export default function Approvals() {
   const reload = () => {
     apprQ.reload()
     linesQ.reload()
+  }
+
+  // 회수: 상신자가 본인 문서를 결재 시작 전에 되돌린다
+  const [recallId, setRecallId] = useState<string | null>(null)
+  const [actErr, setActErr] = useState<string | null>(null)
+  const canRecall = (a: Approval, lines: ApprovalLine[]) =>
+    a.drafter_id === myId &&
+    (a.status === '진행' || a.status === '기안') &&
+    lines.filter((l) => l.role !== '기안' && l.role !== '참조').every((l) => l.decided === '대기')
+  async function recall(a: Approval) {
+    if (recallId !== a.id) return setRecallId(a.id)
+    setRecallId(null)
+    setActErr(null)
+    setBusy(true)
+    const { data, error } = await supabase.from('approvals').update({ status: '회수' }).eq('id', a.id).in('status', ['진행', '기안']).select('id')
+    if (error || !data || data.length === 0) {
+      setBusy(false)
+      return setActErr(error?.message ?? '회수되지 않았습니다. 이미 결재가 진행됐을 수 있습니다.')
+    }
+    // 미술 재고 품의: 상신 때 올라간 입고예정 수량을 되돌린다
+    const { data: mv } = await supabase.from('art_supply_moves').select('id,supply_id,qty').eq('approval_id', a.id).eq('kind', '발주')
+    for (const m of (mv ?? []) as { id: string; supply_id: string; qty: number }[]) {
+      const { data: sp } = await supabase.from('art_supplies').select('incoming').eq('id', m.supply_id).maybeSingle()
+      if (sp) await supabase.from('art_supplies').update({ incoming: Math.max(0, ((sp as { incoming: number }).incoming ?? 0) - m.qty) }).eq('id', m.supply_id)
+      await supabase.from('art_supply_moves').delete().eq('id', m.id)
+    }
+    setBusy(false)
+    reload()
   }
 
   // 승인/반려 처리
@@ -200,6 +228,7 @@ export default function Approvals() {
       ) : (
       <section className="panel">
         <ErrorBanner error={apprQ.error} table="approvals" />
+        {actErr && <div className="login-alert err" style={{ margin: '0 0 8px' }}>{actErr}</div>}
         <div className="panel-h">
           <div>
             <h2>
@@ -216,22 +245,22 @@ export default function Approvals() {
                 <th>종류</th>
                 <th>결재 진행</th>
                 <th style={{ textAlign: 'right' }}>금액</th>
-                {folder === 'pending' && <th style={{ textAlign: 'right' }}>처리</th>}
+                {(folder === 'pending' || folder === 'drafted') && <th style={{ textAlign: 'right' }}>처리</th>}
               </tr>
             </thead>
             <tbody>
-              {loading && <LoadingRow cols={folder === 'pending' ? 6 : 5} />}
+              {loading && <LoadingRow cols={folder === 'pending' || folder === 'drafted' ? 6 : 5} />}
               {!loading &&
                 list.map((a) => {
                   const kb = KIND_BADGE[a.kind] ?? KIND_BADGE['일반']
                   const lines = linesByAppr[a.id] ?? []
                   const on = openId === a.id
-                  const colN = folder === 'pending' ? 6 : 5
+                  const colN = folder === 'pending' || folder === 'drafted' ? 6 : 5
                   return (
                     <Fragment key={a.id}>
                     <tr style={{ cursor: 'pointer' }} className={on ? 'pf-row on' : undefined} onClick={() => setOpenId(on ? null : a.id)}>
                       <td>
-                        <div className="t-title">{a.title || a.memo}</div>
+                        <div className="t-title">{a.title || a.memo}{a.status === '회수' && <span className="badge" style={{ marginLeft: 6 }}>회수</span>}</div>
                         <div className="t-sub">{a.doc_no} · {on ? '내용 접기 ▴' : '내용 보기 ▾'}</div>
                       </td>
                       <td>{a.drafter_id ? empName[a.drafter_id] ?? '—' : '—'}</td>
@@ -264,6 +293,25 @@ export default function Approvals() {
                           </button>
                         </td>
                       )}
+                      {folder === 'drafted' && (
+                        <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
+                          {a.status === '회수' ? (
+                            <span className="t-sub">회수됨</span>
+                          ) : canRecall(a, lines) ? (
+                            <button
+                              className="sp-btn b2"
+                              style={recallId === a.id ? { color: 'var(--danger,#c0392b)', fontWeight: 800 } : undefined}
+                              onClick={() => recall(a)}
+                              onBlur={() => setRecallId(null)}
+                              disabled={busy}
+                            >
+                              {recallId === a.id ? '정말 회수' : '회수'}
+                            </button>
+                          ) : (
+                            <span className="t-sub" title="결재가 시작된 문서는 회수할 수 없습니다">—</span>
+                          )}
+                        </td>
+                      )}
                     </tr>
                     {on && (
                       <tr className="pf-edit">
@@ -276,7 +324,7 @@ export default function Approvals() {
                   )
                 })}
               {!loading && list.length === 0 && (
-                <EmptyRow cols={folder === 'pending' ? 6 : 5} text={folder === 'pending' ? '결재할 문서가 없습니다.' : '문서가 없습니다.'} />
+                <EmptyRow cols={folder === 'pending' || folder === 'drafted' ? 6 : 5} text={folder === 'pending' ? '결재할 문서가 없습니다.' : '문서가 없습니다.'} />
               )}
             </tbody>
           </table>

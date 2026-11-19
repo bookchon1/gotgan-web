@@ -60,8 +60,7 @@ export function AdvisorFeeModal({
       .then(({ data }) => setAdmins(sortApprovers((data ?? []).filter((e) => e.id !== me?.id))))
   }, [me?.id])
 
-  const shortName = projectName.split(' ')[0] // 약칭
-  const docTitle = `${shortName} ${round}차 자문회의 자문비`
+  const docTitle = `${projectName} ${round}차 자문회의 자문비`
 
   const total = useMemo(
     () => advisors.filter((a) => sel.has(a.id)).reduce((s, a) => s + (fees[a.id] || 0), 0),

@@ -1162,3 +1162,13 @@ td>.hr-in{max-width:160px}
 .ad-seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-left:auto}
 .ad-seg button{border:0;background:var(--surface);padding:5px 12px;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;font-family:inherit}
 .ad-seg button.on{background:var(--brand);color:#fff}
+
+/* 결재선 입력 (상신 화면 공통) */
+.alf{margin-top:2px}
+.alf-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 12px}
+.alf-grid .pf-f>span{font-size:10.5px;font-weight:700;color:var(--muted)}
+.alf-grid .ctl{width:100%;box-sizing:border-box}
+.alf-fixed{display:flex;align-items:center;min-height:36px;background:var(--bg,#faf9f5);color:var(--ink);font-weight:700}
+.alf-flow{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11.5px;margin-top:9px;padding:8px 10px;background:var(--bg,#faf9f5);border:1px solid var(--line);border-radius:8px}
+.alf-flow i{font-style:normal;color:var(--muted)}
+@media(max-width:760px){.alf-grid{grid-template-columns:1fr}}

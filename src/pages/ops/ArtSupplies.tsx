@@ -1,11 +1,12 @@
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { CcPicker, ccLines } from '../../components/CcPicker'
+import { ccLines } from '../../components/CcPicker'
+import { ApprLineFields } from '../../components/ApprLineFields'
 import { PageHead } from '../../components/PageHead'
 import { ErrorBanner, LoadingRow, EmptyRow } from '../../components/States'
 import { supabase } from '../../lib/supabase'
 import { useQuery } from '../../lib/useQuery'
 import { useAuth } from '../../lib/auth'
-import { won, approverLabel, sortApprovers } from '../../lib/format'
+import { won, sortApprovers } from '../../lib/format'
 import type { Employee } from '../../types/db'
 
 // ===================== 미술 · 재고관리 (보존처리 재료·소모품) =====================
@@ -393,26 +394,20 @@ function OrderPanel({
           </tr>
         </tbody>
       </table>
-      <div className="pf-grid" style={{ gridTemplateColumns: 'repeat(2,minmax(0,1fr))', marginTop: 12 }}>
-        <label className="pf-f">
-          <span>검토</span>
-          <select className="hr-in" value={reviewerId} onChange={(e) => setReviewerId(e.target.value)}>
-            <option value="">검토</option>
-            {admins.map((e) => (<option key={e.id} value={e.id}>{approverLabel(e)}</option>))}
-          </select>
-        </label>
-        <label className="pf-f">
-          <span>승인</span>
-          <select className="hr-in" value={approverId} onChange={(e) => setApproverId(e.target.value)}>
-            <option value="">승인</option>
-            {admins.map((e) => (<option key={e.id} value={e.id}>{approverLabel(e)}</option>))}
-          </select>
-        </label>
+      <div style={{ marginTop: 12 }}>
+        <ApprLineFields
+          meName={me?.name ?? ''}
+          candidates={admins}
+          reviewerId={reviewerId}
+          setReviewerId={setReviewerId}
+          approverId={approverId}
+          setApproverId={setApproverId}
+          ccIds={ccIds}
+          setCcIds={setCcIds}
+        />
       </div>
-      <CcPicker value={ccIds} onChange={setCcIds} className="pf-f" />
           {err && <div className="login-alert err" style={{ margin: '8px 0 0' }}>{err}</div>}
       <div className="pf-act">
-        <span className="t-sub" style={{ fontSize: 11 }}>기안 {me?.name ?? '—'} › 검토 › 승인</span>
         <span style={{ flex: 1 }} />
         <button className="sp-btn b2" onClick={onClose} disabled={busy}>취소</button>
         <button className="sp-btn b1" onClick={submit} disabled={busy}>{busy ? '상신 중…' : '품의 상신'}</button>

@@ -40,13 +40,8 @@ export function InboxView({ onPosted }: { onPosted: () => void }) {
   async function post(a: Approval) {
     setBusy(true)
     if (a.kind === '품의') {
-      // 품의서는 구매 요청 승인 단계 — 전표는 만들지 않고 접수 확인만 한다 (실제 지출은 지출결의서로 처리)
+      // 품의서 접수 시 지출 전표 생성 — 계정은 미지정이면 '재료비' (전표내역에서 눌러 수정 가능)
       await supabase.from('approval_lines').update({ decided: '승인', decided_at: new Date().toISOString() }).eq('approval_id', a.id).eq('role', '회계접수')
-      await supabase.from('approvals').update({ status: '회계접수' }).eq('id', a.id)
-      setBusy(false)
-      apprQ.reload()
-      onPosted()
-      return
     }
     // 전표 생성 + 결재 상태 회계접수
     await supabase.from('acct_tx').insert({
@@ -54,7 +49,7 @@ export function InboxView({ onPosted }: { onPosted: () => void }) {
       biz_code: a.biz_code ?? '법인',
       dept_key: a.dept_key,
       tx_type: '지출',
-      account: a.account,
+      account: a.account ?? (a.kind === '품의' ? '재료비' : null),
       amount: a.amount,
       memo: a.title ?? a.memo,
       project_id: a.project_id,
@@ -117,7 +112,7 @@ export function InboxView({ onPosted }: { onPosted: () => void }) {
                   </td>
                   <td style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
                     <button className="btn pri" style={{ padding: '6px 13px' }} onClick={() => post(a)} disabled={busy}>
-                      {a.kind === '품의' ? '접수 확인' : '접수 · 전표 생성'}
+                      접수 · 전표 생성
                     </button>
                   </td>
                 </tr>
@@ -135,7 +130,7 @@ export function InboxView({ onPosted }: { onPosted: () => void }) {
         </table>
       </div>
       <p className="sec-mini" style={{ marginTop: 10 }}>
-        승인된 지출결의서를 접수하면 <b>지출 전표</b>가 생성되어 자금현황·전표내역에 반영됩니다. 품의서는 접수 확인만 하며 전표는 만들지 않습니다.
+        승인된 지출결의서를 접수하면 <b>지출 전표</b>가 생성되어 자금현황·전표내역에 반영됩니다. 품의서도 접수하면 지출 전표가 생성됩니다(계정 미지정 시 재료비, 전표내역에서 수정 가능).
       </p>
     </section>
   )

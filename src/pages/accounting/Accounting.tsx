@@ -541,8 +541,15 @@ function LedgerView({
 }) {
   const [biz, setBiz] = useState('all')
   const [type, setType] = useState('all')
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
+  // 기본 조회 기간 = 이번 달 1일 ~ 말일
+  const monthRange = () => {
+    const n = new Date()
+    const z = (v: number) => String(v).padStart(2, '0')
+    const last = new Date(n.getFullYear(), n.getMonth() + 1, 0).getDate()
+    return [`${n.getFullYear()}-${z(n.getMonth() + 1)}-01`, `${n.getFullYear()}-${z(n.getMonth() + 1)}-${z(last)}`]
+  }
+  const [dateFrom, setDateFrom] = useState(() => monthRange()[0])
+  const [dateTo, setDateTo] = useState(() => monthRange()[1])
   const [addOpen, setAddOpen] = useState(false)
   const [editTx, setEditTx] = useState<AcctTx | null>(null)
   const list = allTx
@@ -587,9 +594,13 @@ function LedgerView({
             onChange={(e) => setDateTo(e.target.value)}
             aria-label="종료일"
           />
-          {(dateFrom || dateTo) && (
+          {dateFrom || dateTo ? (
             <button className="btn txt" onClick={() => { setDateFrom(''); setDateTo('') }} style={{ fontSize: 12 }}>
-              날짜 초기화
+              전체 기간
+            </button>
+          ) : (
+            <button className="btn txt" onClick={() => { const [f, t] = monthRange(); setDateFrom(f); setDateTo(t) }} style={{ fontSize: 12 }}>
+              이번 달
             </button>
           )}
           <select className="sel" value={biz} onChange={(e) => setBiz(e.target.value)}>

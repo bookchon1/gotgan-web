@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ccLines } from '../../components/CcPicker'
-import { ApprLineFields } from '../../components/ApprLineFields'
+import { CcPicker, ccLines } from '../../components/CcPicker'
 import { supabase } from '../../lib/supabase'
-import { won, sortApprovers } from '../../lib/format'
+import { won, approverLabel, sortApprovers } from '../../lib/format'
 import { useAuth } from '../../lib/auth'
 import type { Advisor, Employee } from '../../types/db'
 
@@ -254,17 +253,42 @@ export function AdvisorFeeModal({
           </div>
 
           {/* 결재선 */}
-          <ApprLineFields
-            meName={me?.name ?? ''}
-            candidates={admins}
-            reviewerId={reviewerId}
-            setReviewerId={setReviewerId}
-            approverId={approverId}
-            setApproverId={setApproverId}
-            ccIds={ccIds}
-            setCcIds={setCcIds}
-            accounting={true}
-          />
+          <div className="mfield">
+            <label>결재선</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <select className="ctl" value={reviewerId} onChange={(e) => setReviewerId(e.target.value)} style={{ flex: 1 }}>
+                <option value="">검토</option>
+                {admins.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {approverLabel(e)}
+                  </option>
+                ))}
+              </select>
+              <select className="ctl" value={approverId} onChange={(e) => setApproverId(e.target.value)} style={{ flex: 1 }}>
+                <option value="">승인</option>
+                {admins.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {approverLabel(e)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontSize: 11.5, marginTop: 8 }}>
+              <span className="badge">기안 {me?.name ?? '—'}</span>
+              {reviewerId && (
+                <>
+                  <span style={{ color: 'var(--muted)' }}>›</span>
+                  <span className="badge">검토 {admins.find((a) => a.id === reviewerId)?.name ?? ''}</span>
+                </>
+              )}
+              <span style={{ color: 'var(--muted)' }}>›</span>
+              <span className="badge">승인 {admins.find((a) => a.id === approverId)?.name ?? '실장'}</span>
+              <span style={{ color: 'var(--muted)' }}>›</span>
+              <span className="badge green">회계접수 담당</span>
+            </div>
+          </div>
+
+          <CcPicker value={ccIds} onChange={setCcIds} className="mfield" />
           {err && <div className="login-alert err" style={{ margin: 0 }}>{err}</div>}
         </div>
         <div className="mf">

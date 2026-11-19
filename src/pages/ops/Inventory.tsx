@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ccLines } from '../../components/CcPicker'
-import { ApprLineFields } from '../../components/ApprLineFields'
+import { CcPicker, ccLines } from '../../components/CcPicker'
 import { PageHead } from '../../components/PageHead'
 import { ErrorBanner, LoadingRow, EmptyRow } from '../../components/States'
 import { supabase } from '../../lib/supabase'
 import { useQuery } from '../../lib/useQuery'
 import { useAuth } from '../../lib/auth'
-import { won, invShort, sortApprovers } from '../../lib/format'
+import { won, invShort, approverLabel, sortApprovers } from '../../lib/format'
 import type { Inventory as Inv, Employee } from '../../types/db'
 import { PurchaseHistModal } from './PurchaseHistModal'
 
@@ -634,21 +633,50 @@ function OrderExpenseModal({
               <option value="포장비">포장비</option>
             </select>
           </div>
-          <ApprLineFields
-            meName={me?.name ?? ''}
-            candidates={admins}
-            reviewerId={reviewerId}
-            setReviewerId={setReviewerId}
-            approverId={approverId}
-            setApproverId={setApproverId}
-            ccIds={ccIds}
-            setCcIds={setCcIds}
-            accounting={true}
-          />
+          <div className="mfield">
+            <label>결재선</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <select className="ctl" value={reviewerId} onChange={(e) => setReviewerId(e.target.value)} style={{ flex: 1 }}>
+                <option value="">검토</option>
+                {admins.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {approverLabel(e)}
+                  </option>
+                ))}
+              </select>
+              <select className="ctl" value={approverId} onChange={(e) => setApproverId(e.target.value)} style={{ flex: 1 }}>
+                <option value="">승인</option>
+                {admins.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {approverLabel(e)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontSize: 11.5, marginTop: 8 }}>
+              <span className="badge">기안 {me?.name ?? '—'}</span>
+              {reviewerId && (
+                <>
+                  <span style={{ color: 'var(--muted)' }}>›</span>
+                  <span className="badge">검토 {admins.find((a) => a.id === reviewerId)?.name ?? ''}</span>
+                </>
+              )}
+              {approverId && (
+                <>
+                  <span style={{ color: 'var(--muted)' }}>›</span>
+                  <span className="badge gold">승인 {admins.find((a) => a.id === approverId)?.name ?? ''}</span>
+                </>
+              )}
+              <span style={{ color: 'var(--muted)' }}>›</span>
+              <span className="badge green">회계접수 담당</span>
+            </div>
+          </div>
 
           <div className="sec-mini" style={{ margin: '4px 0 0' }}>
             <b>상신하면 자동으로:</b> ① 전자결재에 지출결의서 1건 등록 ② 승인 후 <b>회계 › 접수 대기</b>로 이동 ③ 상신 즉시 선택 품목이 <b>입고예정</b>으로 누적되고 매입단가가 갱신됩니다.
           </div>
+
+          <CcPicker value={ccIds} onChange={setCcIds} className="mfield" />
           {err && (
             <div className="login-alert err" style={{ margin: '8px 0 0' }}>
               {err}

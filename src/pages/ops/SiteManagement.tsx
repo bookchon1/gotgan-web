@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ccLines } from '../../components/CcPicker'
-import { ApprLineFields } from '../../components/ApprLineFields'
+import { CcPicker, ccLines } from '../../components/CcPicker'
 import { PageHead } from '../../components/PageHead'
 import { ErrorBanner, LoadingRow, EmptyRow } from '../../components/States'
 import { supabase } from '../../lib/supabase'
 import { useQuery } from '../../lib/useQuery'
 import { useAuth } from '../../lib/auth'
-import { eok, won, mmdd, dateOnly, sortApprovers } from '../../lib/format'
+import { eok, won, mmdd, dateOnly, approverLabel, sortApprovers } from '../../lib/format'
 import type { SiteWorker, SiteCrewMember, SiteLog, ArtProject, Employee } from '../../types/db'
 
 type Tab = 'daily' | 'settle' | 'workers'
@@ -592,20 +591,36 @@ function SettleSubmitModal({
             </table>
           </div>
 
-          <ApprLineFields
-            meName={'본인'}
-            candidates={admins}
-            reviewerId={reviewerId}
-            setReviewerId={setReviewerId}
-            ccIds={ccIds}
-            setCcIds={setCcIds}
-            fixedApprover={'김도래(대표)'}
-            accounting={true}
-          />
+          <div className="mfield" style={{ marginTop: 10 }}>
+            <label>결재선</label>
+            <select className="ctl" value={reviewerId} onChange={(e) => setReviewerId(e.target.value)}>
+              <option value="">검토</option>
+              {admins.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {approverLabel(e)}
+                </option>
+              ))}
+            </select>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontSize: 11.5, marginTop: 8 }}>
+              <span className="badge">기안 본인</span>
+              {reviewerId && (
+                <>
+                  <span style={{ color: 'var(--muted)' }}>›</span>
+                  <span className="badge">검토 {admins.find((a) => a.id === reviewerId)?.name ?? ''}</span>
+                </>
+              )}
+              <span style={{ color: 'var(--muted)' }}>›</span>
+              <span className="badge gold">승인 김도래(대표)</span>
+              <span style={{ color: 'var(--muted)' }}>›</span>
+              <span className="badge green">회계접수 담당</span>
+            </div>
+          </div>
 
           <div className="sec-mini" style={{ margin: '8px 0 0' }}>
             상신하면 포함된 일일기록 {logs.length}건이 <b>잠기고</b> 중복 청구가 차단됩니다. 계정과목은 <b>노무비</b>로 등록됩니다.
           </div>
+
+          <CcPicker value={ccIds} onChange={setCcIds} className="mfield" />
           {err && (
             <div className="login-alert err" style={{ margin: '8px 0 0' }}>
               {err}

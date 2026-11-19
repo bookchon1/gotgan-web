@@ -6,7 +6,7 @@ import { useAuth } from '../lib/auth'
 interface Emp { id: string; name: string; title: string | null }
 
 /** 참조자 선택 — 결재에는 참여하지 않고 문서를 열람만 하는 사람 (여러 명) */
-export function CcPicker({ value, onChange, className = 'mfield', compact = false }: { value: string[]; onChange: (ids: string[]) => void; className?: string; compact?: boolean }) {
+export function CcPicker({ value, onChange, className = 'mfield' }: { value: string[]; onChange: (ids: string[]) => void; className?: string }) {
   const { me } = useAuth()
   const [emps, setEmps] = useState<Emp[]>([])
   useEffect(() => {
@@ -20,11 +20,11 @@ export function CcPicker({ value, onChange, className = 'mfield', compact = fals
   const byId = Object.fromEntries(emps.map((e) => [e.id, e]))
   return (
     <div className={className}>
-      {compact ? <span>참조 (선택)</span> : <label>참조</label>}
+      <label>참조</label>
       <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', alignItems: 'center' }}>
         <select
           className="ctl"
-          style={compact ? { width: '100%' } : { width: 160, flex: 'none' }}
+          style={{ width: 160, flex: 'none' }}
           value=""
           onChange={(e) => {
             if (e.target.value && !value.includes(e.target.value)) onChange([...value, e.target.value])

@@ -847,6 +847,12 @@ function PayView({ empById }: { empById: Record<string, { name: string; dept: st
           runId={run.id}
           count={slips.length}
           total={tNet}
+          rows={slips.map((s) => ({
+            name: empById[s.employee_id]?.name ?? '—',
+            gross: (Number(s.base_pay) || 0) + (Number(s.allowances) || 0),
+            ded: Number(s.deductions) || 0,
+            net: Number(s.net_pay) || 0,
+          }))}
           onClose={() => setSubmitOpen(false)}
           onSubmitted={(m) => {
             setSubmitOpen(false)
@@ -1181,6 +1187,7 @@ function PaySubmitModal({
   runId,
   count,
   total,
+  rows,
   onClose,
   onSubmitted,
 }: {
@@ -1188,6 +1195,7 @@ function PaySubmitModal({
   runId: string
   count: number
   total: number
+  rows: { name: string; gross: number; ded: number; net: number }[]
   onClose: () => void
   onSubmitted: (msg: string) => void
 }) {
@@ -1230,7 +1238,10 @@ function PaySubmitModal({
         title: title.trim() || `${ym} 급여 지급`,
         amount: total,
         account: account || null,
-        memo: `${ym} 급여 ${count}인`,
+        memo:
+          `${title.trim() || `${ym} 급여 지급`}\n\n` +
+          rows.map((r, i) => `${i + 1}. ${r.name} · 지급 ${won(r.gross)}원 · 공제 ${won(r.ded)}원 · 실지급 ${won(r.net)}원`).join('\n') +
+          `\n\n합계 ${won(total)}원`,
         req_date: new Date().toISOString().slice(0, 10),
         status: '진행',
       })

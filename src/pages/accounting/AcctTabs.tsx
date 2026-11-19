@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { useQuery } from '../../lib/useQuery'
 import { won, dateOnly } from '../../lib/format'
 import type { Approval, ApprovalLine, AcctCard, Employee, ArtProject } from '../../types/db'
-import { ApprDetail, parseOrder, parseFees } from '../../components/ApprDetail'
+import { ApprDetail, parseOrder, parseFees, parsePay } from '../../components/ApprDetail'
 import { BUDGET_9 } from '../ops/BoqModal'
 import { bizShort, deptLabel } from '../../data/areas'
 
@@ -27,6 +27,9 @@ function toLines(a: Approval): InboxLine[] {
   const n = (v: string) => parseInt(v.replace(/,/g, ''), 10) || 0
   const baseProject = a.project_id ?? ''
   const baseItem = a.budget_item ?? '재료비'
+  const pay = body && !parsed ? parsePay(body) : null
+  if (pay)
+    return pay.rows.map((r) => ({ name: r.name, amount: n(r.net), account: a.account ?? '급여', project: baseProject, item: baseItem }))
   const fees = body && !parsed ? parseFees(body) : null
   if (fees)
     return fees.rows.map((r) => ({ name: r.name, amount: n(r.amount), account: a.account ?? '자문료', project: baseProject, item: baseItem }))
@@ -48,7 +51,7 @@ function InboxPanel({
 }) {
   const isArt = a.dept_key === 'art'
   const [items, setItems] = useState<InboxLine[]>(() => toLines(a))
-  const [mode, setMode] = useState<'each' | 'one'>('each') // 품목별 전표 / 한 건으로 합산
+  const [mode, setMode] = useState<'each' | 'one'>(() => (a.memo && parsePay(a.memo) ? 'one' : 'each')) // 품목별 전표 / 한 건으로 합산 (급여는 기본 합산)
   const total = items.reduce((x, l) => x + l.amount, 0)
   const [one, setOne] = useState<InboxLine>(() => ({ ...toLines(a)[0], name: a.title ?? '', amount: total }))
   const [bulk, setBulk] = useState('')

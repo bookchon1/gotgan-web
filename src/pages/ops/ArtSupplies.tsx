@@ -33,6 +33,25 @@ interface Move {
   created_at: string
 }
 
+/** 메모에서 http(s) 주소만 추출 (구매 링크) */
+const urlsOf = (t: string | null | undefined): string[] => (t ?? '').match(/https?:\/\/[^\s<>"']+/g) ?? []
+const hostOf = (u: string) => {
+  try { return new URL(u).hostname.replace(/^www\./, '') } catch { return '링크' }
+}
+function LinkChips({ text }: { text: string | null | undefined }) {
+  const us = urlsOf(text)
+  if (!us.length) return null
+  return (
+    <>
+      {us.map((u, i) => (
+        <a key={i} className="sp-link" href={u} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} title={u}>
+          🔗 {hostOf(u)}
+        </a>
+      ))}
+    </>
+  )
+}
+
 const lack = (s: Supply) => Math.max(0, s.min_qty - s.stock) // 부족 수량
 const nn = (v: string) => v.trim() || null
 const num = (v: string) => parseInt(v.replace(/[^0-9]/g, ''), 10) || 0
@@ -128,7 +147,7 @@ function SupplyForm({
         {fld('적정(최소) 재고', 'min_qty', { numeric: true })}
         {fld('단가(원)', 'unit_price', { numeric: true })}
         {isNew ? fld('보관 위치', 'location', { ph: '예: 약품장 2단', span: 2 }) : fld('보관 위치', 'location', { ph: '예: 약품장 2단' })}
-        {isNew ? fld('메모', 'memo', { span: 2 }) : fld('메모', 'memo', { span: 4 })}
+        {isNew ? fld('메모 · 구매 링크', 'memo', { span: 2, ph: '구매 링크(https://…)를 붙여넣으면 목록에서 눌러 열 수 있어요' }) : fld('메모 · 구매 링크', 'memo', { span: 4, ph: '구매 링크(https://…)를 붙여넣으면 목록에서 눌러 열 수 있어요' })}
       </div>
       {err && <div className="login-alert err" style={{ margin: '8px 0 0' }}>{err}</div>}
       <div className="pf-act">
@@ -257,7 +276,12 @@ function OrderPanel({
     const docNo = `제${new Date().getFullYear()}-${String(Math.floor(Math.random() * 9000) + 1000)}호`
     const body =
       (reason.trim() ? reason.trim() + '\n\n' : '') +
-      active.map((l, i) => `${i + 1}. ${l.name} · ${l.qty}${l.unit} × ${won(l.price)}원 = ${won(l.qty * l.price)}원`).join('\n') +
+      active
+        .map((l, i) => {
+          const link = urlsOf(items.find((x) => x.id === l.id)?.memo)[0]
+          return `${i + 1}. ${l.name} · ${l.qty}${l.unit} × ${won(l.price)}원 = ${won(l.qty * l.price)}원` + (link ? `\n   구매링크: ${link}` : '')
+        })
+        .join('\n') +
       `\n\n합계 ${won(total)}원`
     const { data: appr, error } = await supabase
       .from('approvals')
@@ -341,7 +365,10 @@ function OrderPanel({
         <tbody>
           {lines.map((l, i) => (
             <tr key={l.id}>
-              <td><b>{l.name}</b></td>
+              <td>
+                <b>{l.name}</b>
+                <LinkChips text={items.find((x) => x.id === l.id)?.memo} />
+              </td>
               <td>
                 <div className="sp-in">
                   <input className="hr-in tnum" value={l.qty || ''} inputMode="numeric" onChange={(e) => setLine(i, 'qty', e.target.value)} />
@@ -577,7 +604,10 @@ export default function ArtSupplies() {
                         <td style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
                           <input type="checkbox" checked={!!sel[s.id]} onChange={(e) => setSel((o) => ({ ...o, [s.id]: e.target.checked }))} />
                         </td>
-                        <td><b>{s.name}</b></td>
+                        <td>
+                          <b>{s.name}</b>
+                          <LinkChips text={s.memo} />
+                        </td>
                         <td className="t-sub">{s.category || '—'}</td>
                         <td className="t-sub">{s.spec || '—'}</td>
                         <td className="tnum" style={{ textAlign: 'right', fontWeight: 700, color: l > 0 ? 'var(--danger)' : 'var(--ink)' }}>

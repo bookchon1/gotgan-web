@@ -138,8 +138,8 @@ function SupplyForm({
           </button>
         )}
         <span style={{ flex: 1 }} />
-        <button className="btn sec" onClick={onCancel} disabled={busy}>취소</button>
-        <button className="btn pri" onClick={save} disabled={busy || !f.name.trim()}>{busy ? '저장 중…' : '저장'}</button>
+        <button className="sp-btn sec" onClick={onCancel} disabled={busy}>취소</button>
+        <button className="sp-btn pri" onClick={save} disabled={busy || !f.name.trim()}>{busy ? '저장 중…' : '저장'}</button>
       </div>
     </div>
   )
@@ -191,8 +191,8 @@ function MovePanel({ s, onChanged }: { s: Supply; onChanged: () => void }) {
         <input className="hr-in" style={{ width: 80 }} inputMode="numeric" placeholder="수량" value={qty} onChange={(e) => setQty(String(num(e.target.value) || ''))} />
         <span className="t-sub">{s.unit}</span>
         <input className="hr-in" style={{ flex: 1, minWidth: 140 }} placeholder="메모 (예: 한양도성 사업 사용 / 구매 입고)" value={memo} onChange={(e) => setMemo(e.target.value)} />
-        <button className="btn pri" style={{ padding: '4px 12px', fontSize: 11.5 }} onClick={() => apply('입고')} disabled={busy}>입고</button>
-        <button className="btn sec" style={{ padding: '4px 12px', fontSize: 11.5 }} onClick={() => apply('출고')} disabled={busy}>출고</button>
+        <button className="sp-btn pri" onClick={() => apply('입고')} disabled={busy}>입고</button>
+        <button className="sp-btn sec" onClick={() => apply('출고')} disabled={busy}>출고</button>
       </div>
       {s.incoming > 0 && <div className="t-sub" style={{ fontSize: 11 }}>입고예정 {s.incoming}{s.unit} — 물품이 도착하면 수량을 넣고 <b>입고</b>를 누르세요.</div>}
       {err && <div className="login-alert err" style={{ margin: '6px 0 0' }}>{err}</div>}
@@ -323,51 +323,67 @@ function OrderPanel({
           <input className="hr-in" value={reason} onChange={(e) => setReason(e.target.value)} />
         </label>
       </div>
-      <table className="rowtbl" style={{ marginTop: 10 }}>
+      <table className="rowtbl sp-ord">
+        <colgroup>
+          <col />
+          <col style={{ width: 130 }} />
+          <col style={{ width: 130 }} />
+          <col style={{ width: 120 }} />
+        </colgroup>
         <thead>
           <tr>
-            <th>품목</th>
-            <th style={{ textAlign: 'right' }}>수량</th>
-            <th style={{ textAlign: 'right' }}>단가(원)</th>
-            <th style={{ textAlign: 'right' }}>금액</th>
+            <th style={{ textAlign: 'left' }}>품목</th>
+            <th>수량</th>
+            <th>단가(원)</th>
+            <th>금액</th>
           </tr>
         </thead>
         <tbody>
           {lines.map((l, i) => (
             <tr key={l.id}>
               <td><b>{l.name}</b></td>
-              <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                <input className="hr-in tnum" style={{ width: 70, textAlign: 'right' }} value={l.qty || ''} inputMode="numeric" onChange={(e) => setLine(i, 'qty', e.target.value)} />
-                <span className="t-sub"> {l.unit}</span>
+              <td>
+                <div className="sp-in">
+                  <input className="hr-in tnum" value={l.qty || ''} inputMode="numeric" onChange={(e) => setLine(i, 'qty', e.target.value)} />
+                  <span className="t-sub">{l.unit}</span>
+                </div>
               </td>
-              <td style={{ textAlign: 'right' }}>
-                <input className="hr-in tnum" style={{ width: 100, textAlign: 'right' }} value={l.price ? won(l.price) : ''} inputMode="numeric" onChange={(e) => setLine(i, 'price', e.target.value)} />
+              <td>
+                <div className="sp-in">
+                  <input className="hr-in tnum" value={l.price ? won(l.price) : ''} inputMode="numeric" onChange={(e) => setLine(i, 'price', e.target.value)} />
+                </div>
               </td>
-              <td className="tnum" style={{ textAlign: 'right', fontWeight: 700 }}>{won(l.qty * l.price)}</td>
+              <td className="tnum" style={{ fontWeight: 700 }}>{won(l.qty * l.price)}</td>
             </tr>
           ))}
-          <tr>
-            <td colSpan={3} style={{ textAlign: 'right', color: 'var(--muted)' }}>합계</td>
-            <td className="tnum" style={{ textAlign: 'right', fontWeight: 800, color: 'var(--brand)' }}>{won(total)}원</td>
+          <tr className="sp-sum">
+            <td colSpan={3}>합계</td>
+            <td className="tnum">{won(total)}원</td>
           </tr>
         </tbody>
       </table>
-      <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-        <select className="hr-in" style={{ flex: 1, minWidth: 160 }} value={reviewerId} onChange={(e) => setReviewerId(e.target.value)}>
-          <option value="">검토자 선택 (생략 가능)</option>
-          {admins.map((e) => (<option key={e.id} value={e.id}>{e.name} {e.title}</option>))}
-        </select>
-        <select className="hr-in" style={{ flex: 1, minWidth: 160 }} value={approverId} onChange={(e) => setApproverId(e.target.value)}>
-          <option value="">승인자 선택 (실장)</option>
-          {admins.map((e) => (<option key={e.id} value={e.id}>{e.name} {e.title}</option>))}
-        </select>
+      <div className="pf-grid" style={{ gridTemplateColumns: 'repeat(2,minmax(0,1fr))', marginTop: 12 }}>
+        <label className="pf-f">
+          <span>검토자 (생략 가능)</span>
+          <select className="hr-in" value={reviewerId} onChange={(e) => setReviewerId(e.target.value)}>
+            <option value="">선택 안 함</option>
+            {admins.map((e) => (<option key={e.id} value={e.id}>{e.name} {e.title}</option>))}
+          </select>
+        </label>
+        <label className="pf-f">
+          <span>승인자</span>
+          <select className="hr-in" value={approverId} onChange={(e) => setApproverId(e.target.value)}>
+            <option value="">선택 (실장)</option>
+            {admins.map((e) => (<option key={e.id} value={e.id}>{e.name} {e.title}</option>))}
+          </select>
+        </label>
       </div>
       {err && <div className="login-alert err" style={{ margin: '8px 0 0' }}>{err}</div>}
       <div className="pf-act">
         <span className="t-sub" style={{ fontSize: 11 }}>기안 {me?.name ?? '—'} › 검토 › 승인</span>
         <span style={{ flex: 1 }} />
-        <button className="btn sec" onClick={onClose} disabled={busy}>취소</button>
-        <button className="btn pri" onClick={submit} disabled={busy}>{busy ? '상신 중…' : '품의 상신'}</button>
+        <button className="sp-btn sec" onClick={onClose} disabled={busy}>취소</button>
+        <button className="sp-btn pri" onClick={submit} disabled={busy}>{busy ? '상신 중…' : '품의 상신'}</button>
       </div>
     </div>
   )
@@ -484,7 +500,7 @@ export default function ArtSupplies() {
               </span>
             )}
           </h2>
-          <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="sp-tools">
             <select className="hr-in" style={{ width: 120 }} value={catF} onChange={(e) => setCatF(e.target.value)} aria-label="분류 필터">
               {cats.map((c) => (<option key={c} value={c}>{c === '전체' ? '분류 전체' : c}</option>))}
             </select>
@@ -493,11 +509,10 @@ export default function ArtSupplies() {
               <input placeholder="품목·규격·위치 검색" value={q} onChange={(e) => setQ(e.target.value)} />
             </label>
             {lowCount > 0 && (
-              <button className="btn sec" style={{ padding: '6px 11px', fontSize: 12 }} onClick={selectLow}>부족 품목 선택</button>
+              <button className="sp-btn sec" onClick={selectLow}>부족 품목 선택</button>
             )}
             <button
-              className="btn pri"
-              style={{ padding: '6px 14px', fontSize: 12.5 }}
+              className="sp-btn pri"
               disabled={picked.length === 0}
               onClick={() => {
                 setOrderOpen(true)

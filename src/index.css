@@ -1109,3 +1109,23 @@ td>.hr-in{max-width:160px}
 .sp-h .k-발주{color:var(--brand-ink);border-color:var(--brand)}
 .sp-chipbtn{cursor:pointer;border:0;font-family:inherit}
 .sp-chipbtn.on{outline:2px solid var(--danger,#c0392b)}
+
+/* 재고관리 정렬 */
+.sp-btn{display:inline-flex;align-items:center;justify-content:center;height:34px;padding:0 12px;font-size:13px;font-weight:700;line-height:1;white-space:nowrap;background:none;border:0;border-radius:7px;color:var(--ink-soft);cursor:pointer;font-family:inherit}
+.sp-btn.pri{color:var(--brand-ink)}
+.sp-btn:hover{text-decoration:underline}
+.sp-btn:disabled{color:var(--muted);cursor:not-allowed;text-decoration:none}
+.sp-btn.pf-del{font-size:12.5px;color:var(--muted)}
+.sp-btn.pf-del.on{color:#fff;background:var(--danger,#c0392b);text-decoration:none}
+.sp-tools{display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap}
+.sp-tools .hr-in,.sp-tools .search{height:34px;box-sizing:border-box}
+.pf-act{gap:4px}
+.sp-ord{table-layout:fixed;margin-top:12px}
+.sp-ord th{text-align:right;padding:6px 8px}
+.sp-ord td{text-align:right;vertical-align:middle}
+.sp-ord td:first-child{text-align:left}
+.sp-in{display:flex;align-items:center;justify-content:flex-end;gap:5px}
+.sp-in .hr-in{width:100%;text-align:right;box-sizing:border-box}
+.sp-in .t-sub{width:26px;text-align:left;flex:none}
+.sp-sum td{border-bottom:0;padding-top:10px;font-weight:800;color:var(--brand-ink)}
+.sp-sum td:first-child{text-align:right;color:var(--muted);font-weight:700}

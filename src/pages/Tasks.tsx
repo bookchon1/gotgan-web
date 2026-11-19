@@ -26,9 +26,10 @@ const ST_OPTS: { v: WorkTask['status']; t: string }[] = [
 type Form = { title: string; start: string; due: string; detail: string; status: WorkTask['status'] }
 const EMPTY_FORM: Form = { title: '', start: '', due: '', detail: '', status: 'plan' }
 
-// 등록일(reg_date) → 'YYYY-MM' 귀속월
+// 귀속월 'YYYY-MM': 작업 시작일이 있으면 시작일의 달, 없으면 등록일의 달
+// (11월에 등록했지만 12월에 시작할 일은 12월 목록에 표시)
 function regMonth(t: WorkTask): string {
-  return (t.reg_date ?? '').slice(0, 7)
+  return (t.start_date || t.reg_date || '').slice(0, 7)
 }
 
 export default function Tasks() {

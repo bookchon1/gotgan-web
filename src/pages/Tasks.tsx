@@ -224,7 +224,6 @@ export default function Tasks() {
               className="btn sec"
               style={{ padding: '4px 10px' }}
               onClick={goNext}
-              disabled={!isAll && curMonth! >= THIS_MONTH}
               title="다음 달"
             >
               ›

@@ -303,11 +303,12 @@ function OrderPanel({
       setBusy(false)
       return setErr(error?.message ?? '상신 실패')
     }
-    const lns: { approval_id: string; seq: number; approver_id: string | null; role: '기안' | '검토' | '승인'; decided: string }[] = [
+    const lns: { approval_id: string; seq: number; approver_id: string | null; role: '기안' | '검토' | '승인' | '회계접수'; decided: string }[] = [
       { approval_id: appr.id, seq: 1, approver_id: me?.id ?? null, role: '기안', decided: '승인' },
     ]
     if (reviewerId) lns.push({ approval_id: appr.id, seq: lns.length + 1, approver_id: reviewerId, role: '검토', decided: '대기' })
     lns.push({ approval_id: appr.id, seq: lns.length + 1, approver_id: approverId || null, role: '승인', decided: '대기' })
+    lns.push({ approval_id: appr.id, seq: lns.length + 1, approver_id: null, role: '회계접수', decided: '대기' })
     const { error: lErr } = await supabase.from('approval_lines').insert(lns)
     if (lErr) {
       setBusy(false)

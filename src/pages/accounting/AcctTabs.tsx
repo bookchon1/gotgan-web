@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { ErrorBanner, LoadingRow, EmptyRow } from '../../components/States'
 import { supabase } from '../../lib/supabase'
 import { useQuery } from '../../lib/useQuery'
-import { eok, won, dateOnly } from '../../lib/format'
+import { won, dateOnly } from '../../lib/format'
 import type { Approval, AcctCard, Employee } from '../../types/db'
 
 // ===================== 접수 대기 =====================
@@ -14,7 +14,7 @@ export function InboxView({ onPosted }: { onPosted: () => void }) {
       await supabase
         .from('approvals')
         .select('*')
-        .eq('kind', '지출결의서')
+        .in('kind', ['지출결의서', '품의'])
         .eq('status', '승인')
         .order('req_date', { ascending: false }),
     [],
@@ -28,6 +28,15 @@ export function InboxView({ onPosted }: { onPosted: () => void }) {
 
   async function post(a: Approval) {
     setBusy(true)
+    if (a.kind === '품의') {
+      // 품의서는 구매 요청 승인 단계 — 전표는 만들지 않고 접수 확인만 한다 (실제 지출은 지출결의서로 처리)
+      await supabase.from('approval_lines').update({ decided: '승인', decided_at: new Date().toISOString() }).eq('approval_id', a.id).eq('role', '회계접수')
+      await supabase.from('approvals').update({ status: '회계접수' }).eq('id', a.id)
+      setBusy(false)
+      apprQ.reload()
+      onPosted()
+      return
+    }
     // 전표 생성 + 결재 상태 회계접수
     await supabase.from('acct_tx').insert({
       date: new Date().toISOString().slice(0, 10),
@@ -75,7 +84,10 @@ export function InboxView({ onPosted }: { onPosted: () => void }) {
               list.map((a) => (
                 <tr key={a.id}>
                   <td>
-                    <div className="t-title">{a.title || a.memo}</div>
+                    <div className="t-title">
+                      {a.kind === '품의' && <span className="badge blue" style={{ marginRight: 6 }}>품의서</span>}
+                      {a.title || a.memo}
+                    </div>
                     <div className="t-sub">
                       {a.doc_no} · {a.drafter_id ? empName[a.drafter_id] ?? '' : ''}
                     </div>
@@ -86,14 +98,14 @@ export function InboxView({ onPosted }: { onPosted: () => void }) {
                     </span>
                   </td>
                   <td className="tnum" style={{ textAlign: 'right', fontWeight: 700 }}>
-                    {a.amount ? eok(a.amount) : '—'}
+                    {a.amount ? won(a.amount) + '원' : '—'}
                   </td>
                   <td>
-                    <span className="badge">{a.account}</span>
+                    {a.account ? <span className="badge">{a.account}</span> : <span className="t-sub">—</span>}
                   </td>
                   <td style={{ textAlign: 'right' }}>
                     <button className="btn pri" style={{ padding: '6px 13px' }} onClick={() => post(a)} disabled={busy}>
-                      접수 · 전표 생성
+                      {a.kind === '품의' ? '접수 확인' : '접수 · 전표 생성'}
                     </button>
                   </td>
                 </tr>
@@ -103,7 +115,7 @@ export function InboxView({ onPosted }: { onPosted: () => void }) {
         </table>
       </div>
       <p className="sec-mini" style={{ marginTop: 10 }}>
-        승인된 지출결의서를 접수하면 <b>지출 전표</b>가 생성되어 자금현황·전표내역에 반영됩니다.
+        승인된 지출결의서를 접수하면 <b>지출 전표</b>가 생성되어 자금현황·전표내역에 반영됩니다. 품의서는 접수 확인만 하며 전표는 만들지 않습니다.
       </p>
     </section>
   )

@@ -83,7 +83,12 @@ export default function Approvals() {
     return sorted.slice(0, myIdx).every((l) => l.decided === '승인')
   })
   const drafted = all.filter((a) => a.drafter_id === myId)
-  const done = all.filter((a) => a.status === '회계접수' || (a.status === '승인' && a.kind !== '지출결의서'))
+  const done = all.filter((a) => {
+    if (a.status === '회계접수') return true
+    if (a.status !== '승인' || a.kind === '지출결의서') return false
+    // 회계접수 단계가 아직 대기 중인 문서는 접수 전까지 완료 문서가 아님
+    return !(linesByAppr[a.id] ?? []).some((l) => l.role === '회계접수' && l.decided === '대기')
+  })
 
   const list = folder === 'pending' ? pending : folder === 'drafted' ? drafted : done
   const title =

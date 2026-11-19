@@ -201,7 +201,7 @@ export default function Dashboard() {
 
       {/* 업무 중심 KPI */}
       <div className="stats">
-        <div className="stat">
+        <div className="stat" role="link" tabIndex={0} style={{ cursor: 'pointer' }} onClick={() => nav('/tasks/art')} onKeyDown={(e) => e.key === 'Enter' && nav('/tasks/art')}>
           <div>
             <div className="lbl">내 업무</div>
             <div className="val tnum">
@@ -214,7 +214,7 @@ export default function Dashboard() {
             <Icon name="tasks" size={21} />
           </span>
         </div>
-        <div className="stat">
+        <div className="stat" role="link" tabIndex={0} style={{ cursor: 'pointer' }} onClick={() => nav('/tasks/art')} onKeyDown={(e) => e.key === 'Enter' && nav('/tasks/art')}>
           <div>
             <div className="lbl">진행 중</div>
             <div className="val tnum">
@@ -227,7 +227,7 @@ export default function Dashboard() {
             <Icon name="clock" size={21} />
           </span>
         </div>
-        <div className="stat">
+        <div className="stat" role="link" tabIndex={0} style={{ cursor: 'pointer' }} onClick={() => nav('/tasks/art')} onKeyDown={(e) => e.key === 'Enter' && nav('/tasks/art')}>
           <div>
             <div className="lbl">완료한 업무</div>
             <div className="val tnum">
@@ -240,7 +240,7 @@ export default function Dashboard() {
             <Icon name="approval" size={21} />
           </span>
         </div>
-        <div className="stat dark">
+        <div className="stat dark" role="link" tabIndex={0} style={{ cursor: 'pointer' }} onClick={() => nav('/approvals')} onKeyDown={(e) => e.key === 'Enter' && nav('/approvals')}>
           <div>
             <div className="lbl">결재 대기</div>
             <div className="val tnum">

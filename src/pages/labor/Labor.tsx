@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { CcPicker, ccLines } from '../../components/CcPicker'
 import { PageHead } from '../../components/PageHead'
 import { ErrorBanner, LoadingRow, EmptyRow } from '../../components/States'
@@ -572,6 +572,32 @@ function PayView({ empById }: { empById: Record<string, { name: string; dept: st
   )
   const run = runQ.data?.[0]
   const status = run?.status ?? '작성중'
+  // 이 달 급여 상신 문서 (회수·삭제·접수 상태를 대장 상태와 맞추기 위해 조회)
+  const payApprQ = useQuery<{ id: string; status: string }[]>(
+    async () =>
+      await supabase
+        .from('approvals')
+        .select('id,status')
+        .eq('kind', '지출결의서')
+        .eq('dept_key', 'management')
+        .ilike('title', `%${ym}%`)
+        .ilike('title', '%급여%'),
+    [ym, run?.status],
+  )
+  const payDocs = payApprQ.data ?? []
+  const payAccounted = payDocs.some((d) => d.status === '회계접수') // 회계 접수까지 끝남
+  const payAlive = payDocs.some((d) => ['기안', '진행', '승인', '회계접수'].includes(d.status))
+  // 상신한 문서를 회수·삭제했거나 반려됐다면 대장을 다시 '작성중'으로 되돌린다
+  useEffect(() => {
+    if (!run || run.status !== '상신완료' || payApprQ.loading || payApprQ.error || payAlive) return
+    supabase
+      .from('payroll_runs')
+      .update({ status: '작성중', submitted_at: null })
+      .eq('id', run.id)
+      .eq('status', '상신완료')
+      .then(() => runQ.reload())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [run?.id, run?.status, payApprQ.loading, payAlive])
   const slipsQ = useQuery<Payslip[]>(
     async () =>
       run
@@ -708,7 +734,7 @@ function PayView({ empById }: { empById: Record<string, { name: string; dept: st
   }
 
   const canSubmit = status === '작성중' && slips.length > 0
-  const canSend = (status === '상신완료' || status === '지급완료') && slips.length > 0
+  const canSend = ((status === '상신완료' && payAccounted) || status === '지급완료') && slips.length > 0
   const showCopy = status === '작성중'
 
   return (
@@ -816,7 +842,7 @@ function PayView({ empById }: { empById: Record<string, { name: string; dept: st
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginTop: 14, flexWrap: 'wrap' }}>
           <div className="sec-mini" style={{ margin: 0 }}>
             {status === '상신완료' ? (
-              <>지급총액 <b>₩{won(tNet)}</b> · 지출결의서 상신됨 → <b>회계 › 접수 대기</b> 반영 후 명세서를 발송하세요.</>
+              <>지급총액 <b>₩{won(tNet)}</b> · 지출결의서 상신됨 → 결재 승인과 <b>회계 › 접수</b>가 끝나면 명세서를 발송할 수 있습니다.</>
             ) : status === '지급완료' ? (
               <>지급총액 <b>₩{won(tNet)}</b> · <b style={{ color: 'var(--brand)' }}>회계처리 완료</b> → 각 직원에게 급여명세서를 발송하세요(본인만 열람).</>
             ) : (
@@ -1223,6 +1249,9 @@ function PaySubmitModal({
   )
 
   async function submit() {
+    // 대장 상태와 연결되도록 제목에 '년-월'과 '급여'를 항상 포함
+    const rawTitle = title.trim() || `${ym} 급여 지급`
+    const docTitle = rawTitle.includes(ym) && rawTitle.includes('급여') ? rawTitle : `${ym} 급여 지급 · ${rawTitle}`
     setBusy(true)
     setErr(null)
     const docNo = `제${new Date().getFullYear()}-${String(Math.floor(Math.random() * 9000) + 1000)}호`
@@ -1235,11 +1264,11 @@ function PaySubmitModal({
         drafter_id: me?.id ?? null,
         biz_code: '법인',
         dept_key: 'management',
-        title: title.trim() || `${ym} 급여 지급`,
+        title: docTitle,
         amount: total,
         account: account || null,
         memo:
-          `${title.trim() || `${ym} 급여 지급`}\n\n` +
+          `${docTitle}\n\n` +
           rows.map((r, i) => `${i + 1}. ${r.name} · 지급 ${won(r.gross)}원 · 공제 ${won(r.ded)}원 · 실지급 ${won(r.net)}원`).join('\n') +
           `\n\n합계 ${won(total)}원`,
         req_date: new Date().toISOString().slice(0, 10),

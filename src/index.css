@@ -1158,3 +1158,7 @@ td>.hr-in{max-width:160px}
 .ad-ln.st-반려 span{color:var(--danger,#c0392b)}
 .ad .sp-ord{margin-top:0}
 .ad-body a{word-break:break-all}
+
+.ad-seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-left:auto}
+.ad-seg button{border:0;background:var(--surface);padding:5px 12px;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;font-family:inherit}
+.ad-seg button.on{background:var(--brand);color:#fff}

@@ -44,11 +44,15 @@ function InboxPanel({
   onPost: (lines: InboxLine[]) => void
 }) {
   const isArt = a.dept_key === 'art'
-  const [lines, setLines] = useState<InboxLine[]>(() => toLines(a))
+  const [items, setItems] = useState<InboxLine[]>(() => toLines(a))
+  const [mode, setMode] = useState<'each' | 'one'>('each') // 품목별 전표 / 한 건으로 합산
+  const total = items.reduce((x, l) => x + l.amount, 0)
+  const [one, setOne] = useState<InboxLine>(() => ({ ...toLines(a)[0], name: a.title ?? '', amount: total }))
   const [bulk, setBulk] = useState('')
   const [err, setErr] = useState<string | null>(null)
-  const set = (i: number, patch: Partial<InboxLine>) => setLines((ls) => ls.map((l, j) => (j === i ? { ...l, ...patch } : l)))
-  const total = lines.reduce((x, l) => x + l.amount, 0)
+  const lines = mode === 'one' ? [one] : items
+  const set = (i: number, patch: Partial<InboxLine>) =>
+    mode === 'one' ? setOne((o) => ({ ...o, ...patch })) : setItems((ls) => ls.map((l, j) => (j === i ? { ...l, ...patch } : l)))
 
   function submit() {
     if (lines.some((l) => !l.account)) return setErr('모든 항목의 계정을 선택하세요.')
@@ -61,7 +65,15 @@ function InboxPanel({
     <div className="ad" style={{ marginTop: 10 }}>
       <div className="ad-head">
         <h4>전표 처리</h4>
-        <span className="t-sub" style={{ fontSize: 11.5 }}>항목별로 계정{isArt ? '과 반영 사업' : ''}을 지정하면 항목마다 지출 전표가 생성됩니다.</span>
+        {items.length > 1 && (
+          <span className="ad-seg">
+            <button type="button" className={mode === 'each' ? 'on' : ''} onClick={() => setMode('each')}>품목별 전표 {items.length}건</button>
+            <button type="button" className={mode === 'one' ? 'on' : ''} onClick={() => setMode('one')}>한 건으로 합산</button>
+          </span>
+        )}
+      </div>
+      <div className="t-sub" style={{ fontSize: 11.5, marginTop: 4 }}>
+        {mode === 'one' ? `품목 ${items.length}건을 합산한 지출 전표 1건이 생성됩니다.` : `항목별로 계정${isArt ? '과 반영 사업' : ''}을 지정하면 항목마다 지출 전표가 생성됩니다.`}
       </div>
       {isArt && (
         <div className="ad-sec" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -72,7 +84,10 @@ function InboxPanel({
             value={bulk}
             onChange={(e) => {
               setBulk(e.target.value)
-              if (e.target.value) setLines((ls) => ls.map((l) => ({ ...l, project: e.target.value })))
+              if (e.target.value) {
+                setItems((ls) => ls.map((l) => ({ ...l, project: e.target.value })))
+                setOne((o) => ({ ...o, project: e.target.value }))
+              }
             }}
           >
             <option value="">선택…</option>
@@ -101,7 +116,7 @@ function InboxPanel({
         <tbody>
           {lines.map((l, i) => (
             <tr key={i}>
-              <td style={{ fontWeight: 700, wordBreak: 'break-all' }}>{l.name}</td>
+              <td style={{ fontWeight: 700, wordBreak: 'break-all' }}>{mode === 'one' ? `${l.name} (합산 ${items.length}품목)` : l.name}</td>
               <td>
                 <select className="hr-in" style={{ width: '100%' }} value={l.account} onChange={(e) => set(i, { account: e.target.value })}>
                   {[...new Set([...ACCT_LIST, l.account])].map((x) => (<option key={x}>{x}</option>))}

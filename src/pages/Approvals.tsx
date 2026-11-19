@@ -123,6 +123,20 @@ export default function Approvals() {
     a.drafter_id === myId &&
     (a.status === '진행' || a.status === '기안') &&
     lines.filter((l) => l.role !== '기안' && l.role !== '참조').every((l) => l.decided === '대기')
+  const [delId, setDelId] = useState<string | null>(null)
+  // 회수한 문서 삭제 (결재선은 함께 삭제됨)
+  async function removeDoc(a: Approval) {
+    if (delId !== a.id) return setDelId(a.id)
+    setDelId(null)
+    setActErr(null)
+    setBusy(true)
+    const { data, error } = await supabase.from('approvals').delete().eq('id', a.id).eq('status', '회수').select('id')
+    setBusy(false)
+    if (error) return setActErr(error.message)
+    if (!data || data.length === 0) return setActErr('삭제되지 않았습니다 (권한 확인 — SQL 29 실행 필요)')
+    setOpenId(null)
+    reload()
+  }
   async function recall(a: Approval) {
     if (recallId !== a.id) return setRecallId(a.id)
     setRecallId(null)
@@ -296,7 +310,18 @@ export default function Approvals() {
                       {folder === 'drafted' && (
                         <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
                           {a.status === '회수' ? (
-                            <span className="t-sub">회수됨</span>
+                            <>
+                              <span className="t-sub">회수됨 · </span>
+                              <button
+                                className="sp-btn b2"
+                                style={delId === a.id ? { color: 'var(--danger,#c0392b)', fontWeight: 800 } : undefined}
+                                onClick={() => removeDoc(a)}
+                                onBlur={() => setDelId(null)}
+                                disabled={busy}
+                              >
+                                {delId === a.id ? '정말 삭제' : '삭제'}
+                              </button>
+                            </>
                           ) : canRecall(a, lines) ? (
                             <button
                               className="sp-btn b2"

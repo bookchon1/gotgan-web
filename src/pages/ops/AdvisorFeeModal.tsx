@@ -5,7 +5,7 @@ import { won, approverLabel } from '../../lib/format'
 import { useAuth } from '../../lib/auth'
 import type { Advisor, Employee } from '../../types/db'
 
-/** 자문비 차수 일괄 상신 — 참석 위원 선택 + 차수 + 위원별 자문비 → 전자결재(지출결의서) 상신 */
+/** 자문비 차수 일괄 상신 — 참석 위원 선택 + 차수 + 위원별 자문비 → 전자결재(품의서) 상신 */
 export function AdvisorFeeModal({
   projectId,
   projectName,
@@ -41,7 +41,7 @@ export function AdvisorFeeModal({
       .from('approvals')
       .select('id', { count: 'exact', head: true })
       .eq('project_id', projectId)
-      .eq('kind', '지출결의서')
+      .in('kind', ['지출결의서', '품의'])
       .eq('budget_item', '자문회비')
       .then(({ count }) => {
         setPrevCount(count ?? 0)
@@ -89,20 +89,27 @@ export function AdvisorFeeModal({
     }
     setBusy(true)
     setErr(null)
-    // 전자결재(지출결의서) 상신 — 기안→승인(실장)→회계접수. 전표는 회계접수 승인 시 자동 생성.
+    // 전자결재(품의서) 상신 — 기안→검토→승인→회계접수. 회계 접수 시 위원별 전표 생성.
+    const feeBody =
+      `${docTitle}\n\n` +
+      advisors
+        .filter((a) => sel.has(a.id))
+        .map((a, i) => `${i + 1}. ${a.name}${a.org ? ` (${a.org})` : ''} · ${won(fees[a.id] || 0)}원`)
+        .join('\n') +
+      `\n\n합계 ${won(total)}원`
     const docNo = `제${new Date().getFullYear()}-${String(Math.floor(Math.random() * 9000) + 1000)}호`
     const { data: appr, error } = await supabase
       .from('approvals')
       .insert({
         doc_no: docNo,
-        kind: '지출결의서',
+        kind: '품의',
         drafter_id: me?.id ?? null,
         biz_code: '법인',
         dept_key: 'art',
         title: docTitle,
         amount: total,
         account: '자문료',
-        memo: `${docTitle} · 자문위원 ${selCount}인`,
+        memo: feeBody,
         project_id: projectId,
         budget_item: '자문회비',
         req_date: new Date().toISOString().slice(0, 10),
@@ -141,7 +148,7 @@ export function AdvisorFeeModal({
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="mh">
           <div>
-            <div className="eyebrow">자문비 지출결의</div>
+            <div className="eyebrow">자문비 품의</div>
             <h3>{docTitle}</h3>
             {prevCount > 0 && <div className="t-sub" style={{ fontSize: 11.5, marginTop: 2 }}>이전 상신 {prevCount}건 · 이번이 {prevCount + 1}차</div>}
           </div>
@@ -287,7 +294,7 @@ export function AdvisorFeeModal({
             취소
           </button>
           <button className="btn pri" onClick={submit} disabled={busy}>
-            {busy ? '상신 중…' : '지출결의서 상신'}
+            {busy ? '상신 중…' : '품의서 상신'}
           </button>
         </div>
       </div>

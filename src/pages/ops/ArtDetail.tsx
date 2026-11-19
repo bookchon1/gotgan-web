@@ -687,7 +687,7 @@ export default function ArtDetail() {
             ) : (
               advisors.length > 0 && (
                 <button className="btn pri" style={{ padding: '5px 12px', fontSize: 11.5 }} onClick={() => setAdvOpen(true)}>
-                  지출결의서 상신
+                  품의서 상신
                 </button>
               )
             )}

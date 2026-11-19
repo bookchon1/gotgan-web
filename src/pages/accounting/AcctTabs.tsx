@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { useQuery } from '../../lib/useQuery'
 import { won, dateOnly } from '../../lib/format'
 import type { Approval, ApprovalLine, AcctCard, Employee, ArtProject } from '../../types/db'
-import { ApprDetail, parseOrder } from '../../components/ApprDetail'
+import { ApprDetail, parseOrder, parseFees } from '../../components/ApprDetail'
 import { BUDGET_9 } from '../ops/BoqModal'
 import { bizShort, deptLabel } from '../../data/areas'
 
@@ -27,6 +27,9 @@ function toLines(a: Approval): InboxLine[] {
   const n = (v: string) => parseInt(v.replace(/,/g, ''), 10) || 0
   const baseProject = a.project_id ?? ''
   const baseItem = a.budget_item ?? '재료비'
+  const fees = body && !parsed ? parseFees(body) : null
+  if (fees)
+    return fees.rows.map((r) => ({ name: r.name, amount: n(r.amount), account: a.account ?? '자문료', project: baseProject, item: baseItem }))
   if (parsed)
     return parsed.rows.map((r) => ({ name: r.name, amount: n(r.amount), account: a.account ?? '재료비', project: baseProject, item: baseItem }))
   return [{ name: a.title ?? '', amount: Number(a.amount) || 0, account: a.account ?? '재료비', project: baseProject, item: baseItem }]

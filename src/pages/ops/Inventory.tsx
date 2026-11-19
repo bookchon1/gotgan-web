@@ -19,7 +19,7 @@ function defaultQty(it: Inv): number {
   return l > 0 ? l : 1
 }
 
-/** 상품 재고현황 — 목록(부족 표시) + 체크박스 발주·지출결의서 + 매입이력 + 입고 */
+/** 상품 재고현황 — 목록(부족 표시) + 체크박스 발주·품의서 + 매입이력 + 입고 */
 export default function Inventory() {
   const [q, setQ] = useState('')
   const [histOf, setHistOf] = useState<Inv | null>(null)
@@ -124,7 +124,7 @@ export default function Inventory() {
       <PageHead
         eyebrow="상품 · 재고"
         title="재고현황"
-        desc="완제품·부자재 재고를 확인하고, 부족 품목을 선택해 발주·지출결의서를 상신하세요."
+        desc="완제품·부자재 재고를 확인하고, 부족 품목을 선택해 품의서를 상신하세요."
         actions={
           <button className="btn txt add-txt" onClick={() => setAddOpen(true)}>
             + 품목 등록
@@ -135,7 +135,7 @@ export default function Inventory() {
         <ErrorBanner error={invQ.error} table="inventory" />
         <div className="toolbar">
           <h2 style={{ fontSize: 15, fontWeight: 800 }}>
-            재고 목록 <span className="count">{invQ.loading ? '…' : list.length}</span>
+            재고 목록
             {lowCount > 0 && (
               <span className="chip set-hold" style={{ marginLeft: 8, fontSize: 10 }}>
                 <i />
@@ -305,7 +305,7 @@ export default function Inventory() {
             }}
             onClick={() => setOrderOpen(true)}
           >
-            선택 품목 지출결의서 작성 →
+            선택 품목 품의서 작성 →
           </button>
         </div>
 

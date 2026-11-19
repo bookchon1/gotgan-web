@@ -118,9 +118,13 @@ function InboxPanel({
               )}
               {isArt && (
                 <td>
-                  <select className="hr-in" style={{ width: '100%' }} value={l.item} disabled={!l.project || l.project === NO_PROJECT} onChange={(e) => set(i, { item: e.target.value })}>
-                    {BUDGET_9.map((x) => (<option key={x}>{x}</option>))}
-                  </select>
+                  {l.project && l.project !== NO_PROJECT ? (
+                    <select className="hr-in" style={{ width: '100%' }} value={l.item} onChange={(e) => set(i, { item: e.target.value })}>
+                      {BUDGET_9.map((x) => (<option key={x}>{x}</option>))}
+                    </select>
+                  ) : (
+                    <span className="t-sub">—</span>
+                  )}
                 </td>
               )}
               <td className="tnum" style={{ textAlign: 'right', fontWeight: 700 }}>{won(l.amount)}</td>

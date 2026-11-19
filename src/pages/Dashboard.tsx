@@ -54,6 +54,8 @@ export default function Dashboard() {
   const name = me?.name ?? '구성원'
   const myId = me?.id ?? null
 
+  // 업무관리 바로가기 대상: 내 소속 부서 (부서 키 = 영역 id). 대표·미지정이면 미술.
+  const myArea = AREAS.some((x) => x.id === me?.dept_key) ? (me!.dept_key as string) : 'art'
   const now = new Date()
   const todayYmd = ymd(now)
   const mon = mondayOf(now)
@@ -201,7 +203,7 @@ export default function Dashboard() {
 
       {/* 업무 중심 KPI */}
       <div className="stats">
-        <div className="stat" role="link" tabIndex={0} style={{ cursor: 'pointer' }} onClick={() => nav('/tasks/art')} onKeyDown={(e) => e.key === 'Enter' && nav('/tasks/art')}>
+        <div className="stat" role="link" tabIndex={0} style={{ cursor: 'pointer' }} onClick={() => nav(`/tasks/${myArea}`)} onKeyDown={(e) => e.key === 'Enter' && nav(`/tasks/${myArea}`)}>
           <div>
             <div className="lbl">내 업무</div>
             <div className="val tnum">
@@ -214,7 +216,7 @@ export default function Dashboard() {
             <Icon name="tasks" size={21} />
           </span>
         </div>
-        <div className="stat" role="link" tabIndex={0} style={{ cursor: 'pointer' }} onClick={() => nav('/tasks/art')} onKeyDown={(e) => e.key === 'Enter' && nav('/tasks/art')}>
+        <div className="stat" role="link" tabIndex={0} style={{ cursor: 'pointer' }} onClick={() => nav(`/tasks/${myArea}`)} onKeyDown={(e) => e.key === 'Enter' && nav(`/tasks/${myArea}`)}>
           <div>
             <div className="lbl">진행 중</div>
             <div className="val tnum">
@@ -227,7 +229,7 @@ export default function Dashboard() {
             <Icon name="clock" size={21} />
           </span>
         </div>
-        <div className="stat" role="link" tabIndex={0} style={{ cursor: 'pointer' }} onClick={() => nav('/tasks/art')} onKeyDown={(e) => e.key === 'Enter' && nav('/tasks/art')}>
+        <div className="stat" role="link" tabIndex={0} style={{ cursor: 'pointer' }} onClick={() => nav(`/tasks/${myArea}`)} onKeyDown={(e) => e.key === 'Enter' && nav(`/tasks/${myArea}`)}>
           <div>
             <div className="lbl">완료한 업무</div>
             <div className="val tnum">
@@ -267,8 +269,8 @@ export default function Dashboard() {
                 </h2>
                 <p>진행 중인 업무를 마감이 가까운 순으로 보여줍니다.</p>
               </div>
-              <button className="btn txt r" onClick={() => nav('/tasks/art')}>
-                전체 보기 ›
+              <button className="btn txt r" onClick={() => nav(`/tasks/${myArea}`)}>
+                {AREAS.find((x) => x.id === myArea)?.label ?? ''} 업무 전체 보기 ›
               </button>
             </div>
             <div className="tbl-wrap">

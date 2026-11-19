@@ -82,6 +82,11 @@ async function fetchMe(userId: string): Promise<CurrentEmployee | null> {
   }
 }
 
+/** 로그인 시도 시점을 마지막 활동으로 기록 (이전 세션의 오래된 시각이 새 로그인을 끊지 않게) */
+function markActive() {
+  try { localStorage.setItem('gotgan_last_active', String(Date.now())) } catch { /* 무시 */ }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [session, setSession] = useState<Session | null>(null)
@@ -118,12 +123,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // 비활동 자동 로그아웃: 1시간간 조작이 없으면 로그아웃 (탭 간 마지막 활동 시각 공유)
   useEffect(() => {
-    if (!isConfigured || !session) return
+    if (!isConfigured) return
     const IDLE_MS = 60 * 60 * 1000 // 1시간
     const KEY = 'gotgan_last_active'
+    // 로그아웃 상태에서는 마지막 활동 시각을 지운다 — 남아 있으면 다음 로그인 직후 곧바로 로그아웃되는 문제가 생김
+    if (!session) {
+      try { localStorage.removeItem(KEY) } catch { /* 무시 */ }
+      return
+    }
     let timer: ReturnType<typeof setTimeout>
 
     const logout = () => {
+      try { localStorage.removeItem(KEY) } catch { /* 무시 */ }
       supabase.auth.signOut()
     }
     const schedule = () => {
@@ -178,10 +189,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAdmin: me?.role === 'admin',
     isMgmt: Boolean(me?.is_mgmt),
     async signIn(email, password) {
+      markActive()
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       return { error: error ? error.message : null }
     },
     async signInByName(name, password) {
+      markActive()
       // 이름 → 로그인 이메일 (RPC). 미등록이면 안내.
       const { data: email, error: rpcErr } = await supabase.rpc('login_email_for_name', {
         p_name: name.trim(),

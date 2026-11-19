@@ -262,7 +262,7 @@ export default function Dashboard() {
             <div className="panel-h">
               <div>
                 <h2>
-                  {isAdmin ? '진행 중 업무현황' : '진행 중 업무'}{' '}
+                  진행업무{' '}
                   <span className="count">{taskQ.loading ? '…' : tableTasks.length}</span>
                 </h2>
                 <p>진행 중인 업무를 마감이 가까운 순으로 보여줍니다.</p>

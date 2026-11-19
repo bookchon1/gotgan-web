@@ -3,6 +3,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { Icon } from './Icon'
 import { AREAS } from '../data/areas'
 import { useAuth } from '../lib/auth'
+import { usePendingApprovals } from '../lib/pendingApprovals'
 
 /** 현재 경로(pathname)가 어느 부서(area)에 속하는지 역으로 찾는다.
  *  예) /tasks/art → art, /hr → management, /ops/art → art */
@@ -95,6 +96,13 @@ export default function Sidebar({
   mobileOpen?: boolean
   onClose?: () => void
 }) {
+  const pendingN = usePendingApprovals()
+  // 브라우저 탭 제목에 결재대기 건수 표시: (2) 곳간
+  useEffect(() => {
+    const base = document.title.replace(/^\(\d+\)\s*/, '')
+    document.title = pendingN > 0 ? `(${pendingN}) ${base}` : base
+    return () => { document.title = base }
+  }, [pendingN])
   const { me, isAdmin, signOut } = useAuth()
   const loc = useLocation()
   const navigate = useNavigate()
@@ -180,6 +188,7 @@ export default function Sidebar({
         >
           <Icon name="approval" className="icon ic" />
           <span>전자결재</span>
+          {pendingN > 0 && <b className="cnt" title="내 결재대기">{pendingN}</b>}
         </NavLink>
 
         <NavLink

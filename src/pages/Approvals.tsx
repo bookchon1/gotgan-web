@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 import { useQuery } from '../lib/useQuery'
 import { won } from '../lib/format'
 import { useAuth } from '../lib/auth'
+import { notifyApprovalsChanged } from '../lib/pendingApprovals'
 import type { Approval, ApprovalLine, Employee, Payslip, PayrollRun } from '../types/db'
 import { ApprovalDraftModal } from './ApprovalDraftModal'
 import { ApprDetail, parseOrder } from '../components/ApprDetail'
@@ -114,6 +115,7 @@ export default function Approvals() {
   const reload = () => {
     apprQ.reload()
     linesQ.reload()
+    notifyApprovalsChanged() // 사이드바 알림 숫자 갱신
   }
 
   // 회수: 상신자가 본인 문서를 결재 시작 전에 되돌린다

@@ -1,4 +1,7 @@
+import { useEffect, useState } from 'react'
 import { won } from '../lib/format'
+import { supabase } from '../lib/supabase'
+import { bizShort, deptLabel } from '../data/areas'
 import type { Approval, ApprovalLine } from '../types/db'
 
 /** 본문 텍스트의 http(s) 주소를 눌러 열 수 있게 */
@@ -103,16 +106,28 @@ const KIND_LABEL: Record<string, string> = { 지출결의서: '지출결의서',
 
 /** 결재 문서 내용 (행을 눌렀을 때 펼침) — 지출결의서·품의서·기타 공통 */
 export function ApprDetail({ a, lines, empName }: { a: Approval; lines: ApprovalLine[]; empName: Record<string, string> }) {
+  const [projName, setProjName] = useState('')
+  useEffect(() => {
+    if (!a.project_id) return setProjName('')
+    supabase
+      .from('art_projects')
+      .select('name')
+      .eq('id', a.project_id)
+      .maybeSingle()
+      .then(({ data }) => setProjName((data as { name?: string } | null)?.name ?? ''))
+  }, [a.project_id])
+
   const body = a.memo && a.memo !== a.title ? a.memo : ''
   const order = body ? parseOrder(body) : null
+  const isExp = a.kind === '지출결의서'
+  const target = [projName, a.budget_item].filter(Boolean).join(' · ')
   const meta: [string, string][] = [
     ['문서번호', a.doc_no ?? '—'],
     ['기안일', a.req_date ?? '—'],
     ['기안자', a.drafter_id ? empName[a.drafter_id] ?? '—' : '—'],
   ]
-  if (a.biz_code || a.dept_key) meta.push(['사업자·부서', [a.biz_code, a.dept_key].filter(Boolean).join(' · ')])
-  if (a.account) meta.push(['계정과목', a.account])
-  if (a.budget_item) meta.push(['예산항목', a.budget_item])
+  if (a.biz_code) meta.push(['사업자', bizShort(a.biz_code)])
+  if (a.dept_key) meta.push(['부서', deptLabel(a.dept_key)])
   return (
     <div className="ad">
       <div className="ad-head">
@@ -128,13 +143,51 @@ export function ApprDetail({ a, lines, empName }: { a: Approval; lines: Approval
           </div>
         ))}
       </dl>
-      <div className="ad-sec">내용</div>
       {order ? (
-        <OrderTable o={order} />
+        <>
+          <div className="ad-sec">구매 내역</div>
+          <OrderTable o={order} />
+        </>
       ) : (
-        <div className="ad-body">
-          {body ? <Linkified text={body} /> : <span style={{ color: 'var(--muted)' }}>작성된 본문이 없습니다.</span>}
-        </div>
+        <>
+          {isExp && (
+            <>
+              <div className="ad-sec">지출 내역</div>
+              <table className="rowtbl sp-ord">
+                <colgroup>
+                  <col />
+                  <col style={{ width: 110 }} />
+                  <col style={{ width: 220 }} />
+                  <col style={{ width: 120 }} />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'left' }}>건명</th>
+                    <th style={{ textAlign: 'left' }}>계정</th>
+                    <th style={{ textAlign: 'left' }}>반영 사업 · 예산항목</th>
+                    <th>금액(원)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><b>{a.title || '—'}</b></td>
+                    <td style={{ textAlign: 'left' }}>{a.account || '—'}</td>
+                    <td style={{ textAlign: 'left' }}>{target || '—'}</td>
+                    <td className="tnum" style={{ fontWeight: 700 }}>{a.amount ? won(a.amount) : '—'}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </>
+          )}
+          {(body || !isExp) && (
+            <>
+              <div className="ad-sec">{isExp ? '비고' : '내용'}</div>
+              <div className="ad-body">
+                {body ? <Linkified text={body} /> : <span style={{ color: 'var(--muted)' }}>작성된 본문이 없습니다.</span>}
+              </div>
+            </>
+          )}
+        </>
       )}
       <div className="ad-sec">결재선</div>
       <div className="ad-lines">

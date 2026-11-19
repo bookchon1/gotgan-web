@@ -6,6 +6,7 @@ import { won, dateOnly } from '../../lib/format'
 import type { Approval, ApprovalLine, AcctCard, Employee, ArtProject } from '../../types/db'
 import { ApprDetail, parseOrder } from '../../components/ApprDetail'
 import { BUDGET_9 } from '../ops/BoqModal'
+import { bizShort, deptLabel } from '../../data/areas'
 
 // ===================== 접수 대기 =====================
 // 승인된 지출결의서·품의서(회계접수 전) → 항목별 계정·사업 연결 후 전표 생성
@@ -247,7 +248,7 @@ export function InboxView({ onPosted }: { onPosted: () => void }) {
                     </td>
                     <td>
                       <span className="chip inc" style={{ fontSize: 10 }}>
-                        {a.biz_code} · {a.dept_key}
+                        {[bizShort(a.biz_code), deptLabel(a.dept_key)].filter(Boolean).join(' · ')}
                       </span>
                     </td>
                     <td className="tnum" style={{ textAlign: 'right', fontWeight: 700 }}>

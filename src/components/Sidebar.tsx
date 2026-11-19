@@ -180,7 +180,6 @@ export default function Sidebar({
         >
           <Icon name="approval" className="icon ic" />
           <span>전자결재</span>
-          <b className="cnt">3</b>
         </NavLink>
 
         <NavLink

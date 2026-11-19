@@ -3,13 +3,148 @@ import { ErrorBanner, LoadingRow, EmptyRow } from '../../components/States'
 import { supabase } from '../../lib/supabase'
 import { useQuery } from '../../lib/useQuery'
 import { won, dateOnly } from '../../lib/format'
-import type { Approval, ApprovalLine, AcctCard, Employee } from '../../types/db'
-import { ApprDetail } from '../../components/ApprDetail'
+import type { Approval, ApprovalLine, AcctCard, Employee, ArtProject } from '../../types/db'
+import { ApprDetail, parseOrder } from '../../components/ApprDetail'
+import { BUDGET_9 } from '../ops/BoqModal'
 
 // ===================== 접수 대기 =====================
-// 승인된 지출결의서(회계접수 전) → 전표 생성
+// 승인된 지출결의서·품의서(회계접수 전) → 항목별 계정·사업 연결 후 전표 생성
+const ACCT_LIST = ['재료비', '소모품비', '비품', '운반비', '택배비', '도서인쇄비', '사무용품비', '복리후생비', '여비교통비', '지급수수료', '통신비', '관리비', '임대료', '인건비', '세금과공과', '잡비', '기타']
+const NO_PROJECT = '__none'
+
+interface InboxLine {
+  name: string
+  amount: number
+  account: string
+  project: string // '' 미선택 / NO_PROJECT 공통 / 사업 id
+  item: string // 예산항목
+}
+
+function toLines(a: Approval): InboxLine[] {
+  const body = a.memo && a.memo !== a.title ? a.memo : ''
+  const parsed = body ? parseOrder(body) : null
+  const n = (v: string) => parseInt(v.replace(/,/g, ''), 10) || 0
+  const baseProject = a.project_id ?? ''
+  const baseItem = a.budget_item ?? '재료비'
+  if (parsed)
+    return parsed.rows.map((r) => ({ name: r.name, amount: n(r.amount), account: a.account ?? '재료비', project: baseProject, item: baseItem }))
+  return [{ name: a.title ?? '', amount: Number(a.amount) || 0, account: a.account ?? '재료비', project: baseProject, item: baseItem }]
+}
+
+function InboxPanel({
+  a,
+  projects,
+  busy,
+  onPost,
+}: {
+  a: Approval
+  projects: Pick<ArtProject, 'id' | 'name'>[]
+  busy: boolean
+  onPost: (lines: InboxLine[]) => void
+}) {
+  const isArt = a.dept_key === 'art'
+  const [lines, setLines] = useState<InboxLine[]>(() => toLines(a))
+  const [bulk, setBulk] = useState('')
+  const [err, setErr] = useState<string | null>(null)
+  const set = (i: number, patch: Partial<InboxLine>) => setLines((ls) => ls.map((l, j) => (j === i ? { ...l, ...patch } : l)))
+  const total = lines.reduce((x, l) => x + l.amount, 0)
+
+  function submit() {
+    if (lines.some((l) => !l.account)) return setErr('모든 항목의 계정을 선택하세요.')
+    if (isArt && lines.some((l) => !l.project)) return setErr('미술 문서는 항목마다 반영할 사업을 선택하세요. (사업과 무관하면 "공통(사업 없음)")')
+    setErr(null)
+    onPost(lines)
+  }
+
+  return (
+    <div className="ad" style={{ marginTop: 10 }}>
+      <div className="ad-head">
+        <h4>전표 처리</h4>
+        <span className="t-sub" style={{ fontSize: 11.5 }}>항목별로 계정{isArt ? '과 반영 사업' : ''}을 지정하면 항목마다 지출 전표가 생성됩니다.</span>
+      </div>
+      {isArt && (
+        <div className="ad-sec" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span>전체 항목에 같은 사업 적용</span>
+          <select
+            className="hr-in"
+            style={{ maxWidth: 260 }}
+            value={bulk}
+            onChange={(e) => {
+              setBulk(e.target.value)
+              if (e.target.value) setLines((ls) => ls.map((l) => ({ ...l, project: e.target.value })))
+            }}
+          >
+            <option value="">선택…</option>
+            <option value={NO_PROJECT}>공통(사업 없음)</option>
+            {projects.map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
+          </select>
+        </div>
+      )}
+      <table className="rowtbl" style={{ tableLayout: 'fixed', marginTop: 8 }}>
+        <colgroup>
+          <col />
+          <col style={{ width: 120 }} />
+          {isArt && <col style={{ width: 200 }} />}
+          {isArt && <col style={{ width: 110 }} />}
+          <col style={{ width: 110 }} />
+        </colgroup>
+        <thead>
+          <tr>
+            <th style={{ textAlign: 'left' }}>항목</th>
+            <th style={{ textAlign: 'left' }}>계정</th>
+            {isArt && <th style={{ textAlign: 'left' }}>반영 사업</th>}
+            {isArt && <th style={{ textAlign: 'left' }}>예산항목</th>}
+            <th style={{ textAlign: 'right' }}>금액(원)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {lines.map((l, i) => (
+            <tr key={i}>
+              <td style={{ fontWeight: 700, wordBreak: 'break-all' }}>{l.name}</td>
+              <td>
+                <select className="hr-in" style={{ width: '100%' }} value={l.account} onChange={(e) => set(i, { account: e.target.value })}>
+                  {[...new Set([...ACCT_LIST, l.account])].map((x) => (<option key={x}>{x}</option>))}
+                </select>
+              </td>
+              {isArt && (
+                <td>
+                  <select className="hr-in" style={{ width: '100%' }} value={l.project} onChange={(e) => set(i, { project: e.target.value })}>
+                    <option value="">선택…</option>
+                    <option value={NO_PROJECT}>공통(사업 없음)</option>
+                    {projects.map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
+                  </select>
+                </td>
+              )}
+              {isArt && (
+                <td>
+                  <select className="hr-in" style={{ width: '100%' }} value={l.item} disabled={!l.project || l.project === NO_PROJECT} onChange={(e) => set(i, { item: e.target.value })}>
+                    {BUDGET_9.map((x) => (<option key={x}>{x}</option>))}
+                  </select>
+                </td>
+              )}
+              <td className="tnum" style={{ textAlign: 'right', fontWeight: 700 }}>{won(l.amount)}</td>
+            </tr>
+          ))}
+          <tr className="sp-sum">
+            <td colSpan={isArt ? 4 : 2}>합계</td>
+            <td className="tnum">{won(total)}원</td>
+          </tr>
+        </tbody>
+      </table>
+      {err && <div className="login-alert err" style={{ margin: '8px 0 0' }}>{err}</div>}
+      <div className="pf-act">
+        <span style={{ flex: 1 }} />
+        <button className="sp-btn b1" onClick={submit} disabled={busy}>
+          {busy ? '처리 중…' : `접수 · 전표 ${lines.length}건 생성`}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export function InboxView({ onPosted }: { onPosted: () => void }) {
   const [busy, setBusy] = useState(false)
+  const [postErr, setPostErr] = useState<string | null>(null)
   const apprQ = useQuery<Approval[]>(
     async () =>
       await supabase
@@ -22,6 +157,10 @@ export function InboxView({ onPosted }: { onPosted: () => void }) {
   )
   const empQ = useQuery<Pick<Employee, 'id' | 'name'>[]>(
     async () => await supabase.from('employees').select('id,name'),
+    [],
+  )
+  const projQ = useQuery<Pick<ArtProject, 'id' | 'name'>[]>(
+    async () => await supabase.from('art_projects').select('id,name').order('name', { ascending: true }),
     [],
   )
   const empName = useMemo(() => Object.fromEntries((empQ.data ?? []).map((e) => [e.id, e.name])), [empQ.data])
@@ -37,28 +176,35 @@ export function InboxView({ onPosted }: { onPosted: () => void }) {
     return m
   }, [linesQ.data])
 
-  async function post(a: Approval) {
+  async function post(a: Approval, lines: InboxLine[]) {
     setBusy(true)
-    if (a.kind === '품의') {
-      // 품의서 접수 시 지출 전표 생성 — 계정은 미지정이면 '재료비' (전표내역에서 눌러 수정 가능)
-      await supabase.from('approval_lines').update({ decided: '승인', decided_at: new Date().toISOString() }).eq('approval_id', a.id).eq('role', '회계접수')
-    }
-    // 전표 생성 + 결재 상태 회계접수
-    await supabase.from('acct_tx').insert({
-      date: new Date().toISOString().slice(0, 10),
-      biz_code: a.biz_code ?? '법인',
-      dept_key: a.dept_key,
-      tx_type: '지출',
-      account: a.account ?? (a.kind === '품의' ? '재료비' : null),
-      amount: a.amount,
-      memo: a.title ?? a.memo,
-      project_id: a.project_id,
-      budget_item: a.budget_item,
-      src: '결의서',
-      year: new Date().getFullYear(),
+    setPostErr(null)
+    const today = new Date().toISOString().slice(0, 10)
+    const rows = lines.map((l) => {
+      const linked = l.project && l.project !== NO_PROJECT
+      return {
+        date: today,
+        biz_code: a.biz_code ?? '법인',
+        dept_key: a.dept_key,
+        tx_type: '지출',
+        account: l.account,
+        amount: l.amount,
+        memo: lines.length > 1 ? `${a.title ?? ''} — ${l.name}` : a.title ?? l.name,
+        project_id: linked ? l.project : null,
+        budget_item: linked ? l.item : null,
+        src: '결의서',
+        year: new Date().getFullYear(),
+      }
     })
+    const { error } = await supabase.from('acct_tx').insert(rows)
+    if (error) {
+      setBusy(false)
+      return setPostErr('전표 생성 실패: ' + error.message)
+    }
+    await supabase.from('approval_lines').update({ decided: '승인', decided_at: new Date().toISOString() }).eq('approval_id', a.id).eq('role', '회계접수')
     await supabase.from('approvals').update({ status: '회계접수' }).eq('id', a.id)
     setBusy(false)
+    setOpenId(null)
     apprQ.reload()
     onPosted()
   }
@@ -73,6 +219,7 @@ export function InboxView({ onPosted }: { onPosted: () => void }) {
           </h2>
         </div>
       </div>
+      {postErr && <div className="login-alert err" style={{ margin: '0 0 8px' }}>{postErr}</div>}
       <div className="tbl-wrap">
         <table>
           <thead>
@@ -80,57 +227,52 @@ export function InboxView({ onPosted }: { onPosted: () => void }) {
               <th>문서 / 기안자</th>
               <th>사업자·부서</th>
               <th style={{ textAlign: 'right' }}>승인 금액</th>
-              <th>계정과목</th>
               <th style={{ textAlign: 'right' }}>접수</th>
             </tr>
           </thead>
           <tbody>
-            {apprQ.loading && <LoadingRow cols={5} />}
+            {apprQ.loading && <LoadingRow cols={4} />}
             {!apprQ.loading &&
               list.map((a) => (
                 <Fragment key={a.id}>
-                <tr style={{ cursor: 'pointer' }} className={openId === a.id ? 'pf-row on' : undefined} onClick={() => setOpenId(openId === a.id ? null : a.id)}>
-                  <td>
-                    <div className="t-title">
-                      {a.kind === '품의' && <span className="badge blue" style={{ marginRight: 6 }}>품의서</span>}
-                      {a.title || a.memo}
-                    </div>
-                    <div className="t-sub">
-                      {a.doc_no} · {a.drafter_id ? empName[a.drafter_id] ?? '' : ''} · {openId === a.id ? '내용 접기 ▴' : '내용 보기 ▾'}
-                    </div>
-                  </td>
-                  <td>
-                    <span className="chip inc" style={{ fontSize: 10 }}>
-                      {a.biz_code} · {a.dept_key}
-                    </span>
-                  </td>
-                  <td className="tnum" style={{ textAlign: 'right', fontWeight: 700 }}>
-                    {a.amount ? won(a.amount) + '원' : '—'}
-                  </td>
-                  <td>
-                    {a.account ? <span className="badge">{a.account}</span> : <span className="t-sub">—</span>}
-                  </td>
-                  <td style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
-                    <button className="btn pri" style={{ padding: '6px 13px' }} onClick={() => post(a)} disabled={busy}>
-                      접수 · 전표 생성
-                    </button>
-                  </td>
-                </tr>
-                {openId === a.id && (
-                  <tr className="pf-edit">
-                    <td colSpan={5}>
-                      <ApprDetail a={a} lines={linesBy[a.id] ?? []} empName={empName} />
+                  <tr style={{ cursor: 'pointer' }} className={openId === a.id ? 'pf-row on' : undefined} onClick={() => setOpenId(openId === a.id ? null : a.id)}>
+                    <td>
+                      <div className="t-title">
+                        {a.kind === '품의' && <span className="badge blue" style={{ marginRight: 6 }}>품의서</span>}
+                        {a.title || a.memo}
+                      </div>
+                      <div className="t-sub">
+                        {a.doc_no} · {a.drafter_id ? empName[a.drafter_id] ?? '' : ''}
+                      </div>
+                    </td>
+                    <td>
+                      <span className="chip inc" style={{ fontSize: 10 }}>
+                        {a.biz_code} · {a.dept_key}
+                      </span>
+                    </td>
+                    <td className="tnum" style={{ textAlign: 'right', fontWeight: 700 }}>
+                      {a.amount ? won(a.amount) + '원' : '—'}
+                    </td>
+                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <span className="sp-btn b1" style={{ cursor: 'pointer' }}>{openId === a.id ? '접기 ▴' : '내용 확인·접수 ▾'}</span>
                     </td>
                   </tr>
-                )}
+                  {openId === a.id && (
+                    <tr className="pf-edit">
+                      <td colSpan={4}>
+                        <ApprDetail a={a} lines={linesBy[a.id] ?? []} empName={empName} />
+                        <InboxPanel a={a} projects={projQ.data ?? []} busy={busy} onPost={(ls) => post(a, ls)} />
+                      </td>
+                    </tr>
+                  )}
                 </Fragment>
               ))}
-            {!apprQ.loading && list.length === 0 && <EmptyRow cols={5} text="접수할 결의서·품의서가 없습니다." />}
+            {!apprQ.loading && list.length === 0 && <EmptyRow cols={4} text="접수할 결의서·품의서가 없습니다." />}
           </tbody>
         </table>
       </div>
       <p className="sec-mini" style={{ marginTop: 10 }}>
-        승인된 지출결의서를 접수하면 <b>지출 전표</b>가 생성되어 자금현황·전표내역에 반영됩니다. 품의서도 접수하면 지출 전표가 생성됩니다(계정 미지정 시 재료비, 전표내역에서 수정 가능).
+        문서를 열어 항목별 계정(미술은 반영 사업·예산항목까지)을 지정하고 접수하면 항목마다 <b>지출 전표</b>가 생성되어 자금현황·전표내역·사업 예산에 반영됩니다.
       </p>
     </section>
   )

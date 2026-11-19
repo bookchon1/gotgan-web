@@ -19,9 +19,9 @@ export function Linkified({ text }: { text: string }) {
   )
 }
 
-interface Row { name: string; qty: string; unit: string; price: string; amount: string; link?: string }
+export interface Row { name: string; qty: string; unit: string; price: string; amount: string; link?: string }
 /** 재고 품의서 본문("1. 품목 · 3개 × 1,000원 = 3,000원 / 구매링크: …")을 표로 분해. 형식이 다르면 null */
-function parseOrder(memo: string): { reason: string; rows: Row[]; total: string } | null {
+export function parseOrder(memo: string): { reason: string; rows: Row[]; total: string } | null {
   const rows: Row[] = []
   const reason: string[] = []
   let total = ''

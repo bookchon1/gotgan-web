@@ -242,10 +242,10 @@ export function AdvisorFeeModal({
 
           {/* 결재선 */}
           <div className="mfield">
-            <label>검토자 · 승인자</label>
+            <label>결재선</label>
             <div style={{ display: 'flex', gap: 8 }}>
               <select className="ctl" value={reviewerId} onChange={(e) => setReviewerId(e.target.value)} style={{ flex: 1 }}>
-                <option value="">검토자 선택 (생략 가능)</option>
+                <option value="">검토선택</option>
                 {admins.map((e) => (
                   <option key={e.id} value={e.id}>
                     {e.name} {e.title}
@@ -253,7 +253,7 @@ export function AdvisorFeeModal({
                 ))}
               </select>
               <select className="ctl" value={approverId} onChange={(e) => setApproverId(e.target.value)} style={{ flex: 1 }}>
-                <option value="">승인자 선택 (실장)</option>
+                <option value="">승인선택</option>
                 {admins.map((e) => (
                   <option key={e.id} value={e.id}>
                     {e.name} {e.title}

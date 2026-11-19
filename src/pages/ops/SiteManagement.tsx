@@ -590,9 +590,9 @@ function SettleSubmitModal({
           </div>
 
           <div className="mfield" style={{ marginTop: 10 }}>
-            <label>검토자</label>
+            <label>결재선</label>
             <select className="ctl" value={reviewerId} onChange={(e) => setReviewerId(e.target.value)}>
-              <option value="">검토자 선택 (생략 가능)</option>
+              <option value="">검토선택</option>
               {admins.map((e) => (
                 <option key={e.id} value={e.id}>
                   {e.name} {e.title}

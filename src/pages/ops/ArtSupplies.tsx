@@ -392,16 +392,16 @@ function OrderPanel({
       </table>
       <div className="pf-grid" style={{ gridTemplateColumns: 'repeat(2,minmax(0,1fr))', marginTop: 12 }}>
         <label className="pf-f">
-          <span>검토자 (생략 가능)</span>
+          <span>검토</span>
           <select className="hr-in" value={reviewerId} onChange={(e) => setReviewerId(e.target.value)}>
-            <option value="">선택 안 함</option>
+            <option value="">검토선택</option>
             {admins.map((e) => (<option key={e.id} value={e.id}>{e.name} {e.title}</option>))}
           </select>
         </label>
         <label className="pf-f">
-          <span>승인자</span>
+          <span>승인</span>
           <select className="hr-in" value={approverId} onChange={(e) => setApproverId(e.target.value)}>
-            <option value="">선택 (실장)</option>
+            <option value="">승인선택</option>
             {admins.map((e) => (<option key={e.id} value={e.id}>{e.name} {e.title}</option>))}
           </select>
         </label>

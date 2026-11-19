@@ -486,7 +486,7 @@ export default function ArtSupplies() {
         )}
         <div className="toolbar">
           <h2 style={{ fontSize: 15, fontWeight: 800 }}>
-            재고 목록 <span className="count">{supQ.loading ? '…' : list.length}</span>
+            재고 목록
             {lowCount > 0 && (
               <button className={`chip set-hold sp-chipbtn${lowOnly ? ' on' : ''}`} style={{ marginLeft: 8, fontSize: 10 }} onClick={() => setLowOnly((v) => !v)} title="부족 품목만 보기">
                 <i />

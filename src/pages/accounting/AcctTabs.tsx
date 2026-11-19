@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { ErrorBanner, LoadingRow, EmptyRow } from '../../components/States'
 import { supabase } from '../../lib/supabase'
 import { useQuery } from '../../lib/useQuery'
 import { won, dateOnly } from '../../lib/format'
-import type { Approval, AcctCard, Employee } from '../../types/db'
+import type { Approval, ApprovalLine, AcctCard, Employee } from '../../types/db'
+import { ApprDetail } from '../../components/ApprDetail'
 
 // ===================== 접수 대기 =====================
 // 승인된 지출결의서(회계접수 전) → 전표 생성
@@ -25,6 +26,16 @@ export function InboxView({ onPosted }: { onPosted: () => void }) {
   )
   const empName = useMemo(() => Object.fromEntries((empQ.data ?? []).map((e) => [e.id, e.name])), [empQ.data])
   const list = apprQ.data ?? []
+  const [openId, setOpenId] = useState<string | null>(null)
+  const linesQ = useQuery<ApprovalLine[]>(
+    async () => await supabase.from('approval_lines').select('*').order('seq', { ascending: true }),
+    [],
+  )
+  const linesBy = useMemo(() => {
+    const m: Record<string, ApprovalLine[]> = {}
+    for (const l of linesQ.data ?? []) (m[l.approval_id] ??= []).push(l)
+    return m
+  }, [linesQ.data])
 
   async function post(a: Approval) {
     setBusy(true)
@@ -82,14 +93,15 @@ export function InboxView({ onPosted }: { onPosted: () => void }) {
             {apprQ.loading && <LoadingRow cols={5} />}
             {!apprQ.loading &&
               list.map((a) => (
-                <tr key={a.id}>
+                <Fragment key={a.id}>
+                <tr style={{ cursor: 'pointer' }} className={openId === a.id ? 'pf-row on' : undefined} onClick={() => setOpenId(openId === a.id ? null : a.id)}>
                   <td>
                     <div className="t-title">
                       {a.kind === '품의' && <span className="badge blue" style={{ marginRight: 6 }}>품의서</span>}
                       {a.title || a.memo}
                     </div>
                     <div className="t-sub">
-                      {a.doc_no} · {a.drafter_id ? empName[a.drafter_id] ?? '' : ''}
+                      {a.doc_no} · {a.drafter_id ? empName[a.drafter_id] ?? '' : ''} · {openId === a.id ? '내용 접기 ▴' : '내용 보기 ▾'}
                     </div>
                   </td>
                   <td>
@@ -103,14 +115,22 @@ export function InboxView({ onPosted }: { onPosted: () => void }) {
                   <td>
                     {a.account ? <span className="badge">{a.account}</span> : <span className="t-sub">—</span>}
                   </td>
-                  <td style={{ textAlign: 'right' }}>
+                  <td style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
                     <button className="btn pri" style={{ padding: '6px 13px' }} onClick={() => post(a)} disabled={busy}>
                       {a.kind === '품의' ? '접수 확인' : '접수 · 전표 생성'}
                     </button>
                   </td>
                 </tr>
+                {openId === a.id && (
+                  <tr className="pf-edit">
+                    <td colSpan={5}>
+                      <ApprDetail a={a} lines={linesBy[a.id] ?? []} empName={empName} />
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               ))}
-            {!apprQ.loading && list.length === 0 && <EmptyRow cols={5} text="접수할 결의서가 없습니다." />}
+            {!apprQ.loading && list.length === 0 && <EmptyRow cols={5} text="접수할 결의서·품의서가 없습니다." />}
           </tbody>
         </table>
       </div>

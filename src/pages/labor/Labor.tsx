@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CcPicker, ccLines } from '../../components/CcPicker'
+import { AttachPicker, uploadAttachments } from '../../components/AttachPicker'
 import { PageHead } from '../../components/PageHead'
 import { ErrorBanner, LoadingRow, EmptyRow } from '../../components/States'
 import { supabase } from '../../lib/supabase'
@@ -1230,6 +1231,7 @@ function PaySubmitModal({
   const [account, setAccount] = useState('급여 (판매관리비)')
   const [reviewerId, setReviewerId] = useState('')
   const [ccIds, setCcIds] = useState<string[]>([])
+  const [files, setFiles] = useState<File[]>([])
   const [approverId, setApproverId] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -1299,6 +1301,10 @@ function PaySubmitModal({
     lns.push({ approval_id: appr.id, seq: lns.length + 1, approver_id: null, role: '회계접수', decided: '대기' })
     lns.push(...ccLines(appr.id, lns.length + 1, ccIds))
     await supabase.from('approval_lines').insert(lns)
+    if (files.length) {
+      const bad = await uploadAttachments(appr.id, files, me?.id ?? null)
+      if (bad.length) alert(`첨부 실패: ${bad.join(', ')}\n문서는 상신되었습니다. 상신문서에서 다시 확인해 주세요.`)
+    }
 
     // 3) payroll_runs.status = '상신완료'
     const { error: stErr } = await supabase
@@ -1402,6 +1408,7 @@ function PaySubmitModal({
             <b>상신하면 자동으로:</b> ① 전자결재에 지출결의서 1건 등록(급여 명세 첨부) ② 최종 승인 시 <b>회계 › 접수 대기</b>로 이동 ③ 담당자 접수 시 장부에 <b>급여 지출</b>로 반영 — 개별 직원 전표가 아니라 <b>월 급여 1건</b>으로 처리됩니다.
           </div>
           <CcPicker value={ccIds} onChange={setCcIds} className="mfield" />
+          <AttachPicker files={files} onChange={setFiles} className="mfield" />
           {err && (
             <div className="login-alert err" style={{ margin: '8px 0 0' }}>
               {err}

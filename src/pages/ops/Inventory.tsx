@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CcPicker, ccLines } from '../../components/CcPicker'
+import { AttachPicker, uploadAttachments } from '../../components/AttachPicker'
 import { PageHead } from '../../components/PageHead'
 import { ErrorBanner, LoadingRow, EmptyRow } from '../../components/States'
 import { supabase } from '../../lib/supabase'
@@ -422,6 +423,7 @@ function OrderExpenseModal({
   const [reason, setReason] = useState('재고 부족 품목 구입 (최소재고 기준 보충)')
   const [reviewerId, setReviewerId] = useState('')
   const [ccIds, setCcIds] = useState<string[]>([])
+  const [files, setFiles] = useState<File[]>([])
   const [approverId, setApproverId] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -503,6 +505,10 @@ function OrderExpenseModal({
     lns.push({ approval_id: appr.id, seq: lns.length + 1, approver_id: null, role: '회계접수', decided: '대기' })
     lns.push(...ccLines(appr.id, lns.length + 1, ccIds))
     await supabase.from('approval_lines').insert(lns)
+    if (files.length) {
+      const bad = await uploadAttachments(appr.id, files, me?.id ?? null)
+      if (bad.length) alert(`첨부 실패: ${bad.join(', ')}\n문서는 상신되었습니다. 상신문서에서 다시 확인해 주세요.`)
+    }
 
     // 3) 시안 동작: 상신 즉시 각 품목 incoming 누적 + 단가 갱신
     const changedNames: string[] = []
@@ -681,6 +687,8 @@ function OrderExpenseModal({
           </div>
 
           <CcPicker value={ccIds} onChange={setCcIds} className="mfield" />
+
+          <AttachPicker files={files} onChange={setFiles} className="mfield" />
           {err && (
             <div className="login-alert err" style={{ margin: '8px 0 0' }}>
               {err}

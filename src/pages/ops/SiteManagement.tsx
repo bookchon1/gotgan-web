@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CcPicker, ccLines } from '../../components/CcPicker'
+import { AttachPicker, uploadAttachments } from '../../components/AttachPicker'
 import { PageHead } from '../../components/PageHead'
 import { ErrorBanner, LoadingRow, EmptyRow } from '../../components/States'
 import { supabase } from '../../lib/supabase'
@@ -452,6 +453,7 @@ function SettleSubmitModal({
   const [err, setErr] = useState<string | null>(null)
   const [reviewerId, setReviewerId] = useState('')
   const [ccIds, setCcIds] = useState<string[]>([])
+  const [files, setFiles] = useState<File[]>([])
 
   // 검토자 후보 (관리자, 본인 제외)
   const [admins, setAdmins] = useState<Pick<Employee, 'id' | 'name' | 'title'>[]>([])
@@ -516,6 +518,10 @@ function SettleSubmitModal({
     lns.push({ approval_id: appr.id, seq: lns.length + 1, approver_id: null, role: '회계접수', decided: '대기', decided_at: null })
     lns.push(...ccLines(appr.id, lns.length + 1, ccIds))
     await supabase.from('approval_lines').insert(lns)
+    if (files.length) {
+      const bad = await uploadAttachments(appr.id, files, me)
+      if (bad.length) alert(`첨부 실패: ${bad.join(', ')}\n문서는 상신되었습니다. 상신문서에서 다시 확인해 주세요.`)
+    }
 
     // 3) 포함된 일일기록 잠금 + 상태 전환 + 결의서 연결
     const ids = logs.map((l) => l.id)
@@ -621,6 +627,8 @@ function SettleSubmitModal({
           </div>
 
           <CcPicker value={ccIds} onChange={setCcIds} className="mfield" />
+
+          <AttachPicker files={files} onChange={setFiles} className="mfield" />
           {err && (
             <div className="login-alert err" style={{ margin: '8px 0 0' }}>
               {err}

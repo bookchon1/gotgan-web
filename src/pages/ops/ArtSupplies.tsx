@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { CcPicker, ccLines } from '../../components/CcPicker'
+import { AttachPicker, uploadAttachments } from '../../components/AttachPicker'
 import { PageHead } from '../../components/PageHead'
 import { ErrorBanner, LoadingRow, EmptyRow } from '../../components/States'
 import { supabase } from '../../lib/supabase'
@@ -252,6 +253,7 @@ function OrderPanel({
   const [reason, setReason] = useState('재고 부족 품목 구입')
   const [reviewerId, setReviewerId] = useState('')
   const [ccIds, setCcIds] = useState<string[]>([])
+  const [files, setFiles] = useState<File[]>([])
   const [approverId, setApproverId] = useState('')
   const [admins, setAdmins] = useState<Pick<Employee, 'id' | 'name' | 'title'>[]>([])
   const [busy, setBusy] = useState(false)
@@ -313,6 +315,10 @@ function OrderPanel({
     lns.push({ approval_id: appr.id, seq: lns.length + 1, approver_id: null, role: '회계접수', decided: '대기' })
     lns.push(...ccLines(appr.id, lns.length + 1, ccIds))
     const { error: lErr } = await supabase.from('approval_lines').insert(lns)
+    if (files.length) {
+      const bad = await uploadAttachments(appr.id, files, me?.id ?? null)
+      if (bad.length) alert(`첨부 실패: ${bad.join(', ')}\n문서는 상신되었습니다. 상신문서에서 다시 확인해 주세요.`)
+    }
     if (lErr) {
       setBusy(false)
       return setErr('결재선 저장 실패: ' + lErr.message)
@@ -410,6 +416,7 @@ function OrderPanel({
         </label>
       </div>
       <CcPicker value={ccIds} onChange={setCcIds} className="pf-f" />
+      <AttachPicker files={files} onChange={setFiles} className="pf-f" />
           {err && <div className="login-alert err" style={{ margin: '8px 0 0' }}>{err}</div>}
       <div className="pf-act">
         <span className="t-sub" style={{ fontSize: 11 }}>기안 {me?.name ?? '—'} › 검토 › 승인</span>

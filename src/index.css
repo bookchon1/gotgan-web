@@ -1162,3 +1162,6 @@ td>.hr-in{max-width:160px}
 .ad-seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-left:auto}
 .ad-seg button{border:0;background:var(--surface);padding:5px 12px;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;font-family:inherit}
 .ad-seg button.on{background:var(--brand);color:#fff}
+
+.ad-files{display:flex;flex-wrap:wrap;gap:6px}
+.ad-files .sp-link{cursor:pointer;border:0;font:inherit}

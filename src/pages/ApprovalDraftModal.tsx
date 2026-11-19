@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { CcPicker, ccLines } from '../components/CcPicker'
+import { AttachPicker, uploadAttachments } from '../components/AttachPicker'
 import { supabase } from '../lib/supabase'
 import { won, approverLabel, sortApprovers } from '../lib/format'
 import { useAuth } from '../lib/auth'
@@ -18,6 +19,7 @@ export function ApprovalDraftModal({ onClose, onCreated }: { onClose: () => void
   const [budgetItem, setBudgetItem] = useState('')
   const [reviewerId, setReviewerId] = useState('')
   const [ccIds, setCcIds] = useState<string[]>([])
+  const [files, setFiles] = useState<File[]>([])
   const [approverId, setApproverId] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -108,6 +110,10 @@ export function ApprovalDraftModal({ onClose, onCreated }: { onClose: () => void
       lines.push({ approval_id: appr.id, seq: lines.length + 1, approver_id: me?.id ?? null, role: '회계접수', decided: '대기' })
     lines.push(...ccLines(appr.id, lines.length + 1, ccIds))
     await supabase.from('approval_lines').insert(lines)
+    if (files.length) {
+      const bad = await uploadAttachments(appr.id, files, me?.id ?? null)
+      if (bad.length) alert(`첨부 실패: ${bad.join(', ')}\n문서는 상신되었습니다. 상신문서에서 다시 확인해 주세요.`)
+    }
 
     setBusy(false)
     onCreated()
@@ -255,6 +261,8 @@ export function ApprovalDraftModal({ onClose, onCreated }: { onClose: () => void
           </div>
 
           <CcPicker value={ccIds} onChange={setCcIds} className="mfield" />
+
+          <AttachPicker files={files} onChange={setFiles} className="mfield" />
           {err && <div className="login-alert err" style={{ margin: 0 }}>{err}</div>}
         </div>
         <div className="mf">

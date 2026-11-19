@@ -245,6 +245,21 @@ export function ApprDetail({ a, lines, empName }: { a: Approval; lines: Approval
       .then(({ data }) => setProjName((data as { name?: string } | null)?.name ?? ''))
   }, [a.project_id])
 
+  const [atts, setAtts] = useState<{ id: string; name: string; path: string; size: number | null }[]>([])
+  useEffect(() => {
+    supabase
+      .from('approval_files')
+      .select('id,name,path,size')
+      .eq('approval_id', a.id)
+      .order('created_at')
+      .then(({ data, error }) => setAtts(error ? [] : ((data ?? []) as typeof atts)))
+  }, [a.id])
+  async function openFile(path: string) {
+    const { data, error } = await supabase.storage.from('approval-files').createSignedUrl(path, 60)
+    if (error || !data) return alert('파일을 열 수 없습니다: ' + (error?.message ?? ''))
+    window.open(data.signedUrl, '_blank')
+  }
+
   const body = a.memo && a.memo !== a.title ? a.memo : ''
   const order = body ? parseOrder(body) : null
   const fees = body && !order ? parseFees(body) : null
@@ -327,6 +342,19 @@ export function ApprDetail({ a, lines, empName }: { a: Approval; lines: Approval
               </div>
             </>
           )}
+        </>
+      )}
+      {atts.length > 0 && (
+        <>
+          <div className="ad-sec">첨부파일</div>
+          <div className="ad-files">
+            {atts.map((f) => (
+              <button key={f.id} type="button" className="sp-link" onClick={() => openFile(f.path)}>
+                📎 {f.name}
+                {f.size ? ` (${f.size >= 1048576 ? (f.size / 1048576).toFixed(1) + 'MB' : Math.max(1, Math.round(f.size / 1024)) + 'KB'})` : ''}
+              </button>
+            ))}
+          </div>
         </>
       )}
       <div className="ad-sec">결재선</div>

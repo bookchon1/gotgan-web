@@ -121,7 +121,7 @@ export function parsePay(memo: string): { rows: PayRow[]; total: string } | null
   for (const raw of memo.split('\n')) {
     const t = raw.trim()
     if (!t) continue
-    const m = t.match(/^\d+\.\s+(.+?)\s·\s지급\s([\d,]+)원\s·\s공제\s([\d,]+)원\s·\s실지급\s([\d,]+)원$/)
+    const m = t.match(/^\d+\.\s+(.+?)\s·\s지급\s(-?[\d,]+)원\s·\s공제\s(-?[\d,]+)원\s·\s실지급\s(-?[\d,]+)원$/)
     if (m) {
       rows.push({ name: m[1], gross: m[2], ded: m[3], net: m[4] })
       continue

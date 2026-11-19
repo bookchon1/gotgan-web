@@ -83,7 +83,6 @@ export default function Approvals() {
     if (myIdx < 0) return false
     return sorted.slice(0, myIdx).every((l) => l.decided === '승인')
   })
-  const drafted = all.filter((a) => a.drafter_id === myId)
   // 참조 문서: 내가 참조자로 지정된 문서 (열람 전용)
   const ccDocs = all.filter((a) => (linesByAppr[a.id] ?? []).some((l) => l.role === '참조' && l.approver_id === myId))
   const done = all.filter((a) => {
@@ -92,13 +91,16 @@ export default function Approvals() {
     // 회계접수 단계가 아직 대기 중인 문서는 접수 전까지 완료 문서가 아님
     return !(linesByAppr[a.id] ?? []).some((l) => l.role === '회계접수' && l.decided === '대기')
   })
+  // 상신한 문서: 내가 올린 문서 중 아직 완료되지 않은 것 (완료된 문서는 완료 문서에서만 표시)
+  const doneIds = new Set(done.map((d) => d.id))
+  const drafted = all.filter((a) => a.drafter_id === myId && !doneIds.has(a.id))
 
   const list = folder === 'pending' ? pending : folder === 'drafted' ? drafted : folder === 'cc' ? ccDocs : done
   const title =
     folder === 'pending'
-      ? '내 결재 대기'
+      ? '결재대기'
       : folder === 'received'
-        ? '수신 문서함'
+        ? '수신문서'
         : folder === 'drafted'
           ? '상신한 문서'
           : folder === 'cc'
@@ -180,8 +182,8 @@ export default function Approvals() {
       />
 
       <div className="folders">
-        <Fold k="pending" cur={folder} set={setFolder} icon="doc" title="내 결재 대기" n={pending.length} />
-        <Fold k="received" cur={folder} set={setFolder} icon="approval" title="수신 문서함" n={mySlips.length} />
+        <Fold k="pending" cur={folder} set={setFolder} icon="doc" title="결재대기" n={pending.length} />
+        <Fold k="received" cur={folder} set={setFolder} icon="approval" title="수신문서" n={mySlips.length} />
         <Fold k="drafted" cur={folder} set={setFolder} icon="clock" title="상신한 문서" n={drafted.length} />
         <Fold k="done" cur={folder} set={setFolder} icon="check" title="완료 문서" n={done.length} />
         <Fold k="cc" cur={folder} set={setFolder} icon="doc" title="참조 문서" n={ccDocs.length} />
@@ -379,7 +381,7 @@ function ReceivedBox({
       <div className="panel-h">
         <div>
           <h2>
-            수신 문서함 <span className="count">{loading ? '…' : slips.length}</span>
+            수신문서 <span className="count">{loading ? '…' : slips.length}</span>
           </h2>
           <p>
             결재 대상은 아니지만 나에게 전달된 문서입니다. <b>각자 본인에게 수신된 문서만 표시됩니다.</b>

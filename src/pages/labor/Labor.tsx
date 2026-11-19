@@ -1249,6 +1249,10 @@ function PaySubmitModal({
   )
 
   async function submit() {
+    if (!approverId) {
+      setErr('승인할 사람을 선택하세요.')
+      return
+    }
     // 대장 상태와 연결되도록 제목에 '년-월'과 '급여'를 항상 포함
     const rawTitle = title.trim() || `${ym} 급여 지급`
     const docTitle = rawTitle.includes(ym) && rawTitle.includes('급여') ? rawTitle : `${ym} 급여 지급 · ${rawTitle}`

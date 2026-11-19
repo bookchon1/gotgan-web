@@ -270,6 +270,7 @@ function OrderPanel({
     setLines((ls) => ls.map((l, j) => (j === i ? { ...l, [k]: num(v) } : l)))
 
   async function submit() {
+    if (!approverId) return setErr('승인할 사람을 선택하세요.')
     if (!active.length) return setErr('구입 수량이 1 이상인 품목이 없습니다.')
     if (!title.trim()) return setErr('제목을 입력하세요.')
     setBusy(true)

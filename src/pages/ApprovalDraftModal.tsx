@@ -56,6 +56,10 @@ export function ApprovalDraftModal({ onClose, onCreated }: { onClose: () => void
   }, [projectId])
 
   async function submit() {
+    if (!approverId) {
+      setErr('승인할 사람을 선택하세요.')
+      return
+    }
     if (!title.trim()) {
       setErr('제목을 입력하세요.')
       return

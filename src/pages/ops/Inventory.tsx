@@ -444,6 +444,10 @@ function OrderExpenseModal({
   }
 
   async function submit() {
+    if (!approverId) {
+      setErr('승인할 사람을 선택하세요.')
+      return
+    }
     const active = lines.filter((d) => d.qty > 0)
     if (!active.length) {
       setErr('발주수량이 1 이상인 품목이 없습니다.')

@@ -81,6 +81,10 @@ export function AdvisorFeeModal({
   }
 
   async function submit() {
+    if (!approverId) {
+      setErr('승인할 사람을 선택하세요.')
+      return
+    }
     if (selCount === 0) {
       setErr('참석 위원을 1명 이상 선택하세요.')
       return

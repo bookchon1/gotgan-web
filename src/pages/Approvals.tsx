@@ -102,7 +102,7 @@ export default function Approvals() {
       : folder === 'received'
         ? '수신문서'
         : folder === 'drafted'
-          ? '상신한 문서'
+          ? '상신문서'
           : folder === 'cc'
             ? '참조 문서'
             : '완료 문서'
@@ -226,7 +226,7 @@ export default function Approvals() {
       <div className="folders">
         <Fold k="pending" cur={folder} set={setFolder} icon="doc" title="결재대기" n={pending.length} />
         <Fold k="received" cur={folder} set={setFolder} icon="approval" title="수신문서" n={mySlips.length} />
-        <Fold k="drafted" cur={folder} set={setFolder} icon="clock" title="상신한 문서" n={drafted.length} />
+        <Fold k="drafted" cur={folder} set={setFolder} icon="clock" title="상신문서" n={drafted.length} />
         <Fold k="done" cur={folder} set={setFolder} icon="check" title="완료 문서" n={done.length} />
         <Fold k="cc" cur={folder} set={setFolder} icon="doc" title="참조 문서" n={ccDocs.length} />
       </div>

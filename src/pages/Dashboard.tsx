@@ -112,18 +112,18 @@ export default function Dashboard() {
     }).length
   }, [apQ.data, lineQ.data, myId])
 
-  // 업무현황 테이블: 마감 가까운 순, 완료는 뒤로. 상위 6건.
-  const tableTasks = useMemo(() => {
-    const rank = (t: WorkTask) => (t.status === 'done' ? 1 : 0)
-    return [...tasks]
-      .sort((a, b) => {
-        if (rank(a) !== rank(b)) return rank(a) - rank(b)
-        const ad = dateOnly(a.due_date) || '9999'
-        const bd = dateOnly(b.due_date) || '9999'
-        return ad < bd ? -1 : ad > bd ? 1 : 0
-      })
-      .slice(0, 6)
-  }, [tasks])
+  // 업무현황 테이블: 진행 중인 업무만, 마감 가까운 순
+  const tableTasks = useMemo(
+    () =>
+      tasks
+        .filter((t) => t.status === 'prog')
+        .sort((a, b) => {
+          const ad = dateOnly(a.due_date) || '9999'
+          const bd = dateOnly(b.due_date) || '9999'
+          return ad < bd ? -1 : ad > bd ? 1 : 0
+        }),
+    [tasks],
+  )
 
   // 마감 임박: 미완료 + 마감 3일 이내(오늘 포함)
   const soonCount = useMemo(
@@ -262,10 +262,10 @@ export default function Dashboard() {
             <div className="panel-h">
               <div>
                 <h2>
-                  {isAdmin ? '전체 업무현황' : '팀 업무현황'}{' '}
-                  <span className="count">{taskQ.loading ? '…' : tasks.length}</span>
+                  {isAdmin ? '진행 중 업무현황' : '진행 중 업무'}{' '}
+                  <span className="count">{taskQ.loading ? '…' : tableTasks.length}</span>
                 </h2>
-                <p>마감이 가까운 업무부터 확인하세요.</p>
+                <p>진행 중인 업무를 마감이 가까운 순으로 보여줍니다.</p>
               </div>
               <button className="btn txt r" onClick={() => nav('/tasks/art')}>
                 전체 보기 ›
@@ -321,7 +321,7 @@ export default function Dashboard() {
                   {!taskQ.loading && tableTasks.length === 0 && (
                     <tr>
                       <td colSpan={4} style={{ textAlign: 'center', color: 'var(--muted)', padding: '28px 0' }}>
-                        등록된 업무가 없습니다.
+                        진행 중인 업무가 없습니다.
                       </td>
                     </tr>
                   )}

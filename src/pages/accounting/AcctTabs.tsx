@@ -10,7 +10,7 @@ import { bizShort, deptLabel } from '../../data/areas'
 
 // ===================== 접수 대기 =====================
 // 승인된 지출결의서·품의서(회계접수 전) → 항목별 계정·사업 연결 후 전표 생성
-const ACCT_LIST = ['재료비', '소모품비', '비품', '운반비', '택배비', '도서인쇄비', '사무용품비', '복리후생비', '여비교통비', '지급수수료', '통신비', '관리비', '임대료', '인건비', '세금과공과', '잡비', '기타']
+const ACCT_LIST = ['재료비', '상품·재료 매입', '포장비', '소모품비', '비품', '운반비', '택배비', '도서인쇄비', '사무용품비', '복리후생비', '여비교통비', '지급수수료', '통신비', '관리비', '임대료', '인건비', '세금과공과', '잡비', '기타']
 const NO_PROJECT = '__none'
 
 interface InboxLine {
@@ -25,6 +25,7 @@ function toLines(a: Approval): InboxLine[] {
   const body = a.memo && a.memo !== a.title ? a.memo : ''
   const parsed = body ? parseOrder(body) : null
   const n = (v: string) => parseInt(v.replace(/,/g, ''), 10) || 0
+  const defAcct = a.dept_key === 'product' ? '상품·재료 매입' : '재료비'
   const baseProject = a.project_id ?? ''
   const baseItem = a.budget_item ?? '재료비'
   const pay = body && !parsed ? parsePay(body) : null
@@ -34,8 +35,8 @@ function toLines(a: Approval): InboxLine[] {
   if (fees)
     return fees.rows.map((r) => ({ name: r.name, amount: n(r.amount), account: a.account ?? '자문료', project: baseProject, item: baseItem }))
   if (parsed)
-    return parsed.rows.map((r) => ({ name: r.name, amount: n(r.amount), account: a.account ?? '재료비', project: baseProject, item: baseItem }))
-  return [{ name: a.title ?? '', amount: Number(a.amount) || 0, account: a.account ?? '재료비', project: baseProject, item: baseItem }]
+    return parsed.rows.map((r) => ({ name: r.name, amount: n(r.amount), account: a.account ?? defAcct, project: baseProject, item: baseItem }))
+  return [{ name: a.title ?? '', amount: Number(a.amount) || 0, account: a.account ?? defAcct, project: baseProject, item: baseItem }]
 }
 
 function InboxPanel({

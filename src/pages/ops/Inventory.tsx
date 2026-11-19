@@ -418,8 +418,8 @@ function OrderExpenseModal({
       lastPrice: it.unit_price,
     })),
   )
-  const [memo, setMemo] = useState('재고 부족 품목 발주 (최소재고 기준 보충)')
-  const [account, setAccount] = useState('상품·재료 매입')
+  const [memo, setMemo] = useState('재고 부족 품목 구입 품의')
+  const [reason, setReason] = useState('재고 부족 품목 구입 (최소재고 기준 보충)')
   const [reviewerId, setReviewerId] = useState('')
   const [ccIds, setCcIds] = useState<string[]>([])
   const [approverId, setApproverId] = useState('')
@@ -463,14 +463,22 @@ function OrderExpenseModal({
       .from('approvals')
       .insert({
         doc_no: docNo,
-        kind: '지출결의서',
+        kind: '품의',
         drafter_id: me?.id ?? null,
         biz_code: '법인',
         dept_key: 'product',
-        title: memo.trim() || '재고 발주',
+        title: memo.trim() || '재고 발주 품의',
         amount: sumAmt,
-        account: account || null,
-        memo: `재고 발주 ${active.length}품목`,
+        // 본문: 사유 + 품목별 내역(+구매링크). 계정과목은 회계 접수 때 품목별로 지정
+        memo:
+          (reason.trim() ? reason.trim() + '\n\n' : '') +
+          active
+            .map((d, i) => {
+              const link = (items.find((x) => x.id === d.id)?.memo ?? '').match(/https?:\/\/[^\s<>"']+/)?.[0]
+              return `${i + 1}. ${d.name} · ${d.qty}개 × ${won(d.price)}원 = ${won(d.qty * d.price)}원` + (link ? `\n   구매링크: ${link}` : '')
+            })
+            .join('\n') +
+          `\n\n합계 ${won(sumAmt)}원`,
         req_date: new Date().toISOString().slice(0, 10),
         status: '진행',
       })
@@ -513,7 +521,7 @@ function OrderExpenseModal({
 
     setBusy(false)
     onSubmitted(
-      `✓ ${docNo} · 재고 발주 지출결의서를 상신했습니다(₩${won(sumAmt)}). ` +
+      `✓ ${docNo} · 재고 발주 품의서를 상신했습니다(₩${won(sumAmt)}). ` +
         `결재 승인은 전자결재함에서, 회계처리는 회계관리에서 진행됩니다. 처리된 품목은 "입고예정"으로 바뀌며, "입고" 버튼으로 재고에 반영됩니다.` +
         (changedNames.length ? ` · 매입단가 갱신: ${changedNames.join(', ')}` : ''),
     )
@@ -524,8 +532,8 @@ function OrderExpenseModal({
       <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 640 }}>
         <div className="mh">
           <div>
-            <div className="eyebrow">상품 · 재고 발주 지출결의</div>
-            <h3>지출결의서 작성</h3>
+            <div className="eyebrow">상품 · 재고 발주 품의</div>
+            <h3>품의서 작성</h3>
           </div>
           <button className="x" onClick={onClose}>
             ✕
@@ -622,16 +630,12 @@ function OrderExpenseModal({
           </div>
 
           <div className="mfield">
-            <label>적요</label>
+            <label>제목</label>
             <input className="ctl" value={memo} onChange={(e) => setMemo(e.target.value)} />
           </div>
           <div className="mfield">
-            <label>계정과목</label>
-            <select className="ctl" value={account} onChange={(e) => setAccount(e.target.value)}>
-              <option value="상품·재료 매입">상품·재료 매입</option>
-              <option value="소모품비">소모품비</option>
-              <option value="포장비">포장비</option>
-            </select>
+            <label>사유</label>
+            <input className="ctl" value={reason} onChange={(e) => setReason(e.target.value)} />
           </div>
           <div className="mfield">
             <label>결재선</label>
@@ -673,7 +677,7 @@ function OrderExpenseModal({
           </div>
 
           <div className="sec-mini" style={{ margin: '4px 0 0' }}>
-            <b>상신하면 자동으로:</b> ① 전자결재에 지출결의서 1건 등록 ② 승인 후 <b>회계 › 접수 대기</b>로 이동 ③ 상신 즉시 선택 품목이 <b>입고예정</b>으로 누적되고 매입단가가 갱신됩니다.
+            <b>상신하면 자동으로:</b> ① 전자결재에 품의서 1건 등록 ② 승인 후 <b>회계 › 접수 대기</b>로 이동 ③ 상신 즉시 선택 품목이 <b>입고예정</b>으로 누적되고 매입단가가 갱신됩니다.
           </div>
 
           <CcPicker value={ccIds} onChange={setCcIds} className="mfield" />

@@ -8,7 +8,7 @@ import { won } from '../lib/format'
 import { useAuth } from '../lib/auth'
 import type { Approval, ApprovalLine, Employee, Payslip, PayrollRun } from '../types/db'
 import { ApprovalDraftModal } from './ApprovalDraftModal'
-import { ApprDetail } from '../components/ApprDetail'
+import { ApprDetail, parseOrder } from '../components/ApprDetail'
 
 const KIND_BADGE: Record<string, { cls: string; label: string }> = {
   지출결의서: { cls: 'badge gold', label: '지출결의' },
@@ -153,6 +153,15 @@ export default function Approvals() {
       const { data: sp } = await supabase.from('art_supplies').select('incoming').eq('id', m.supply_id).maybeSingle()
       if (sp) await supabase.from('art_supplies').update({ incoming: Math.max(0, ((sp as { incoming: number }).incoming ?? 0) - m.qty) }).eq('id', m.supply_id)
       await supabase.from('art_supply_moves').delete().eq('id', m.id)
+    }
+    // 상품 재고 품의: 본문의 품목·수량으로 입고예정을 되돌린다 (품목명 기준)
+    if (a.kind === '품의' && a.dept_key === 'product' && a.memo) {
+      const o = parseOrder(a.memo)
+      for (const r of o?.rows ?? []) {
+        const qty = parseInt(r.qty.replace(/,/g, ''), 10) || 0
+        const { data: inv } = await supabase.from('inventory').select('id,incoming').eq('name', r.name).maybeSingle()
+        if (inv && qty > 0) await supabase.from('inventory').update({ incoming: Math.max(0, ((inv as { incoming: number }).incoming ?? 0) - qty) }).eq('id', (inv as { id: string }).id)
+      }
     }
     setBusy(false)
     reload()

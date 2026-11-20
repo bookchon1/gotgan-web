@@ -957,6 +957,21 @@ function DailyDraftModal({
     }
     setBusy(true)
     setErr(null)
+    // 같은 날 다른 기록에 이미 등록된 작업자가 있으면 경고 후 저장 여부 확인
+    {
+      const { data: same } = await supabase.from('site_logs').select('id,project_name,work_text,crew').eq('log_date', date)
+      const warns: string[] = []
+      for (const l of ((same ?? []) as Pick<SiteLog, 'id' | 'project_name' | 'work_text' | 'crew'>[]).filter((x) => x.id !== editing?.id)) {
+        for (const c of crew) {
+          if ((l.crew ?? []).some((o) => (o.worker_id && o.worker_id === c.worker_id) || o.name === c.name))
+            warns.push(`${c.name} 님은 ${mmdd(date)}에 ${l.project_name || '다른 기록'}${l.work_text ? `(${l.work_text})` : ''}에도 등록돼 있습니다.`)
+        }
+      }
+      if (warns.length && !window.confirm(`${warns.join('\n')}\n\n같은 날 일당이 중복으로 계산될 수 있습니다. 그래도 저장할까요?`)) {
+        setBusy(false)
+        return
+      }
+    }
     const projName = projects.find((p) => p.id === projectId)?.name ?? null
     const fields = {
       project_id: projectId || null,

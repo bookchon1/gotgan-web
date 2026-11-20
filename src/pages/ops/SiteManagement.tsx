@@ -417,7 +417,7 @@ function SettleTab({
       </div>
 
       <div className="sec-mini" style={{ marginTop: 10 }}>
-        상신 시 일일기록은 잠기고 중복 청구를 막습니다. 대표(김도래) 승인 후 회계 접수 대기로 넘어갑니다.
+        상신 시 일일기록은 잠기고 중복 청구를 막습니다. 승인 후 회계 접수 대기로 넘어갑니다.
       </div>
 
       {confirmOpen && (
@@ -472,6 +472,7 @@ function SettleSubmitModal({
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [reviewerId, setReviewerId] = useState('')
+  const [approverId, setApproverId] = useState('')
   const [ccIds, setCcIds] = useState<string[]>([])
   const [files, setFiles] = useState<File[]>([])
 
@@ -516,6 +517,10 @@ function SettleSubmitModal({
       setErr('상신할 미정산 기록이 없습니다.')
       return
     }
+    if (!approverId) {
+      setErr('승인할 사람을 선택하세요.')
+      return
+    }
     setBusy(true)
     setErr(null)
     const docNo = `제${new Date().getFullYear()}-${String(Math.floor(Math.random() * 9000) + 1000)}호`
@@ -549,9 +554,7 @@ function SettleSubmitModal({
       return
     }
 
-    // 2) 결재선: 기안(본인 승인) → 검토(선택) → 승인(대표 김도래) → 회계접수
-    const { data: boss } = await supabase.from('employees').select('id').eq('name', '김도래').maybeSingle()
-    const bossId = (boss as Pick<Employee, 'id'> | null)?.id ?? null
+    // 2) 결재선: 기안(본인 승인) → 검토(선택) → 승인(선택) → 회계접수
     const now = new Date().toISOString()
     const lns: {
       approval_id: string
@@ -562,7 +565,7 @@ function SettleSubmitModal({
       decided_at: string | null
     }[] = [{ approval_id: appr.id, seq: 1, approver_id: me, role: '기안', decided: '승인', decided_at: now }]
     if (reviewerId) lns.push({ approval_id: appr.id, seq: lns.length + 1, approver_id: reviewerId, role: '검토', decided: '대기', decided_at: null })
-    lns.push({ approval_id: appr.id, seq: lns.length + 1, approver_id: bossId, role: '승인', decided: '대기', decided_at: null })
+    lns.push({ approval_id: appr.id, seq: lns.length + 1, approver_id: approverId, role: '승인', decided: '대기', decided_at: null })
     lns.push({ approval_id: appr.id, seq: lns.length + 1, approver_id: null, role: '회계접수', decided: '대기', decided_at: null })
     lns.push(...ccLines(appr.id, lns.length + 1, ccIds))
     await supabase.from('approval_lines').insert(lns)
@@ -664,8 +667,13 @@ function SettleSubmitModal({
                   </option>
                 ))}
               </select>
-              <select className="ctl" style={{ flex: 1 }} value="" disabled title="승인자는 대표님으로 자동 지정됩니다">
+              <select className="ctl" style={{ flex: 1 }} value={approverId} onChange={(e) => setApproverId(e.target.value)}>
                 <option value="">승인</option>
+                {admins.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {approverLabel(e)}
+                  </option>
+                ))}
               </select>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontSize: 11.5, marginTop: 8 }}>
@@ -676,8 +684,12 @@ function SettleSubmitModal({
                   <span className="badge">검토 {admins.find((a) => a.id === reviewerId)?.name ?? ''}</span>
                 </>
               )}
-              <span style={{ color: 'var(--muted)' }}>›</span>
-              <span className="badge gold">승인 김도래(대표)</span>
+              {approverId && (
+                <>
+                  <span style={{ color: 'var(--muted)' }}>›</span>
+                  <span className="badge gold">승인 {admins.find((a) => a.id === approverId)?.name ?? ''}</span>
+                </>
+              )}
               <span style={{ color: 'var(--muted)' }}>›</span>
               <span className="badge green">회계접수 담당</span>
             </div>

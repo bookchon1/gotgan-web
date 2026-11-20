@@ -20,9 +20,9 @@ const SETTLE_CHIP: Record<SiteLog['settle_status'], [string, string]> = {
   정산완료: ['set-done', '정산완료'],
 }
 
-/** crew 배열 → "박작업 18만·최보조 13만" 텍스트 */
+/** crew 배열 → "박작업·최보조" 텍스트 (개인별 금액은 표시하지 않음) */
 function crewText(crew: SiteCrewMember[]): string {
-  return crew.map((c) => `${c.name} ${eok(c.wage)}`).join('·')
+  return crew.map((c) => c.name).join('·')
 }
 
 /** 미술 · 현장관리 — 일일기록 / 기간 정산 / 작업자·일당 */
@@ -336,7 +336,7 @@ function SettleTab({
             <tr>
               <th>일자</th>
               <th>업무</th>
-              <th>작업자별 인건비</th>
+              <th>작업자</th>
               <th style={{ textAlign: 'right' }}>식대</th>
               <th style={{ textAlign: 'right' }}>인건비</th>
             </tr>

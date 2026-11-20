@@ -57,6 +57,26 @@ export default function SiteManagement() {
   const workers = workerQ.data ?? []
   const logs = logQ.data ?? []
 
+  // 결의서가 삭제·회수돼 연결이 끊긴 채 잠겨 있는 기록은 자동으로 풀어 다시 정산할 수 있게 한다
+  useEffect(() => {
+    const stuck = logs.filter((l) => l.locked && l.settle_status === '회계처리대기')
+    if (!stuck.length) return
+    const ids = [...new Set(stuck.map((l) => l.approval_id).filter(Boolean) as string[])]
+    ;(async () => {
+      const { data } = ids.length ? await supabase.from('approvals').select('id,status').in('id', ids) : { data: [] }
+      const st = new Map((data ?? []).map((a) => [a.id as string, a.status as string]))
+      const free = stuck.filter((l) => !l.approval_id || !st.has(l.approval_id) || st.get(l.approval_id) === '회수').map((l) => l.id)
+      if (!free.length) return
+      const { data: up } = await supabase
+        .from('site_logs')
+        .update({ locked: false, settle_status: '미정산', approval_id: null })
+        .in('id', free)
+        .select('id')
+      if (up && up.length) logQ.reload()
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [logQ.data])
+
   const topBtn =
     tab === 'daily' ? (
       <button className="btn txt add-txt" onClick={() => { setEditing(null); setDraftOpen(true) }}>
@@ -643,9 +663,6 @@ function SettleSubmitModal({
                     {approverLabel(e)}
                   </option>
                 ))}
-              </select>
-              <select className="ctl" style={{ flex: 1 }} value="boss" disabled>
-                <option value="boss">승인 · 김도래(대표) 고정</option>
               </select>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontSize: 11.5, marginTop: 8 }}>

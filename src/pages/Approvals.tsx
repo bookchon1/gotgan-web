@@ -174,6 +174,8 @@ export default function Approvals() {
       setBusy(false)
       return setActErr(error?.message ?? '회수되지 않았습니다. 이미 결재가 진행됐을 수 있습니다.')
     }
+    // 현장 정산 결의서: 잠긴 일일기록을 풀어 다시 정산할 수 있게 한다
+    await supabase.from('site_logs').update({ locked: false, settle_status: '미정산', approval_id: null }).eq('approval_id', a.id)
     // 미술 재고 품의: 상신 때 올라간 입고예정 수량을 되돌린다
     const { data: mv } = await supabase.from('art_supply_moves').select('id,supply_id,qty').eq('approval_id', a.id).eq('kind', '발주')
     for (const m of (mv ?? []) as { id: string; supply_id: string; qty: number }[]) {

@@ -664,6 +664,9 @@ function SettleSubmitModal({
                   </option>
                 ))}
               </select>
+              <select className="ctl" style={{ flex: 1 }} value="" disabled title="승인자는 대표님으로 자동 지정됩니다">
+                <option value="">승인</option>
+              </select>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontSize: 11.5, marginTop: 8 }}>
               <span className="badge">기안 본인</span>

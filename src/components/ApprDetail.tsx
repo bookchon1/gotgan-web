@@ -51,6 +51,82 @@ export function parseOrder(memo: string): { reason: string; rows: Row[]; total: 
   }
   return rows.length ? { reason: reason.join('\n'), rows, total } : null
 }
+export interface SiteRow { name: string; days: string; dates: string; amount: string }
+/** 현장 정산 본문("1. 이름 · 근무 2일 (11/06, 11/20) · 660,000원 … 식대 N원 / 합계 N원")을 인원별 표로 분해 */
+export function parseSite(memo: string): { title: string; rows: SiteRow[]; meal: string; total: string } | null {
+  const rows: SiteRow[] = []
+  const head: string[] = []
+  let meal = ''
+  let total = ''
+  for (const raw of memo.split('\n')) {
+    const t = raw.trim()
+    if (!t) continue
+    const m = t.match(/^\d+\.\s+(.+?)\s·\s근무\s(\d+)일\s\((.*)\)\s·\s(-?[\d,]+)원$/)
+    if (m) {
+      rows.push({ name: m[1], days: m[2], dates: m[3], amount: m[4] })
+      continue
+    }
+    const ml = t.match(/^식대\s+([\d,]+)원$/)
+    if (ml) { meal = ml[1]; continue }
+    const sum = t.match(/^합계\s+([\d,]+)원$/)
+    if (sum) { total = sum[1]; continue }
+    if (!rows.length) head.push(t)
+    else return null
+  }
+  return rows.length ? { title: head.join(' '), rows, meal, total } : null
+}
+
+function SiteTable({ f }: { f: { title: string; rows: SiteRow[]; meal: string; total: string } }) {
+  const labor = f.rows.reduce((n, r) => n + (parseInt(r.amount.replace(/,/g, ''), 10) || 0), 0)
+  return (
+    <table className="rowtbl sp-ord">
+      <colgroup>
+        <col style={{ width: 50 }} />
+        <col style={{ width: 120 }} />
+        <col style={{ width: 80 }} />
+        <col />
+        <col style={{ width: 130 }} />
+      </colgroup>
+      <thead>
+        <tr>
+          <th style={{ textAlign: 'left' }}>순번</th>
+          <th style={{ textAlign: 'left' }}>이름</th>
+          <th>근무일수</th>
+          <th style={{ textAlign: 'left' }}>근무일</th>
+          <th>금액(원)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {f.rows.map((r, i) => (
+          <tr key={i}>
+            <td style={{ textAlign: 'left', color: 'var(--muted)' }}>{i + 1}</td>
+            <td style={{ textAlign: 'left' }}><b>{r.name}</b></td>
+            <td className="tnum">{r.days}일</td>
+            <td style={{ textAlign: 'left' }} className="t-sub">{r.dates}</td>
+            <td className="tnum" style={{ fontWeight: 700 }}>{r.amount}</td>
+          </tr>
+        ))}
+        <tr className="sp-sum">
+          <td colSpan={4}>인건비 합계 ({f.rows.length}명)</td>
+          <td className="tnum">{won(labor)}원</td>
+        </tr>
+        {f.meal && (
+          <tr className="sp-sum">
+            <td colSpan={4}>식대 합계</td>
+            <td className="tnum">{f.meal}원</td>
+          </tr>
+        )}
+        {f.total && (
+          <tr className="sp-sum">
+            <td colSpan={4}>총 합계</td>
+            <td className="tnum">{f.total}원</td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  )
+}
+
 export interface FeeRow { name: string; org: string; amount: string }
 /** 자문비 품의 본문("1. 이름 (소속) · 300,000원 … 합계 N원")을 대상자별 표로 분해. 형식이 다르면 null */
 export function parseFees(memo: string): { title: string; rows: FeeRow[]; total: string } | null {
@@ -262,8 +338,9 @@ export function ApprDetail({ a, lines, empName }: { a: Approval; lines: Approval
 
   const body = a.memo && a.memo !== a.title ? a.memo : ''
   const order = body ? parseOrder(body) : null
-  const fees = body && !order ? parseFees(body) : null
-  const pay = body && !order && !fees ? parsePay(body) : null
+  const site = body && !order ? parseSite(body) : null
+  const fees = body && !order && !site ? parseFees(body) : null
+  const pay = body && !order && !site && !fees ? parsePay(body) : null
   const isExp = a.kind === '지출결의서'
   const target = [projName, a.budget_item].filter(Boolean).join(' · ')
   const meta: [string, string][] = [
@@ -292,6 +369,12 @@ export function ApprDetail({ a, lines, empName }: { a: Approval; lines: Approval
         <>
           <div className="ad-sec">구매 내역</div>
           <OrderTable o={order} />
+        </>
+      ) : site ? (
+        <>
+          <div className="ad-sec">현장 정산 내역 (인원별)</div>
+          {site.title && <div className="t-sub" style={{ margin: '0 0 6px' }}>{site.title}</div>}
+          <SiteTable f={site} />
         </>
       ) : pay ? (
         <>

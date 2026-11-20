@@ -467,6 +467,29 @@ function SettleSubmitModal({
 
   const periodTxt = `${from || '…'}~${to || '…'}`
 
+  // 사람별 집계: 누가 며칠(어느 날) 나와 얼마인지
+  const people = useMemo(() => {
+    const m = new Map<string, { name: string; dates: string[]; amount: number }>()
+    let unassigned = 0
+    for (const l of logs) {
+      const crew = l.crew ?? []
+      let sum = 0
+      for (const c of crew) {
+        const key = c.worker_id ?? `n:${c.name}`
+        const e = m.get(key) ?? { name: c.name, dates: [], amount: 0 }
+        e.dates.push(mmdd(l.log_date))
+        e.amount += Number(c.wage) || 0
+        sum += Number(c.wage) || 0
+        m.set(key, e)
+      }
+      const rest = (Number(l.labor_cost) || 0) - sum
+      if (rest > 0) unassigned += rest
+    }
+    const list = [...m.values()].sort((a, b) => a.name.localeCompare(b.name, 'ko'))
+    return { list, unassigned }
+  }, [logs])
+  const headcount = people.list.length
+
   async function submit() {
     if (logs.length === 0) {
       setErr('상신할 미정산 기록이 없습니다.')
@@ -488,7 +511,11 @@ function SettleSubmitModal({
         title: `${projectName} 현장 정산 (${periodTxt})`,
         amount: total,
         account: '노무비',
-        memo: `현장 일일기록 ${logs.length}건 정산`,
+        memo:
+          `${projectName} 현장 일일기록 ${logs.length}건 정산 (${periodTxt})\n\n` +
+          people.list.map((p, i) => `${i + 1}. ${p.name} · 근무 ${p.dates.length}일 (${p.dates.join(', ')}) · ${won(p.amount)}원`).join('\n') +
+          (people.unassigned > 0 ? `\n${people.list.length + 1}. 기타(작업자 미지정) · 근무 0일 (-) · ${won(people.unassigned)}원` : '') +
+          `\n\n식대 ${won(mealSum)}원\n합계 ${won(total)}원`,
         project_id: projectId || null,
         req_date: TODAY,
         status: '진행',
@@ -536,7 +563,7 @@ function SettleSubmitModal({
 
   return (
     <div className="modal-bg" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 520 }}>
+      <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 640 }}>
         <div className="mh">
           <div>
             <div className="eyebrow">현장 정산 · 지출결의</div>
@@ -568,6 +595,7 @@ function SettleSubmitModal({
                 <tr>
                   <th>일자</th>
                   <th>업무</th>
+                  <th>투입 인원</th>
                   <th style={{ textAlign: 'right' }}>식대</th>
                   <th style={{ textAlign: 'right' }}>인건비</th>
                 </tr>
@@ -577,21 +605,60 @@ function SettleSubmitModal({
                   <tr key={l.id}>
                     <td className="tnum">{mmdd(l.log_date)}</td>
                     <td>{l.work_text}</td>
+                    <td className="t-sub">{(l.crew ?? []).map((c) => c.name).join(', ') || '—'}</td>
                     <td className="tnum" style={{ textAlign: 'right' }}>
-                      {eok(l.meal_cost)}
+                      {won(l.meal_cost)}원
                     </td>
                     <td className="tnum" style={{ textAlign: 'right' }}>
-                      {eok(l.labor_cost)}
+                      {won(l.labor_cost)}원
                     </td>
                   </tr>
                 ))}
               </tbody>
+            </table>
+          </div>
+
+          <div className="ad-sec" style={{ marginTop: 14 }}>인원별 근무·금액</div>
+          <div className="tbl-wrap">
+            <table style={{ fontSize: 12 }}>
+              <thead>
+                <tr>
+                  <th>이름</th>
+                  <th style={{ textAlign: 'right' }}>근무일수</th>
+                  <th>근무일</th>
+                  <th style={{ textAlign: 'right' }}>금액</th>
+                </tr>
+              </thead>
+              <tbody>
+                {people.list.map((p) => (
+                  <tr key={p.name}>
+                    <td><b>{p.name}</b></td>
+                    <td className="tnum" style={{ textAlign: 'right' }}>{p.dates.length}일</td>
+                    <td className="t-sub">{p.dates.join(', ')}</td>
+                    <td className="tnum" style={{ textAlign: 'right' }}>{won(p.amount)}원</td>
+                  </tr>
+                ))}
+                {people.unassigned > 0 && (
+                  <tr>
+                    <td><b>기타(작업자 미지정)</b></td>
+                    <td className="tnum" style={{ textAlign: 'right' }}>—</td>
+                    <td className="t-sub">—</td>
+                    <td className="tnum" style={{ textAlign: 'right' }}>{won(people.unassigned)}원</td>
+                  </tr>
+                )}
+              </tbody>
               <tfoot>
+                <tr style={{ fontWeight: 700 }}>
+                  <td colSpan={3}>인건비 합계 ({headcount}명)</td>
+                  <td className="tnum" style={{ textAlign: 'right' }}>{won(laborSum)}원</td>
+                </tr>
+                <tr style={{ fontWeight: 700 }}>
+                  <td colSpan={3}>식대 합계</td>
+                  <td className="tnum" style={{ textAlign: 'right' }}>{won(mealSum)}원</td>
+                </tr>
                 <tr style={{ background: 'var(--brand-soft)', fontWeight: 800 }}>
-                  <td colSpan={2}>총 합계 (식대 {eok(mealSum)} + 인건비 {eok(laborSum)})</td>
-                  <td className="tnum" colSpan={2} style={{ textAlign: 'right', color: 'var(--brand)' }}>
-                    {won(total)}원
-                  </td>
+                  <td colSpan={3}>총 합계</td>
+                  <td className="tnum" style={{ textAlign: 'right', color: 'var(--brand)' }}>{won(total)}원</td>
                 </tr>
               </tfoot>
             </table>
@@ -599,14 +666,19 @@ function SettleSubmitModal({
 
           <div className="mfield" style={{ marginTop: 10 }}>
             <label>결재선</label>
-            <select className="ctl" value={reviewerId} onChange={(e) => setReviewerId(e.target.value)}>
-              <option value="">검토</option>
-              {admins.map((e) => (
-                <option key={e.id} value={e.id}>
-                  {approverLabel(e)}
-                </option>
-              ))}
-            </select>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <select className="ctl" style={{ flex: 1 }} value={reviewerId} onChange={(e) => setReviewerId(e.target.value)}>
+                <option value="">검토</option>
+                {admins.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {approverLabel(e)}
+                  </option>
+                ))}
+              </select>
+              <select className="ctl" style={{ flex: 1 }} value="boss" disabled>
+                <option value="boss">승인 · 김도래(대표) 고정</option>
+              </select>
+            </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontSize: 11.5, marginTop: 8 }}>
               <span className="badge">기안 본인</span>
               {reviewerId && (

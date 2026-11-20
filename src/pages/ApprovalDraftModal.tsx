@@ -4,23 +4,36 @@ import { AttachPicker, uploadAttachments } from '../components/AttachPicker'
 import { supabase } from '../lib/supabase'
 import { won, approverLabel, sortApprovers } from '../lib/format'
 import { useAuth } from '../lib/auth'
-import type { ArtProject, ArtBudget, Employee } from '../types/db'
+import type { ArtProject, ArtBudget, Employee, Approval, ApprovalLine } from '../types/db'
 
 /** 전자결재 기안 작성 — 지출결의서/품의/일반. 지출결의서+미술이면 사업·예산 연동. */
-export function ApprovalDraftModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+export function ApprovalDraftModal({
+  onClose,
+  onCreated,
+  draft,
+  draftLines,
+}: {
+  onClose: () => void
+  onCreated: () => void
+  /** 임시보관 문서를 이어서 작성할 때 */
+  draft?: Approval
+  draftLines?: ApprovalLine[]
+}) {
   const { me } = useAuth()
-  const [kind, setKind] = useState<'지출결의서' | '품의' | '일반'>('지출결의서')
-  const [title, setTitle] = useState('')
-  const [biz, setBiz] = useState('법인')
-  const [dept, setDept] = useState('management')
-  const [account, setAccount] = useState('')
-  const [amount, setAmount] = useState(0)
-  const [projectId, setProjectId] = useState('')
-  const [budgetItem, setBudgetItem] = useState('')
-  const [reviewerId, setReviewerId] = useState('')
-  const [ccIds, setCcIds] = useState<string[]>([])
+  const dl = draftLines ?? []
+  const [kind, setKind] = useState<'지출결의서' | '품의' | '일반'>((draft?.kind as '지출결의서' | '품의' | '일반') ?? '지출결의서')
+  const [title, setTitle] = useState(draft?.title ?? '')
+  const [memo, setMemo] = useState(draft?.memo && draft.memo !== draft.title ? draft.memo : '')
+  const [biz, setBiz] = useState(draft?.biz_code ?? '법인')
+  const [dept, setDept] = useState(draft?.dept_key ?? 'management')
+  const [account, setAccount] = useState(draft?.account ?? '')
+  const [amount, setAmount] = useState(draft?.amount ?? 0)
+  const [projectId, setProjectId] = useState(draft?.project_id ?? '')
+  const [budgetItem, setBudgetItem] = useState(draft?.budget_item ?? '')
+  const [reviewerId, setReviewerId] = useState(dl.find((l) => l.role === '검토')?.approver_id ?? '')
+  const [ccIds, setCcIds] = useState<string[]>(dl.filter((l) => l.role === '참조').map((l) => l.approver_id as string).filter(Boolean))
   const [files, setFiles] = useState<File[]>([])
-  const [approverId, setApproverId] = useState('')
+  const [approverId, setApproverId] = useState(dl.find((l) => l.role === '승인')?.approver_id ?? '')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
@@ -57,44 +70,56 @@ export function ApprovalDraftModal({ onClose, onCreated }: { onClose: () => void
       .then(({ data }) => setBudgets(data ?? []))
   }, [projectId])
 
-  async function submit() {
-    if (!approverId) {
-      setErr('승인할 사람을 선택하세요.')
-      return
-    }
+  /** asDraft=true: 임시보관(결재선에 알림 없이 본인만 보임) / false: 상신 */
+  async function persist(asDraft: boolean) {
     if (!title.trim()) {
       setErr('제목을 입력하세요.')
       return
     }
-    if (kind === '지출결의서' && amount <= 0) {
-      setErr('금액을 입력하세요.')
-      return
+    if (!asDraft) {
+      if (!approverId) {
+        setErr('승인할 사람을 선택하세요.')
+        return
+      }
+      if (kind === '지출결의서' && amount <= 0) {
+        setErr('금액을 입력하세요.')
+        return
+      }
     }
     setBusy(true)
     setErr(null)
-    const docNo = `제${new Date().getFullYear()}-${String(Math.floor(Math.random() * 9000) + 1000)}호`
-    const { data: appr, error } = await supabase
-      .from('approvals')
-      .insert({
-        doc_no: docNo,
-        kind,
-        drafter_id: me?.id ?? null,
-        biz_code: biz,
-        dept_key: dept,
-        title: title.trim(),
-        amount: kind === '지출결의서' ? amount : null,
-        account: account || null,
-        project_id: isArt && projectId ? projectId : null,
-        budget_item: isArt && budgetItem ? budgetItem : null,
-        req_date: new Date().toISOString().slice(0, 10),
-        status: '진행',
-      })
-      .select('id')
-      .single()
-    if (error || !appr) {
-      setBusy(false)
-      setErr(error?.message ?? '생성 실패')
-      return
+    const row = {
+      kind,
+      drafter_id: me?.id ?? null,
+      biz_code: biz,
+      dept_key: dept,
+      title: title.trim(),
+      memo: memo.trim() || null,
+      amount: kind === '지출결의서' ? amount : null,
+      account: account || null,
+      project_id: isArt && projectId ? projectId : null,
+      budget_item: isArt && budgetItem ? budgetItem : null,
+      req_date: new Date().toISOString().slice(0, 10),
+      status: asDraft ? '기안' : '진행',
+    }
+    let apprId = draft?.id ?? ''
+    if (draft) {
+      const { data, error } = await supabase.from('approvals').update(row).eq('id', draft.id).select('id')
+      if (error || !data || data.length === 0) {
+        setBusy(false)
+        setErr(error?.message ?? '저장되지 않았습니다. 권한을 확인하세요.')
+        return
+      }
+      await supabase.from('approval_lines').delete().eq('approval_id', draft.id)
+    } else {
+      const docNo = `제${new Date().getFullYear()}-${String(Math.floor(Math.random() * 9000) + 1000)}호`
+      const { data: appr, error } = await supabase.from('approvals').insert({ doc_no: docNo, ...row }).select('id').single()
+      if (error || !appr) {
+        setBusy(false)
+        setErr(error?.message ?? '생성 실패')
+        return
+      }
+      apprId = appr.id
     }
     // 결재선: 기안(본인 승인됨) → 검토(지정) → 승인(지정) → 회계접수(지출결의서만)
     const lines: {
@@ -103,28 +128,29 @@ export function ApprovalDraftModal({ onClose, onCreated }: { onClose: () => void
       approver_id: string | null
       role: '기안' | '검토' | '승인' | '회계접수' | '참조'
       decided: string
-    }[] = [{ approval_id: appr.id, seq: 1, approver_id: me?.id ?? null, role: '기안', decided: '승인' }]
-    if (reviewerId) lines.push({ approval_id: appr.id, seq: lines.length + 1, approver_id: reviewerId, role: '검토', decided: '대기' })
-    if (approverId) lines.push({ approval_id: appr.id, seq: lines.length + 1, approver_id: approverId, role: '승인', decided: '대기' })
+    }[] = [{ approval_id: apprId, seq: 1, approver_id: me?.id ?? null, role: '기안', decided: '승인' }]
+    if (reviewerId) lines.push({ approval_id: apprId, seq: lines.length + 1, approver_id: reviewerId, role: '검토', decided: '대기' })
+    if (approverId) lines.push({ approval_id: apprId, seq: lines.length + 1, approver_id: approverId, role: '승인', decided: '대기' })
     if (kind === '지출결의서')
-      lines.push({ approval_id: appr.id, seq: lines.length + 1, approver_id: me?.id ?? null, role: '회계접수', decided: '대기' })
-    lines.push(...ccLines(appr.id, lines.length + 1, ccIds))
+      lines.push({ approval_id: apprId, seq: lines.length + 1, approver_id: me?.id ?? null, role: '회계접수', decided: '대기' })
+    lines.push(...ccLines(apprId, lines.length + 1, ccIds))
     await supabase.from('approval_lines').insert(lines)
     if (files.length) {
-      const bad = await uploadAttachments(appr.id, files, me?.id ?? null)
-      if (bad.length) alert(`첨부 실패: ${bad.join(', ')}\n문서는 상신되었습니다. 상신문서에서 다시 확인해 주세요.`)
+      const bad = await uploadAttachments(apprId, files, me?.id ?? null)
+      if (bad.length) alert(`첨부 실패: ${bad.join(', ')}\n문서는 ${asDraft ? '임시보관' : '상신'}되었습니다.`)
     }
 
     setBusy(false)
     onCreated()
   }
+  const submit = () => persist(false)
 
   return (
     <div className="modal-bg" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="mh">
           <div>
-            <div className="eyebrow">기안 작성</div>
+            <div className="eyebrow">{draft ? '임시보관 문서' : '기안 작성'}</div>
             <h3>전자결재</h3>
           </div>
           <button className="x" onClick={onClose}>
@@ -145,6 +171,11 @@ export function ApprovalDraftModal({ onClose, onCreated }: { onClose: () => void
               <label>제목</label>
               <input className="ctl" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="예: 삼국유사 목판 외주비 지출결의" autoFocus />
             </div>
+          </div>
+
+          <div className="mfield">
+            <label>내용</label>
+            <textarea className="ctl" rows={4} value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="사유·상세 내용 (선택)" />
           </div>
 
           <div style={{ display: 'flex', gap: 10 }}>
@@ -269,8 +300,11 @@ export function ApprovalDraftModal({ onClose, onCreated }: { onClose: () => void
           <button className="btn sec" onClick={onClose} disabled={busy}>
             취소
           </button>
+          <button className="btn sec" onClick={() => persist(true)} disabled={busy}>
+            임시보관
+          </button>
           <button className="btn pri" onClick={submit} disabled={busy}>
-            {busy ? '상신 중…' : '상신'}
+            {busy ? '처리 중…' : '상신'}
           </button>
         </div>
       </div>

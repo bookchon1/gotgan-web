@@ -18,7 +18,7 @@ const KIND_BADGE: Record<string, { cls: string; label: string }> = {
   일반: { cls: 'badge', label: '일반' },
 }
 
-type Folder = 'pending' | 'received' | 'drafted' | 'done' | 'cc'
+type Folder = 'pending' | 'received' | 'drafted' | 'done' | 'cc' | 'temp'
 
 export default function Approvals() {
   const { me } = useAuth()
@@ -71,10 +71,13 @@ export default function Approvals() {
     return m
   }, [linesQ.data])
 
-  const all = apprQ.data ?? []
+  // 임시보관('기안' 상태)은 본인에게만 보이고 결재 흐름에는 들어가지 않는다
+  const raw = apprQ.data ?? []
+  const all = raw.filter((a) => a.status !== '기안')
 
   // 폴더별 필터
   const myId = me?.id
+  const temps = raw.filter((a) => a.status === '기안' && a.drafter_id === myId)
   const pending = all.filter((a) => {
     const lines = linesByAppr[a.id] ?? []
     // 내 차례 = 내게 아직 대기인 결재선이 있고, 그 앞 단계가 모두 승인됨 (반려/회계접수완료 제외)
@@ -96,7 +99,7 @@ export default function Approvals() {
   const doneIds = new Set(done.map((d) => d.id))
   const drafted = all.filter((a) => a.drafter_id === myId && !doneIds.has(a.id))
 
-  const list = folder === 'pending' ? pending : folder === 'drafted' ? drafted : folder === 'cc' ? ccDocs : done
+  const list = folder === 'pending' ? pending : folder === 'drafted' ? drafted : folder === 'cc' ? ccDocs : folder === 'temp' ? temps : done
   const title =
     folder === 'pending'
       ? '결재대기'
@@ -106,9 +109,13 @@ export default function Approvals() {
           ? '상신문서'
           : folder === 'cc'
             ? '참조 문서'
-            : '완료 문서'
+            : folder === 'temp'
+              ? '임시보관'
+              : '완료 문서'
 
   const loading = apprQ.loading || linesQ.loading
+  const hasAct = folder === 'pending' || folder === 'drafted' || folder === 'temp'
+  const [editDraft, setEditDraft] = useState<Approval | null>(null)
   const [busy, setBusy] = useState(false)
   const [draftOpen, setDraftOpen] = useState(false)
 
@@ -136,6 +143,23 @@ export default function Approvals() {
     setBusy(false)
     if (error) return setActErr(error.message)
     if (!data || data.length === 0) return setActErr('삭제되지 않았습니다 (권한 확인 — SQL 29 실행 필요)')
+    setOpenId(null)
+    reload()
+  }
+  // 임시보관 문서 삭제 (먼저 '회수'로 바꾼 뒤 삭제 — 삭제 권한 정책이 회수 문서만 허용)
+  async function removeDraft(a: Approval) {
+    if (delId !== a.id) return setDelId(a.id)
+    setDelId(null)
+    setActErr(null)
+    setBusy(true)
+    const { data: u, error: ue } = await supabase.from('approvals').update({ status: '회수' }).eq('id', a.id).eq('status', '기안').select('id')
+    if (ue || !u || u.length === 0) {
+      setBusy(false)
+      return setActErr(ue?.message ?? '삭제되지 않았습니다.')
+    }
+    const { error } = await supabase.from('approvals').delete().eq('id', a.id).eq('status', '회수')
+    setBusy(false)
+    if (error) setActErr(error.message)
     setOpenId(null)
     reload()
   }
@@ -240,6 +264,7 @@ export default function Approvals() {
         <Fold k="drafted" cur={folder} set={setFolder} icon="clock" title="상신문서" n={drafted.length} />
         <Fold k="done" cur={folder} set={setFolder} icon="check" title="완료 문서" n={done.length} />
         <Fold k="cc" cur={folder} set={setFolder} icon="doc" title="참조 문서" n={ccDocs.length} />
+        <Fold k="temp" cur={folder} set={setFolder} icon="doc" title="임시보관" n={temps.length} />
       </div>
 
       {folder === 'received' ? (
@@ -270,17 +295,17 @@ export default function Approvals() {
                 <th>종류</th>
                 <th>결재 진행</th>
                 <th style={{ textAlign: 'right' }}>금액</th>
-                {(folder === 'pending' || folder === 'drafted') && <th style={{ textAlign: 'right' }}>처리</th>}
+                {(hasAct) && <th style={{ textAlign: 'right' }}>처리</th>}
               </tr>
             </thead>
             <tbody>
-              {loading && <LoadingRow cols={folder === 'pending' || folder === 'drafted' ? 6 : 5} />}
+              {loading && <LoadingRow cols={hasAct ? 6 : 5} />}
               {!loading &&
                 list.map((a) => {
                   const kb = KIND_BADGE[a.kind] ?? KIND_BADGE['일반']
                   const lines = linesByAppr[a.id] ?? []
                   const on = openId === a.id
-                  const colN = folder === 'pending' || folder === 'drafted' ? 6 : 5
+                  const colN = hasAct ? 6 : 5
                   return (
                     <Fragment key={a.id}>
                     <tr style={{ cursor: 'pointer' }} className={on ? 'pf-row on' : undefined} onClick={() => setOpenId(on ? null : a.id)}>
@@ -315,6 +340,22 @@ export default function Approvals() {
                             disabled={busy}
                           >
                             반려
+                          </button>
+                        </td>
+                      )}
+                      {folder === 'temp' && (
+                        <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
+                          <button className="sp-btn b1" onClick={() => setEditDraft(a)} disabled={busy}>
+                            이어쓰기
+                          </button>
+                          <button
+                            className="sp-btn b2"
+                            style={delId === a.id ? { color: 'var(--danger,#c0392b)', fontWeight: 800, marginLeft: 5 } : { marginLeft: 5 }}
+                            onClick={() => removeDraft(a)}
+                            onBlur={() => setDelId(null)}
+                            disabled={busy}
+                          >
+                            {delId === a.id ? '정말 삭제' : '삭제'}
                           </button>
                         </td>
                       )}
@@ -360,7 +401,7 @@ export default function Approvals() {
                   )
                 })}
               {!loading && list.length === 0 && (
-                <EmptyRow cols={folder === 'pending' || folder === 'drafted' ? 6 : 5} text={folder === 'pending' ? '결재할 문서가 없습니다.' : '문서가 없습니다.'} />
+                <EmptyRow cols={hasAct ? 6 : 5} text={folder === 'pending' ? '결재할 문서가 없습니다.' : folder === 'temp' ? '임시보관한 문서가 없습니다.' : '문서가 없습니다.'} />
               )}
             </tbody>
           </table>
@@ -368,6 +409,17 @@ export default function Approvals() {
       </section>
       )}
 
+      {editDraft && (
+        <ApprovalDraftModal
+          draft={editDraft}
+          draftLines={linesByAppr[editDraft.id] ?? []}
+          onClose={() => setEditDraft(null)}
+          onCreated={() => {
+            setEditDraft(null)
+            reload()
+          }}
+        />
+      )}
       {draftOpen && (
         <ApprovalDraftModal
           onClose={() => setDraftOpen(false)}

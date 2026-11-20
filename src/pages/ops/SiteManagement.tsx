@@ -465,7 +465,8 @@ function SettleSubmitModal({
       .then(({ data }) => setAdmins(sortApprovers((data ?? []).filter((e) => e.id !== me))))
   }, [me])
 
-  const periodTxt = `${from || '…'}~${to || '…'}`
+  const logDates = logs.map((l) => l.log_date).sort()
+  const periodTxt = `${from || logDates[0] || '…'}~${to || logDates[logDates.length - 1] || '…'}`
 
   // 사람별 집계: 누가 며칠(어느 날) 나와 얼마인지
   const people = useMemo(() => {
@@ -589,43 +590,13 @@ function SettleSubmitModal({
             </div>
           </div>
 
-          <div className="tbl-wrap">
-            <table style={{ fontSize: 12 }}>
-              <thead>
-                <tr>
-                  <th>일자</th>
-                  <th>업무</th>
-                  <th>투입 인원</th>
-                  <th style={{ textAlign: 'right' }}>식대</th>
-                  <th style={{ textAlign: 'right' }}>인건비</th>
-                </tr>
-              </thead>
-              <tbody>
-                {logs.map((l) => (
-                  <tr key={l.id}>
-                    <td className="tnum">{mmdd(l.log_date)}</td>
-                    <td>{l.work_text}</td>
-                    <td className="t-sub">{(l.crew ?? []).map((c) => c.name).join(', ') || '—'}</td>
-                    <td className="tnum" style={{ textAlign: 'right' }}>
-                      {won(l.meal_cost)}원
-                    </td>
-                    <td className="tnum" style={{ textAlign: 'right' }}>
-                      {won(l.labor_cost)}원
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="ad-sec" style={{ marginTop: 14 }}>인원별 근무·금액</div>
+          <div className="ad-sec">인원별 근무·금액</div>
           <div className="tbl-wrap">
             <table style={{ fontSize: 12 }}>
               <thead>
                 <tr>
                   <th>이름</th>
                   <th style={{ textAlign: 'right' }}>근무일수</th>
-                  <th>근무일</th>
                   <th style={{ textAlign: 'right' }}>금액</th>
                 </tr>
               </thead>
@@ -634,7 +605,6 @@ function SettleSubmitModal({
                   <tr key={p.name}>
                     <td><b>{p.name}</b></td>
                     <td className="tnum" style={{ textAlign: 'right' }}>{p.dates.length}일</td>
-                    <td className="t-sub">{p.dates.join(', ')}</td>
                     <td className="tnum" style={{ textAlign: 'right' }}>{won(p.amount)}원</td>
                   </tr>
                 ))}
@@ -642,22 +612,21 @@ function SettleSubmitModal({
                   <tr>
                     <td><b>기타(작업자 미지정)</b></td>
                     <td className="tnum" style={{ textAlign: 'right' }}>—</td>
-                    <td className="t-sub">—</td>
                     <td className="tnum" style={{ textAlign: 'right' }}>{won(people.unassigned)}원</td>
                   </tr>
                 )}
               </tbody>
               <tfoot>
                 <tr style={{ fontWeight: 700 }}>
-                  <td colSpan={3}>인건비 합계 ({headcount}명)</td>
+                  <td colSpan={2}>인건비 합계 ({headcount}명)</td>
                   <td className="tnum" style={{ textAlign: 'right' }}>{won(laborSum)}원</td>
                 </tr>
                 <tr style={{ fontWeight: 700 }}>
-                  <td colSpan={3}>식대 합계</td>
+                  <td colSpan={2}>식대 합계</td>
                   <td className="tnum" style={{ textAlign: 'right' }}>{won(mealSum)}원</td>
                 </tr>
                 <tr style={{ background: 'var(--brand-soft)', fontWeight: 800 }}>
-                  <td colSpan={3}>총 합계</td>
+                  <td colSpan={2}>총 합계</td>
                   <td className="tnum" style={{ textAlign: 'right', color: 'var(--brand)' }}>{won(total)}원</td>
                 </tr>
               </tfoot>

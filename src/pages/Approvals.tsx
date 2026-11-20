@@ -116,6 +116,7 @@ export default function Approvals() {
   const loading = apprQ.loading || linesQ.loading
   const hasAct = folder === 'pending' || folder === 'drafted' || folder === 'temp'
   const [editDraft, setEditDraft] = useState<Approval | null>(null)
+  const [reDraft, setReDraft] = useState<Approval | null>(null)
   const [busy, setBusy] = useState(false)
   const [draftOpen, setDraftOpen] = useState(false)
 
@@ -363,7 +364,10 @@ export default function Approvals() {
                         <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
                           {a.status === '회수' ? (
                             <>
-                              <span className="t-sub">회수됨 · </span>
+                              <button className="sp-btn b1" onClick={() => setReDraft(a)} disabled={busy}>
+                                재기안
+                              </button>
+                              <span style={{ display: 'inline-block', width: 5 }} />
                               <button
                                 className="sp-btn b2"
                                 style={delId === a.id ? { color: 'var(--danger,#c0392b)', fontWeight: 800 } : undefined}
@@ -383,6 +387,10 @@ export default function Approvals() {
                               disabled={busy}
                             >
                               {recallId === a.id ? '정말 회수' : '회수'}
+                            </button>
+                          ) : a.status === '반려' ? (
+                            <button className="sp-btn b1" onClick={() => setReDraft(a)} disabled={busy}>
+                              재기안
                             </button>
                           ) : (
                             <span className="t-sub" title="결재가 시작된 문서는 회수할 수 없습니다">—</span>
@@ -409,6 +417,19 @@ export default function Approvals() {
       </section>
       )}
 
+      {reDraft && (
+        <ApprovalDraftModal
+          reuse
+          draft={reDraft}
+          draftLines={linesByAppr[reDraft.id] ?? []}
+          onClose={() => setReDraft(null)}
+          onCreated={() => {
+            setReDraft(null)
+            setFolder('drafted')
+            reload()
+          }}
+        />
+      )}
       {editDraft && (
         <ApprovalDraftModal
           draft={editDraft}

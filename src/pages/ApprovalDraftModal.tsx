@@ -12,12 +12,15 @@ export function ApprovalDraftModal({
   onCreated,
   draft,
   draftLines,
+  reuse,
 }: {
   onClose: () => void
   onCreated: () => void
   /** 임시보관 문서를 이어서 작성할 때 */
   draft?: Approval
   draftLines?: ApprovalLine[]
+  /** true: 반려·회수 문서를 내용만 불러와 새 문서로 재기안 */
+  reuse?: boolean
 }) {
   const { me } = useAuth()
   const dl = draftLines ?? []
@@ -103,7 +106,7 @@ export function ApprovalDraftModal({
       status: asDraft ? '기안' : '진행',
     }
     let apprId = draft?.id ?? ''
-    if (draft) {
+    if (draft && !reuse) {
       const { data, error } = await supabase.from('approvals').update(row).eq('id', draft.id).select('id')
       if (error || !data || data.length === 0) {
         setBusy(false)
@@ -150,7 +153,7 @@ export function ApprovalDraftModal({
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="mh">
           <div>
-            <div className="eyebrow">{draft ? '임시보관 문서' : '기안 작성'}</div>
+            <div className="eyebrow">{reuse ? '재기안' : draft ? '임시보관 문서' : '기안 작성'}</div>
             <h3>전자결재</h3>
           </div>
           <button className="x" onClick={onClose}>

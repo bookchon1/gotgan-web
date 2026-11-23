@@ -1165,3 +1165,5 @@ td>.hr-in{max-width:160px}
 
 .ad-files{display:flex;flex-wrap:wrap;gap:6px}
 .ad-files .sp-link{cursor:pointer;border:0;font:inherit}
+
+.ad-ln .ad-cm{font-style:normal;font-size:11.5px;color:var(--ink-2,#444);margin-top:3px;max-width:240px;white-space:pre-wrap;word-break:break-all}

@@ -303,6 +303,7 @@ export interface ApprovalLine {
   role: '기안' | '검토' | '승인' | '회계접수' | '참조'
   decided: '대기' | '승인' | '반려'
   decided_at: string | null
+  comment?: string | null
 }
 
 export interface GotganDocument {

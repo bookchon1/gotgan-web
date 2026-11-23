@@ -129,6 +129,7 @@ export default function Approvals() {
   // 회수: 상신자가 본인 문서를 결재 시작 전에 되돌린다
   const [recallId, setRecallId] = useState<string | null>(null)
   const [actErr, setActErr] = useState<string | null>(null)
+  const [comments, setComments] = useState<Record<string, string>>({}) // 문서별 결재 의견 입력값
   const canRecall = (a: Approval, lines: ApprovalLine[]) =>
     a.drafter_id === myId &&
     (a.status === '진행' || a.status === '기안') &&
@@ -201,12 +202,24 @@ export default function Approvals() {
     const lines = (linesByAppr[a.id] ?? []).slice().sort((x, y) => x.seq - y.seq)
     const myLine = lines.find((l) => l.approver_id === myId && l.decided === '대기')
     if (!myLine) return
+    const cmt = (comments[a.id] ?? '').trim()
+    if (decision === '반려' && !cmt) {
+      setOpenId(a.id)
+      setActErr('반려할 때는 문서를 펼쳐 아래 "결재 의견"에 사유를 적어 주세요.')
+      return
+    }
+    setActErr(null)
     setBusy(true)
-    // 내 단계 처리
-    await supabase
+    // 내 단계 처리 (의견이 있으면 함께 저장)
+    const { error: lineErr } = await supabase
       .from('approval_lines')
-      .update({ decided: decision, decided_at: new Date().toISOString() })
+      .update({ decided: decision, decided_at: new Date().toISOString(), ...(cmt ? { comment: cmt } : {}) })
       .eq('id', myLine.id)
+    if (lineErr) {
+      setBusy(false)
+      setActErr(lineErr.message.includes('comment') ? '결재 의견 저장에 필요한 SQL 37번을 먼저 실행해 주세요.' : lineErr.message)
+      return
+    }
 
     if (decision === '반려') {
       await supabase.from('approvals').update({ status: '반려' }).eq('id', a.id)
@@ -404,6 +417,19 @@ export default function Approvals() {
                       <tr className="pf-edit">
                         <td colSpan={colN}>
                           <ApprDetail a={a} lines={lines} empName={empName} />
+                          {folder === 'pending' && (
+                            <div style={{ marginTop: 12 }}>
+                              <div className="ad-sec">결재 의견</div>
+                              <textarea
+                                className="ctl"
+                                rows={2}
+                                value={comments[a.id] ?? ''}
+                                onChange={(e) => setComments((p) => ({ ...p, [a.id]: e.target.value }))}
+                                placeholder="승인·반려 의견을 남길 수 있습니다 (반려 시 필수)"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            </div>
+                          )}
                         </td>
                       </tr>
                     )}

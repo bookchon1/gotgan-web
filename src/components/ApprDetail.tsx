@@ -486,7 +486,11 @@ export function ApprDetail({ a, lines, empName }: { a: Approval; lines: Approval
           <div key={l.id} className={`ad-ln st-${l.decided}`}>
             <small>{l.role}</small>
             <b>{l.approver_id ? empName[l.approver_id] ?? '—' : l.role === '회계접수' ? '회계 담당' : '미지정'}</b>
-            <span>{l.decided === '승인' ? '승인 완료' : l.decided === '반려' ? '반려' : '대기'}</span>
+            <span>
+              {l.decided === '승인' ? '승인 완료' : l.decided === '반려' ? '반려' : '대기'}
+              {l.decided !== '대기' && l.decided_at ? ` · ${l.decided_at.slice(5, 10).replace('-', '/')} ${new Date(l.decided_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })}` : ''}
+            </span>
+            {l.comment && <em className="ad-cm">“{l.comment}”</em>}
           </div>
         ))}
       </div>

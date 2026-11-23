@@ -1267,3 +1267,26 @@ td>.hr-in{max-width:160px}
   .adm .adm-ir .nm{grid-column:1/-1}
   .adm .adm-fhint{display:none}
 }
+
+/* ===== 공문서식 결재란 · 두문 · 항목 기호 ===== */
+.stp{display:inline-flex;border:1px solid var(--ink-soft);background:var(--surface);flex:none}
+.stp-c{width:78px;display:flex;flex-direction:column;text-align:center;border-left:1px solid var(--ink-soft)}
+.stp-c:first-child{border-left:0}
+.stp-r{font-size:11px;font-weight:700;padding:3px 0;background:var(--line-2);border-bottom:1px solid var(--ink-soft);color:var(--ink-soft)}
+.stp-t{font-size:10.5px;color:var(--muted);padding:5px 2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stp-n{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:38px;padding:2px 2px 0}
+.stp-n b{font-size:13px;font-weight:800;color:var(--ink)}
+.stp-n span{font-size:10px;font-weight:800;color:var(--ok);border:1.5px solid var(--ok);border-radius:4px;padding:0 4px;margin-top:2px;transform:rotate(-6deg);line-height:1.5}
+.stp-n span.rej{color:var(--danger);border-color:var(--danger)}
+.stp-d{font-size:10px;color:var(--muted);padding:1px 0 4px;font-variant-numeric:tabular-nums}
+.gov-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.gov-meta{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;font-size:12.5px;margin:0;align-content:start}
+.gov-meta dt{font-weight:700;color:var(--muted);white-space:nowrap}
+.gov-meta dd{margin:0;font-weight:600;color:var(--ink);word-break:break-all}
+.ad-it{display:flex;gap:7px;font-size:13px;line-height:1.7;margin:3px 0}
+.ad-it .no{flex:none;min-width:18px;font-weight:700;color:var(--ink-soft)}
+.ad-it b{font-weight:700}
+.ad-it .v{flex:1;min-width:0;white-space:pre-wrap;word-break:break-word}
+.ad-itbody{margin:4px 0 8px 25px}
+.ad-end{margin-top:12px;font-size:13px;font-weight:700;color:var(--ink-soft)}
+@media (max-width:620px){.stp-c{width:64px}}

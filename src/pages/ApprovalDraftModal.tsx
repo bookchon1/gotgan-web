@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CcPicker, ccLines } from '../components/CcPicker'
 import { AttachPicker, uploadAttachments } from '../components/AttachPicker'
+import { ApprStamps, useTitles, type Stamp } from '../components/ApprStamps'
 import { supabase } from '../lib/supabase'
 import { won, approverLabel, sortApprovers } from '../lib/format'
 import { useAuth } from '../lib/auth'
@@ -246,6 +247,16 @@ export function ApprovalDraftModal({
   const numOf = (s: string) => parseInt(s.replace(/[^0-9]/g, ''), 10) || 0
   const [mgr, setMgr] = useState(false)
   const agreeOpen = showAgree || !!agreeId
+  const myTitle = useTitles([me?.id])
+  const nameOf = (id: string) => admins.find((a) => a.id === id)
+  const stampItems: Stamp[] = [
+    { role: '기안', name: me?.name ?? '', title: me?.id ? myTitle[me.id] : '', date: today().slice(5).replace('-', '/') },
+    ...(reviewerId ? [{ role: '검토', name: nameOf(reviewerId)?.name ?? '', title: nameOf(reviewerId)?.title }] : []),
+    ...(agreeOpen && agreeId ? [{ role: '합의', name: nameOf(agreeId)?.name ?? '', title: nameOf(agreeId)?.title }] : []),
+    { role: '승인', name: approverId ? nameOf(approverId)?.name ?? '' : '', title: approverId ? nameOf(approverId)?.title : '' },
+    ...(needsAcct ? [{ role: '회계', name: '회계' }] : []),
+  ]
+  const ccNames = ccIds.map((id) => nameOf(id)?.name).filter(Boolean) as string[]
 
   const personSel = (value: string, set: (v: string) => void, ph: string) => (
     <select className="ctl" value={value} onChange={(e) => set(e.target.value)}>
@@ -368,6 +379,23 @@ export function ApprovalDraftModal({
 
         <div className="adm-body">
           <div className="adm-main">
+            <div className="gov-head">
+              <dl className="gov-meta">
+                <dt>문서번호</dt>
+                <dd style={{ color: 'var(--muted)', fontWeight: 500 }}>상신하면 자동으로 부여됩니다</dd>
+                <dt>시행일자</dt>
+                <dd>{today()}</dd>
+                <dt>수 신</dt>
+                <dd>내부결재</dd>
+                {ccNames.length > 0 && (
+                  <>
+                    <dt>참 조</dt>
+                    <dd>{ccNames.join(', ')}</dd>
+                  </>
+                )}
+              </dl>
+              <ApprStamps items={stampItems} />
+            </div>
             <input className="adm-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={def.titleHint} autoFocus />
 
             {def.expense && (

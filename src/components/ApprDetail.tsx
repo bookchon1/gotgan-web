@@ -4,6 +4,7 @@ import { won } from '../lib/format'
 import { supabase } from '../lib/supabase'
 import { bizShort, deptLabel } from '../data/areas'
 import type { Approval, ApprovalLine } from '../types/db'
+import { ApprStamps, buildStamps, useTitles } from './ApprStamps'
 
 /** 본문 텍스트의 http(s) 주소를 눌러 열 수 있게 */
 export function Linkified({ text }: { text: string }) {
@@ -54,32 +55,35 @@ export function parseOrder(memo: string): { reason: string; rows: Row[]; total: 
 }
 /** 양식(품의서·휴가원·출장신청서 등)으로 작성된 본문 */
 function FormView({ f }: { f: ParsedForm }) {
+  let n = 0
   return (
-    <>
-      {f.kv.length > 0 && (
-        <dl className="ad-meta" style={{ marginTop: 10 }}>
-          {f.kv.map((k, i) => (
-            <div key={i}>
-              <dt>{k.label}</dt>
-              <dd>{k.value}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
+    <div style={{ marginTop: 14 }}>
+      {f.kv.map((k, i) => (
+        <div className="ad-it" key={'k' + i}>
+          <span className="no">{++n}.</span>
+          <b>{k.label}</b>
+          <span className="v">{k.value}</span>
+        </div>
+      ))}
       {f.sections.map((sec, i) => {
         const tbl = parseOrder(sec.body)
         return (
           <div key={i}>
-            <div className="ad-sec">{sec.label}</div>
-            {tbl ? (
-              <OrderTable o={tbl} />
-            ) : (
-              <div className="ad-body">{sec.body ? <Linkified text={sec.body} /> : <span style={{ color: 'var(--muted)' }}>—</span>}</div>
-            )}
+            <div className="ad-it">
+              <span className="no">{++n}.</span>
+              <b>{sec.label}</b>
+            </div>
+            <div className="ad-itbody">
+              {tbl ? (
+                <OrderTable o={tbl} />
+              ) : (
+                <div className="ad-body">{sec.body ? <Linkified text={sec.body} /> : <span style={{ color: 'var(--muted)' }}>—</span>}</div>
+              )}
+            </div>
           </div>
         )
       })}
-    </>
+    </div>
   )
 }
 
@@ -346,7 +350,7 @@ const esc = (t: unknown) => String(t ?? '').replace(/&/g, '&amp;').replace(/</g,
 const nl = (t: string) => esc(t).replace(/\n/g, '<br>')
 
 /** 결재 문서를 정식 기안서 양식으로 인쇄(또는 PDF로 저장) */
-function printDoc(a: Approval, lines: ApprovalLine[], empName: Record<string, string>, atts: { name: string }[], target: string) {
+function printDoc(a: Approval, lines: ApprovalLine[], empName: Record<string, string>, atts: { name: string }[], target: string, titles: Record<string, string>) {
   const w = window.open('', '_blank')
   if (!w) return alert('팝업이 차단되었습니다. 브라우저에서 이 사이트의 팝업을 허용해 주세요.')
   const body = a.memo && a.memo !== a.title ? a.memo : ''
@@ -356,11 +360,12 @@ function printDoc(a: Approval, lines: ApprovalLine[], empName: Record<string, st
       .map((r) => `<tr><td>${esc(r.name)}</td><td class="r">${esc(r.qty + r.unit)}</td><td class="r">${esc(r.price)}</td><td class="r">${esc(r.amount)}</td></tr>`)
       .join('')}${o.total ? `<tr class="sum"><td colspan="3">합계</td><td class="r">${esc(o.total)}</td></tr>` : ''}</tbody></table>`
   let content = ''
+  let no = 0
   if (form) {
-    content += form.kv.length ? `<table class="grid kv">${form.kv.map((k) => `<tr><th>${esc(k.label)}</th><td>${esc(k.value)}</td></tr>`).join('')}</table>` : ''
+    for (const k of form.kv) content += `<div class="it"><span class="no">${++no}.</span><b>${esc(k.label)}</b><span class="v">${nl(k.value)}</span></div>`
     for (const sec of form.sections) {
       const t = parseOrder(sec.body)
-      content += `<h3>${esc(sec.label)}</h3>${t ? orderTbl(t) : `<div class="txt">${nl(sec.body)}</div>`}`
+      content += `<div class="it"><span class="no">${++no}.</span><b>${esc(sec.label)}</b></div><div class="ib">${t ? orderTbl(t) : nl(sec.body)}</div>`
     }
   } else if (body) {
     const t = parseOrder(body)
@@ -372,12 +377,9 @@ function printDoc(a: Approval, lines: ApprovalLine[], empName: Record<string, st
       content
   }
   const flow = lines.filter((l) => l.role !== '참조').slice().sort((x, y) => x.seq - y.seq)
-  const stamp = (l: ApprovalLine) => {
-    const nm = l.approver_id ? empName[l.approver_id] ?? '' : l.role === '회계접수' ? '회계' : ''
-    const st = l.role === '기안' ? '기안' : l.decided === '승인' ? '승인' : l.decided === '반려' ? '반려' : ''
-    const dt = l.decided_at ? l.decided_at.slice(5, 10).replace('-', '/') : ''
-    return `<td><div class="role">${esc(l.role)}</div><div class="nm">${esc(nm)}</div><div class="st ${l.decided === '반려' ? 'rej' : ''}">${esc(st)}</div><div class="dt">${esc(dt)}</div></td>`
-  }
+  const stamps = buildStamps(lines, empName, titles, a.req_date)
+  const stampCell = (x: { role: string; name: string; title?: string | null; state?: string; date?: string }) =>
+    `<td><div class="role">${esc(x.role)}</div><div class="ti">${esc(x.title || '')}</div><div class="nm">${esc(x.name)}</div><div class="st ${x.state === '반려' ? 'rej' : ''}">${esc(x.state || '')}</div><div class="dt">${esc(x.date || '')}</div></td>`
   const comments = flow.filter((l) => l.comment).map((l) => `<tr><th>${esc(l.role)} ${esc(l.approver_id ? empName[l.approver_id] ?? '' : '')}</th><td>${nl(l.comment ?? '')}</td></tr>`).join('')
   const ccs = lines.filter((l) => l.role === '참조').map((l) => (l.approver_id ? empName[l.approver_id] ?? '' : '')).filter(Boolean)
   const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${esc(a.doc_no ?? '')} ${esc(a.title)}</title>
@@ -391,7 +393,10 @@ h3{font-size:13px;margin:16px 0 6px;border-left:3px solid #333;padding-left:6px}
 .stamps{border-collapse:collapse;margin-left:auto}
 .stamps td{border:1px solid #333;width:64px;text-align:center;padding:0;vertical-align:top}
 .stamps .role{background:#f0f0f0;border-bottom:1px solid #333;font-size:10.5px;padding:2px 0}
-.stamps .nm{font-size:12px;font-weight:700;padding:8px 2px 2px}
+.stamps .ti{font-size:10px;color:#555;padding:3px 2px 0;min-height:15px}
+.stamps .nm{font-size:12px;font-weight:700;padding:6px 2px 2px}
+.it{display:flex;gap:6px;margin:5px 0;line-height:1.7;font-size:12.5px}.it .no{min-width:18px;font-weight:700}.it .v{flex:1}.it b+.v:before{content:': '}
+.ib{margin:2px 0 8px 24px}.att{margin-top:12px}.end{margin-top:10px;font-weight:700}
 .stamps .st{font-size:11px;color:#1a6b45;height:16px}
 .stamps .st.rej{color:#b00020}
 .stamps .dt{font-size:10px;color:#555;padding-bottom:3px}
@@ -413,15 +418,18 @@ table.grid{border-collapse:collapse;width:100%;margin-bottom:4px}
 <div class="top">
   <table class="grid meta" style="width:58%">
     <tr><th>문서번호</th><td>${esc(a.doc_no ?? '—')}</td></tr>
-    <tr><th>기안일자</th><td>${esc(a.req_date ?? '—')}</td></tr>
+    <tr><th>시행일자</th><td>${esc(a.req_date ?? '—')}</td></tr>
+    <tr><th>수 신</th><td>내부결재</td></tr>
     <tr><th>기안자</th><td>${esc(a.drafter_id ? empName[a.drafter_id] ?? '—' : '—')}</td></tr>
     ${a.dept_key ? `<tr><th>부서</th><td>${esc(deptLabel(a.dept_key))}</td></tr>` : ''}
     ${a.biz_code ? `<tr><th>사업자</th><td>${esc(bizShort(a.biz_code))}</td></tr>` : ''}
   </table>
-  <table class="stamps"><tr>${flow.map(stamp).join('')}</tr></table>
+  <table class="stamps"><tr>${stamps.map(stampCell).join('')}</tr></table>
 </div>
-<table class="grid" style="margin-top:8px"><tr><th>제 목</th><td><b>${esc(a.title)}</b></td></tr>${a.amount ? `<tr><th>금 액</th><td>${won(a.amount)}원</td></tr>` : ''}${ccs.length ? `<tr><th>참 조</th><td>${esc(ccs.join(', '))}</td></tr>` : ''}${atts.length ? `<tr><th>첨부파일</th><td>${atts.map((f) => esc(f.name)).join('<br>')}</td></tr>` : ''}</table>
+<table class="grid" style="margin-top:8px"><tr><th>제 목</th><td><b>${esc(a.title)}</b></td></tr>${a.amount ? `<tr><th>금 액</th><td>${won(a.amount)}원</td></tr>` : ''}${ccs.length ? `<tr><th>참 조</th><td>${esc(ccs.join(', '))}</td></tr>` : ''}</table>
 ${content}
+${atts.length ? `<div class="att">붙임&nbsp;&nbsp;${atts.map((f, i) => `${atts.length > 1 ? `${i + 1}. ` : ''}${esc(f.name)} 1부`).join('<br>&emsp;&emsp;&emsp;')}</div>` : ''}
+<div class="end">끝.</div>
 ${comments ? `<h3>결재 의견</h3><table class="grid">${comments}</table>` : ''}
 <div class="foot">출력일 ${new Date().toISOString().slice(0, 10)} · 곳간 전자결재</div>
 </body></html>`
@@ -443,6 +451,7 @@ export function ApprDetail({ a, lines, empName }: { a: Approval; lines: Approval
       .then(({ data }) => setProjName((data as { name?: string } | null)?.name ?? ''))
   }, [a.project_id])
 
+  const titles = useTitles(lines.map((l) => l.approver_id))
   const [atts, setAtts] = useState<{ id: string; name: string; path: string; size: number | null }[]>([])
   useEffect(() => {
     supabase
@@ -466,13 +475,8 @@ export function ApprDetail({ a, lines, empName }: { a: Approval; lines: Approval
   const pay = body && !order && !site && !fees && !formDoc ? parsePay(body) : null
   const isExp = a.kind === '지출결의서'
   const target = [projName, a.budget_item].filter(Boolean).join(' · ')
-  const meta: [string, string][] = [
-    ['문서번호', a.doc_no ?? '—'],
-    ['기안일', a.req_date ?? '—'],
-    ['기안자', a.drafter_id ? empName[a.drafter_id] ?? '—' : '—'],
-  ]
-  if (a.biz_code) meta.push(['사업자', bizShort(a.biz_code)])
-  if (a.dept_key) meta.push(['부서', deptLabel(a.dept_key)])
+  const flow = lines.filter((l) => l.role !== '참조').slice().sort((x, y) => x.seq - y.seq)
+  const ccNames = lines.filter((l) => l.role === '참조').map((l) => (l.approver_id ? empName[l.approver_id] ?? '' : '')).filter(Boolean)
   const expBlock = isExp ? (
 <>
               <div className="ad-sec">지출 내역</div>
@@ -506,7 +510,7 @@ export function ApprDetail({ a, lines, empName }: { a: Approval; lines: Approval
   return (
     <div className="ad">
       <div style={{ float: 'right' }}>
-        <button type="button" className="sp-btn b2" onClick={() => printDoc(a, lines, empName, atts, target)}>
+        <button type="button" className="sp-btn b2" onClick={() => printDoc(a, lines, empName, atts, target, titles)}>
           인쇄 · PDF
         </button>
       </div>
@@ -515,14 +519,29 @@ export function ApprDetail({ a, lines, empName }: { a: Approval; lines: Approval
         <h4>{a.title || '(제목 없음)'}</h4>
         <span className="ad-amt tnum">{a.amount ? won(a.amount) + '원' : ''}</span>
       </div>
-      <dl className="ad-meta">
-        {meta.map(([k, v]) => (
-          <div key={k}>
-            <dt>{k}</dt>
-            <dd>{v}</dd>
-          </div>
-        ))}
-      </dl>
+      <div className="gov-head" style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--line-2, var(--line))' }}>
+        <dl className="gov-meta">
+          <dt>문서번호</dt>
+          <dd>{a.doc_no ?? '—'}</dd>
+          <dt>시행일자</dt>
+          <dd>{a.req_date ?? '—'}</dd>
+          <dt>수 신</dt>
+          <dd>내부결재</dd>
+          {ccNames.length > 0 && (
+            <>
+              <dt>참 조</dt>
+              <dd>{ccNames.join(', ')}</dd>
+            </>
+          )}
+          <dt>기안자</dt>
+          <dd>
+            {a.drafter_id ? empName[a.drafter_id] ?? '—' : '—'}
+            {a.dept_key ? ` · ${deptLabel(a.dept_key)}` : ''}
+            {a.biz_code ? ` · ${bizShort(a.biz_code)}` : ''}
+          </dd>
+        </dl>
+        <ApprStamps items={buildStamps(lines, empName, titles, a.req_date)} />
+      </div>
       {formDoc ? (
         <>
           {expBlock}
@@ -564,7 +583,7 @@ export function ApprDetail({ a, lines, empName }: { a: Approval; lines: Approval
       )}
       {atts.length > 0 && (
         <>
-          <div className="ad-sec">첨부파일</div>
+          <div className="ad-sec">붙임</div>
           <div className="ad-files">
             {atts.map((f) => (
               <button key={f.id} type="button" className="sp-link" onClick={() => openFile(f.path)}>
@@ -575,32 +594,20 @@ export function ApprDetail({ a, lines, empName }: { a: Approval; lines: Approval
           </div>
         </>
       )}
-      <div className="ad-sec">결재선</div>
-      <div className="ad-lines">
-        {lines.filter((l) => l.role !== '참조').map((l) => (
-          <div key={l.id} className={`ad-ln st-${l.decided}`}>
-            <small>{l.role}</small>
-            <b>{l.approver_id ? empName[l.approver_id] ?? '—' : l.role === '회계접수' ? '회계 담당' : '미지정'}</b>
-            <span>
-              {l.decided === '승인' ? '승인 완료' : l.decided === '반려' ? '반려' : '대기'}
-              {l.decided !== '대기' && l.decided_at ? ` · ${l.decided_at.slice(5, 10).replace('-', '/')} ${new Date(l.decided_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })}` : ''}
-            </span>
-            {l.comment && <em className="ad-cm">“{l.comment}”</em>}
-          </div>
-        ))}
-      </div>
-      {lines.some((l) => l.role === '참조') && (
+      <div className="ad-end">끝.</div>
+      {flow.some((l) => l.comment) && (
         <>
-          <div className="ad-sec">참조</div>
-          <div className="ad-lines">
-            {lines.filter((l) => l.role === '참조').map((l) => (
-              <div key={l.id} className="ad-ln">
-                <small>참조</small>
-                <b>{l.approver_id ? empName[l.approver_id] ?? '—' : '—'}</b>
-                <span>열람</span>
+          <div className="ad-sec">결재 의견</div>
+          {flow
+            .filter((l) => l.comment)
+            .map((l) => (
+              <div className="ad-it" key={l.id}>
+                <b style={{ minWidth: 'auto' }}>
+                  {l.role} {l.approver_id ? empName[l.approver_id] ?? '' : ''}
+                </b>
+                <span className="v">“{l.comment}”</span>
               </div>
             ))}
-          </div>
         </>
       )}
     </div>

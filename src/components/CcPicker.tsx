@@ -30,7 +30,7 @@ export function CcPicker({ value, onChange, className = 'mfield' }: { value: str
             if (e.target.value && !value.includes(e.target.value)) onChange([...value, e.target.value])
           }}
         >
-          <option value="">참조</option>
+          <option value="">참조자 추가</option>
           {emps.filter((e) => !value.includes(e.id)).map((e) => (
             <option key={e.id} value={e.id}>{approverLabel(e)}</option>
           ))}

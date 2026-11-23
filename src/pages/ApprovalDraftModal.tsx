@@ -66,8 +66,7 @@ export function ApprovalDraftModal({
     loadPresets()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-  const [urgent, setUrgent] = useState(!!draft?.urgent)
-  const [confidential, setConfidential] = useState(!!draft?.confidential)
+  const [showAgree, setShowAgree] = useState(false)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
@@ -167,8 +166,6 @@ export function ApprovalDraftModal({
       budget_item: isArt && budgetItem ? budgetItem : null,
       req_date: today(),
       status: asDraft ? '기안' : '진행',
-      ...(urgent || draft?.urgent ? { urgent } : {}),
-      ...((confidential && !def.expense) || draft?.confidential ? { confidential: confidential && !def.expense } : {}),
     }
     let apprId = draft?.id ?? ''
     if (draft && !reuse) {
@@ -184,7 +181,7 @@ export function ApprovalDraftModal({
       const { data: appr, error } = await supabase.from('approvals').insert({ doc_no: docNo, ...row }).select('id').single()
       if (error || !appr) {
         setBusy(false)
-        setErr(error?.message?.includes('urgent') ? '긴급 표시에 필요한 SQL 38번을 먼저 실행해 주세요.' : error?.message?.includes('confidential') ? '보안 문서에 필요한 SQL 42번을 먼저 실행해 주세요.' : error?.message ?? '생성 실패')
+        setErr(error?.message ?? '생성 실패')
         return
       }
       apprId = appr.id
@@ -245,8 +242,13 @@ export function ApprovalDraftModal({
     loadPresets()
   }
 
-  const personSel = (value: string, set: (v: string) => void, ph: string, title?: string) => (
-    <select className="ctl" value={value} onChange={(e) => set(e.target.value)} title={title}>
+
+  const numOf = (s: string) => parseInt(s.replace(/[^0-9]/g, ''), 10) || 0
+  const [mgr, setMgr] = useState(false)
+  const agreeOpen = showAgree || !!agreeId
+
+  const personSel = (value: string, set: (v: string) => void, ph: string) => (
+    <select className="ctl" value={value} onChange={(e) => set(e.target.value)}>
       <option value="">{ph}</option>
       {admins.map((e) => (
         <option key={e.id} value={e.id}>
@@ -255,20 +257,19 @@ export function ApprovalDraftModal({
       ))}
     </select>
   )
-  const ini = (id: string) => admins.find((a) => a.id === id)?.name?.slice(0, 1) ?? ''
-  const numOf = (s: string) => parseInt(s.replace(/[^0-9]/g, ''), 10) || 0
 
   const itemsEditor = (f: FormField) => {
     const rows = itemsMap[f.key] ?? []
     const set = (next: ItemRow[]) => setItemsMap((p) => ({ ...p, [f.key]: next }))
     const upd = (i: number, patch: Partial<ItemRow>) => set(rows.map((x, j) => (j === i ? { ...x, ...patch } : x)))
+    const add = () => set([...rows, { name: '', qty: 1, price: 0 }])
     return (
       <div className="adm-f full" key={f.key}>
         <div className="adm-l">
-          {f.key} <span className="adm-sub">선택 · 입력한 합계가 금액이 됩니다</span>
+          {f.key} <span className="adm-sub">선택</span>
         </div>
         {rows.length === 0 ? (
-          <button type="button" className="adm-add" onClick={() => set([{ name: '', qty: 1, price: 0 }])}>
+          <button type="button" className="adm-empty" onClick={add}>
             + 항목 추가
           </button>
         ) : (
@@ -276,7 +277,7 @@ export function ApprovalDraftModal({
             <div className="adm-ih">
               <span>항목</span>
               <span>수량</span>
-              <span>단가(원)</span>
+              <span>단가</span>
               <span>금액</span>
               <span />
             </div>
@@ -286,17 +287,18 @@ export function ApprovalDraftModal({
                 <input className="ctl num" inputMode="numeric" value={r.qty || ''} onChange={(e) => upd(i, { qty: numOf(e.target.value) })} placeholder="수량" />
                 <input className="ctl num" inputMode="numeric" value={r.price ? won(r.price) : ''} onChange={(e) => upd(i, { price: numOf(e.target.value) })} placeholder="단가" />
                 <span className="amt">{won((Number(r.qty) || 0) * (Number(r.price) || 0))}</span>
-                <button type="button" className="adm-del" title="항목 삭제" onClick={() => set(rows.filter((_, j) => j !== i))}>
+                <button type="button" className="adm-del" title="삭제" onClick={() => set(rows.filter((_, j) => j !== i))}>
                   ✕
                 </button>
               </div>
             ))}
-            <button type="button" className="adm-add" onClick={() => set([...rows, { name: '', qty: 1, price: 0 }])}>
-              + 항목 추가
-            </button>
             <div className="adm-if">
-              <span>합계</span>
-              <b>{won(itemsTotal(rows))}원</b>
+              <button type="button" className="adm-lnk" onClick={add}>
+                + 항목 추가
+              </button>
+              <span>
+                합계 <b>{won(itemsTotal(rows))}원</b>
+              </span>
             </div>
           </div>
         )}
@@ -308,13 +310,6 @@ export function ApprovalDraftModal({
     if (f.type === 'items') return itemsEditor(f)
     const half = f.type === 'select' || f.type === 'date' || f.type === 'daterange'
     const days = f.type === 'daterange' && def.id === 'leave' ? leaveDays(values['휴가 종류'] ?? '연차', val(f)) : 0
-    const label = (
-      <div className="adm-l">
-        {f.key}
-        {f.required && <span className="req">*</span>}
-        {days > 0 && <span className="adm-days">{days}일</span>}
-      </div>
-    )
     let input: JSX.Element
     if (f.type === 'textarea')
       input = <textarea className="ctl" rows={f.rows ?? 4} value={values[f.key] ?? ''} onChange={(e) => setVal(f.key, e.target.value)} placeholder={f.placeholder} />
@@ -341,152 +336,124 @@ export function ApprovalDraftModal({
     } else input = <input className="ctl" value={values[f.key] ?? ''} onChange={(e) => setVal(f.key, e.target.value)} placeholder={f.placeholder} />
     return (
       <div className={`adm-f${half ? '' : ' full'}`} key={f.key}>
-        {label}
+        <div className="adm-l">
+          {f.key}
+          {f.required && <span className="req">*</span>}
+          {days > 0 && <span className="adm-days">{days}일</span>}
+        </div>
         {input}
       </div>
     )
   }
 
-  const [mgr, setMgr] = useState(false)
-
   return (
     <div className="modal-bg" onClick={onClose}>
       <div className="modal adm" onClick={(e) => e.stopPropagation()}>
-        <div className="adm-head">
-          <div>
-            <div className="eyebrow">{reuse ? '재기안' : draft ? '임시보관 문서' : '기안 작성'}</div>
-            <h3>{def.name}</h3>
-            <p>{def.desc}</p>
-          </div>
-          <button className="adm-x" onClick={onClose} title="닫기">
-            ✕
-          </button>
-        </div>
-
-        {/* 양식함 */}
-        <div className="adm-tabs" role="tablist">
-          {FORMS.map((f) => (
-            <button key={f.id} type="button" role="tab" aria-selected={formId === f.id} className={`adm-tab${formId === f.id ? ' on' : ''}`} onClick={() => setFormId(f.id)}>
-              {f.name}
+        <header className="adm-head">
+          <div className="adm-top">
+            <span className="adm-kicker">{reuse ? '재기안' : draft ? '임시보관 문서' : '새 기안'}</span>
+            <button className="adm-x" onClick={onClose} title="닫기">
+              ✕
             </button>
-          ))}
-        </div>
+          </div>
+          <div className="adm-seg" role="tablist">
+            {FORMS.map((f) => (
+              <button key={f.id} type="button" role="tab" aria-selected={formId === f.id} className={formId === f.id ? 'on' : ''} onClick={() => setFormId(f.id)}>
+                {f.name}
+              </button>
+            ))}
+          </div>
+          <p className="adm-desc">{def.desc}</p>
+        </header>
 
         <div className="adm-body">
           <div className="adm-main">
-            {/* 문서 정보 */}
-            <section>
-              <div className="adm-st">문서 제목</div>
-              <input className="ctl adm-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={def.titleHint} autoFocus />
-              <div className="adm-opts">
-                <button type="button" role="switch" aria-checked={urgent} className={`adm-chip dg${urgent ? ' on' : ''}`} onClick={() => setUrgent(!urgent)}>
-                  <i />긴급 문서
-                </button>
-                {!def.expense && (
-                  <button type="button" role="switch" aria-checked={confidential} className={`adm-chip${confidential ? ' on' : ''}`} onClick={() => setConfidential(!confidential)}>
-                    <i />보안 문서
-                  </button>
+            <input className="adm-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={def.titleHint} autoFocus />
+
+            {def.expense && (
+              <div className="adm-grid">
+                <div className="adm-f">
+                  <div className="adm-l">사업자</div>
+                  <select className="ctl" value={biz} onChange={(e) => setBiz(e.target.value)}>
+                    <option value="법인">법인</option>
+                    <option value="개인">개인(도래헌)</option>
+                    <option value="더북촌">더북촌</option>
+                  </select>
+                </div>
+                <div className="adm-f">
+                  <div className="adm-l">부서</div>
+                  <select className="ctl" value={dept} onChange={(e) => setDept(e.target.value)}>
+                    <option value="management">경영</option>
+                    <option value="art">미술</option>
+                    <option value="product">상품</option>
+                    <option value="promotion">홍보</option>
+                    <option value="experience">체험</option>
+                    <option value="education">교육</option>
+                  </select>
+                </div>
+                <div className="adm-f">
+                  <div className="adm-l">계정과목</div>
+                  <input className="ctl" value={account} onChange={(e) => setAccount(e.target.value)} placeholder="예: 외주용역비" />
+                </div>
+                <div className="adm-f">
+                  <div className="adm-l">
+                    금액 {itemsSum > 0 && <span className="adm-sub">내역 합계</span>}
+                  </div>
+                  <input
+                    className="ctl num"
+                    style={{ textAlign: 'right', fontWeight: 700 }}
+                    disabled={itemsSum > 0}
+                    value={itemsSum > 0 ? won(itemsSum) : amount ? won(amount) : ''}
+                    onChange={(e) => setAmount(numOf(e.target.value))}
+                    placeholder="0"
+                  />
+                </div>
+                {isArt && (
+                  <>
+                    <div className="adm-f">
+                      <div className="adm-l">사업</div>
+                      <select className="ctl" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+                        <option value="">선택</option>
+                        {projects.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="adm-f">
+                      <div className="adm-l">예산 항목</div>
+                      <select className="ctl" value={budgetItem} onChange={(e) => setBudgetItem(e.target.value)} disabled={!projectId}>
+                        <option value="">선택</option>
+                        {budgets.map((b) => (
+                          <option key={b.id} value={b.item}>
+                            {b.item}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
                 )}
               </div>
-              <div className="adm-opt-note">
-                긴급은 결재자의 결재대기 목록 맨 위에 표시됩니다.
-                {!def.expense && ' 보안은 기안자와 결재선(참조 포함)에 지정된 사람만 열람할 수 있습니다.'}
-              </div>
-            </section>
-
-            {/* 지출 정보 */}
-            {def.expense && (
-              <section>
-                <div className="adm-st">회계 정보</div>
-                <div className="adm-grid">
-                  <div className="adm-f">
-                    <div className="adm-l">사업자</div>
-                    <select className="ctl" value={biz} onChange={(e) => setBiz(e.target.value)}>
-                      <option value="법인">법인</option>
-                      <option value="개인">개인(도래헌)</option>
-                      <option value="더북촌">더북촌</option>
-                    </select>
-                  </div>
-                  <div className="adm-f">
-                    <div className="adm-l">부서</div>
-                    <select className="ctl" value={dept} onChange={(e) => setDept(e.target.value)}>
-                      <option value="management">경영</option>
-                      <option value="art">미술</option>
-                      <option value="product">상품</option>
-                      <option value="promotion">홍보</option>
-                      <option value="experience">체험</option>
-                      <option value="education">교육</option>
-                    </select>
-                  </div>
-                  <div className="adm-f">
-                    <div className="adm-l">계정과목</div>
-                    <input className="ctl" value={account} onChange={(e) => setAccount(e.target.value)} placeholder="예: 외주용역비" />
-                  </div>
-                  <div className="adm-f">
-                    <div className="adm-l">
-                      금액 {itemsSum > 0 && <span className="adm-sub">지출 내역 합계로 자동 계산</span>}
-                    </div>
-                    <input
-                      className="ctl num"
-                      style={{ textAlign: 'right', fontWeight: 700 }}
-                      disabled={itemsSum > 0}
-                      value={itemsSum > 0 ? won(itemsSum) : amount ? won(amount) : ''}
-                      onChange={(e) => setAmount(numOf(e.target.value))}
-                      placeholder="0"
-                    />
-                  </div>
-                  {isArt && (
-                    <>
-                      <div className="adm-f">
-                        <div className="adm-l">사업</div>
-                        <select className="ctl" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
-                          <option value="">선택</option>
-                          {projects.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="adm-f">
-                        <div className="adm-l">예산 항목</div>
-                        <select className="ctl" value={budgetItem} onChange={(e) => setBudgetItem(e.target.value)} disabled={!projectId}>
-                          <option value="">선택</option>
-                          {budgets.map((b) => (
-                            <option key={b.id} value={b.item}>
-                              {b.item}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </section>
             )}
 
-            {/* 작성 내용 */}
-            <section>
-              <div className="adm-st">작성 내용</div>
-              <div className="adm-grid">{def.fields.map(renderField)}</div>
-            </section>
+            <div className="adm-grid">{def.fields.map(renderField)}</div>
           </div>
 
-          {/* 오른쪽: 결재선 · 참조 · 첨부 */}
           <aside className="adm-side">
-            <div className="adm-card">
-              <div className="adm-st">결재선</div>
-              <div className="adm-pre">
+            <section>
+              <div className="adm-sl">
+                <span>결재선</span>
                 {presets.length > 0 && (
                   <select
-                    className="ctl"
+                    className="adm-pick"
                     value=""
                     onChange={(e) => {
                       applyPreset(e.target.value)
                       setPresetMsg(null)
                     }}
                   >
-                    <option value="">저장된 결재선 불러오기</option>
+                    <option value="">저장된 결재선</option>
                     {presets.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.name}
@@ -494,8 +461,59 @@ export function ApprovalDraftModal({
                     ))}
                   </select>
                 )}
+              </div>
+              <div className="adm-rows">
+                <div className="adm-row">
+                  <span className="adm-rn">기안</span>
+                  <span className="adm-me">
+                    <i>{me?.name?.slice(0, 1) ?? '·'}</i>
+                    {me?.name ?? '—'}
+                  </span>
+                </div>
+                <div className="adm-row">
+                  <span className="adm-rn">검토</span>
+                  {personSel(reviewerId, setReviewerId, '선택 안 함')}
+                </div>
+                {agreeOpen && (
+                  <div className="adm-row">
+                    <span className="adm-rn">합의</span>
+                    <div className="adm-with">
+                      {personSel(agreeId, setAgreeId, '선택')}
+                      <button
+                        type="button"
+                        className="adm-del"
+                        title="합의 빼기"
+                        onClick={() => {
+                          setAgreeId('')
+                          setShowAgree(false)
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                )}
+                <div className="adm-row">
+                  <span className="adm-rn">
+                    승인<b>*</b>
+                  </span>
+                  {personSel(approverId, setApproverId, '승인자 선택')}
+                </div>
+                {needsAcct && (
+                  <div className="adm-row">
+                    <span className="adm-rn">회계</span>
+                    <span className="adm-auto">승인 후 회계 담당자가 접수합니다</span>
+                  </div>
+                )}
+              </div>
+              <div className="adm-tools">
+                {!agreeOpen && (
+                  <button type="button" className="adm-lnk" onClick={() => setShowAgree(true)} title="다른 부서의 확인·협조가 필요할 때">
+                    + 합의자 추가
+                  </button>
+                )}
                 {presetName === null ? (
-                  <div className="adm-pre-row">
+                  <>
                     <button
                       type="button"
                       className="adm-lnk"
@@ -504,17 +522,17 @@ export function ApprovalDraftModal({
                         setPresetMsg(null)
                       }}
                     >
-                      + 현재 결재선 저장
+                      결재선 저장
                     </button>
                     {presets.length > 0 && (
                       <button type="button" className="adm-lnk mu" onClick={() => setMgr(!mgr)}>
                         {mgr ? '관리 닫기' : '관리'}
                       </button>
                     )}
-                  </div>
+                  </>
                 ) : (
-                  <div className="adm-pre-row">
-                    <input className="ctl" style={{ flex: 1, minWidth: 0 }} value={presetName} onChange={(e) => setPresetName(e.target.value)} placeholder="결재선 이름" autoFocus />
+                  <div className="adm-save">
+                    <input className="ctl" value={presetName} onChange={(e) => setPresetName(e.target.value)} placeholder="결재선 이름" autoFocus />
                     <button type="button" className="adm-lnk" onClick={savePreset}>
                       저장
                     </button>
@@ -523,100 +541,47 @@ export function ApprovalDraftModal({
                     </button>
                   </div>
                 )}
-                {mgr && presets.length > 0 && (
-                  <div className="adm-mgr">
-                    {presets.map((p) => (
-                      <span key={p.id} className="badge" title="누르면 삭제" onClick={() => deletePreset(p.id)}>
-                        {p.name} ✕
-                      </span>
-                    ))}
-                  </div>
-                )}
-                {presetMsg && <div className="adm-hint">{presetMsg}</div>}
               </div>
+              {mgr && presets.length > 0 && (
+                <div className="adm-mgr">
+                  {presets.map((p) => (
+                    <span key={p.id} className="badge" title="누르면 삭제" onClick={() => deletePreset(p.id)}>
+                      {p.name} ✕
+                    </span>
+                  ))}
+                </div>
+              )}
+              {presetMsg && <div className="adm-note">{presetMsg}</div>}
+            </section>
 
-              <ol className="adm-flow">
-                <li className="adm-step me">
-                  <span className="adm-dot">{me?.name?.slice(0, 1) ?? '기'}</span>
-                  <div className="adm-sb">
-                    <div className="adm-rl">
-                      기안<em>본인</em>
-                    </div>
-                    <div className="adm-nm">{me?.name ?? '—'}</div>
-                  </div>
-                </li>
-                <li className={`adm-step${reviewerId ? ' set' : ''}`}>
-                  <span className="adm-dot">{ini(reviewerId) || '검'}</span>
-                  <div className="adm-sb">
-                    <div className="adm-rl">
-                      검토<em>선택</em>
-                    </div>
-                    {personSel(reviewerId, setReviewerId, '검토자 선택')}
-                  </div>
-                </li>
-                <li className={`adm-step${agreeId ? ' set' : ''}`}>
-                  <span className="adm-dot">{ini(agreeId) || '합'}</span>
-                  <div className="adm-sb">
-                    <div className="adm-rl">
-                      합의<em>선택</em>
-                    </div>
-                    {personSel(agreeId, setAgreeId, '합의자 선택')}
-                    <div className="adm-hint">다른 부서의 확인·협조가 필요할 때 지정합니다.</div>
-                  </div>
-                </li>
-                <li className={`adm-step${approverId ? ' set' : ''}`}>
-                  <span className="adm-dot">{ini(approverId) || '승'}</span>
-                  <div className="adm-sb">
-                    <div className="adm-rl">
-                      승인<em className="must">필수</em>
-                    </div>
-                    {personSel(approverId, setApproverId, '승인자 선택')}
-                  </div>
-                </li>
-                {needsAcct && (
-                  <li className="adm-step auto">
-                    <span className="adm-dot">회</span>
-                    <div className="adm-sb">
-                      <div className="adm-rl">
-                        회계접수<em>자동</em>
-                      </div>
-                      <div className="adm-hint" style={{ marginTop: 0 }}>
-                        승인 후 회계 담당자가 접수·전표 처리합니다.
-                      </div>
-                    </div>
-                  </li>
-                )}
-              </ol>
-            </div>
-
-            <div className="adm-card">
-              <div className="adm-st">
-                참조 <small>열람만 가능</small>
+            <section>
+              <div className="adm-sl">
+                <span>참조</span>
               </div>
               <CcPicker value={ccIds} onChange={setCcIds} className="adm-emb" />
-            </div>
+            </section>
 
-            <div className="adm-card">
-              <div className="adm-st">
-                첨부파일 <small>파일당 20MB</small>
+            <section>
+              <div className="adm-sl">
+                <span>첨부</span>
               </div>
               <AttachPicker files={files} onChange={setFiles} className="adm-emb" />
-            </div>
+            </section>
           </aside>
         </div>
 
-        <div className="adm-foot">
-          {err ? <div className="adm-err">{err}</div> : <div className="adm-sp" />}
+        <footer className="adm-foot">
+          {err ? <div className="adm-err">{err}</div> : <span className="adm-fhint">임시보관한 문서는 나에게만 보입니다</span>}
           <button className="adm-b ghost" onClick={onClose} disabled={busy}>
             취소
           </button>
-          <button className="adm-b" onClick={() => persist(true)} disabled={busy} title="본인에게만 보이는 임시보관함에 저장합니다">
+          <button className="adm-b" onClick={() => persist(true)} disabled={busy}>
             임시보관
           </button>
           <button className="adm-b pri" onClick={submit} disabled={busy}>
             {busy ? '처리 중…' : '상신'}
           </button>
-        </div>
+        </footer>
       </div>
     </div>
   )

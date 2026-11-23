@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import { useAuth } from './auth'
-import { useDelegators } from './delegates'
 
 /** 결재 상태가 바뀌었을 때(승인·반려·회수·상신 등) 알림 숫자를 바로 갱신하기 위한 신호 */
 export function notifyApprovalsChanged() {
@@ -13,8 +12,6 @@ export function notifyApprovalsChanged() {
 export function usePendingApprovals(): number {
   const { me } = useAuth()
   const myId = me?.id ?? null
-  const delegators = useDelegators(myId)
-  const delKey = delegators.join(',')
   const [count, setCount] = useState(0)
 
   const load = useCallback(async () => {
@@ -22,7 +19,7 @@ export function usePendingApprovals(): number {
     const { data: mine } = await supabase
       .from('approval_lines')
       .select('approval_id')
-      .in('approver_id', [myId, ...delegators])
+      .eq('approver_id', myId)
       .eq('decided', '대기')
       .in('role', ['검토', '합의', '승인', '회계접수'])
     const ids = [...new Set((mine ?? []).map((l) => l.approval_id as string))]
@@ -36,11 +33,11 @@ export function usePendingApprovals(): number {
     for (const id of ids) {
       if (!live.has(id)) continue
       const ls = (lines ?? []).filter((l) => l.approval_id === id).sort((a, b) => (a.seq as number) - (b.seq as number))
-      const idx = ls.findIndex((l) => (l.approver_id === myId || delegators.includes(l.approver_id as string)) && l.decided === '대기')
+      const idx = ls.findIndex((l) => l.approver_id === myId && l.decided === '대기')
       if (idx >= 0 && ls.slice(0, idx).every((l) => l.decided === '승인')) n++
     }
     setCount(n)
-  }, [myId, delKey])
+  }, [myId])
 
   useEffect(() => {
     load()

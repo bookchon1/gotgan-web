@@ -1,13 +1,12 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { PageHead } from '../components/PageHead'
 import { Icon } from '../components/Icon'
 import { ErrorBanner, LoadingRow, EmptyRow } from '../components/States'
 import { supabase } from '../lib/supabase'
 import { useQuery } from '../lib/useQuery'
-import { won, approverLabel, sortApprovers } from '../lib/format'
+import { won } from '../lib/format'
 import { useAuth } from '../lib/auth'
 import { notifyApprovalsChanged } from '../lib/pendingApprovals'
-import { useDelegators } from '../lib/delegates'
 import type { Approval, ApprovalLine, Employee, Payslip, PayrollRun } from '../types/db'
 import { ApprovalDraftModal } from './ApprovalDraftModal'
 import { ApprDetail, parseOrder } from '../components/ApprDetail'
@@ -78,15 +77,13 @@ export default function Approvals() {
 
   // 폴더별 필터
   const myId = me?.id
-  const delegators = useDelegators(myId) // 나에게 결재를 위임한 사람(대결)
-  const effIds = [myId, ...delegators]
   const temps = raw.filter((a) => a.status === '기안' && a.drafter_id === myId)
   const pending = all.filter((a) => {
     const lines = linesByAppr[a.id] ?? []
     // 내 차례 = 내게 아직 대기인 결재선이 있고, 그 앞 단계가 모두 승인됨 (반려/회계접수완료 제외)
     if (a.status === '반려' || a.status === '회계접수' || a.status === '회수') return false
     const sorted = lines.slice().sort((x, y) => x.seq - y.seq)
-    const myIdx = sorted.findIndex((l) => effIds.includes(l.approver_id as string) && l.decided === '대기')
+    const myIdx = sorted.findIndex((l) => l.approver_id === myId && l.decided === '대기')
     if (myIdx < 0) return false
     return sorted.slice(0, myIdx).every((l) => l.decided === '승인')
   })
@@ -138,7 +135,6 @@ export default function Approvals() {
 
   const loading = apprQ.loading || linesQ.loading
   const hasAct = folder === 'pending' || folder === 'drafted' || folder === 'temp'
-  const [delegOpen, setDelegOpen] = useState(false)
   const [editDraft, setEditDraft] = useState<Approval | null>(null)
   const [reDraft, setReDraft] = useState<Approval | null>(null)
   const [busy, setBusy] = useState(false)
@@ -224,7 +220,7 @@ export default function Approvals() {
   // 승인/반려 처리
   async function decide(a: Approval, decision: '승인' | '반려') {
     const lines = (linesByAppr[a.id] ?? []).slice().sort((x, y) => x.seq - y.seq)
-    const myLine = lines.find((l) => effIds.includes(l.approver_id as string) && l.decided === '대기')
+    const myLine = lines.find((l) => l.approver_id === myId && l.decided === '대기')
     if (!myLine) return
     const cmt = (comments[a.id] ?? '').trim()
     if (decision === '반려' && !cmt) {
@@ -237,7 +233,7 @@ export default function Approvals() {
     // 내 단계 처리 (의견이 있으면 함께 저장)
     const { error: lineErr } = await supabase
       .from('approval_lines')
-      .update({ decided: decision, decided_at: new Date().toISOString(), ...(cmt ? { comment: cmt } : {}), ...(myLine.approver_id !== myId ? { acted_by: myId } : {}) })
+      .update({ decided: decision, decided_at: new Date().toISOString(), ...(cmt ? { comment: cmt } : {}) })
       .eq('id', myLine.id)
     if (lineErr) {
       setBusy(false)
@@ -293,9 +289,6 @@ export default function Approvals() {
         desc="기안을 작성하고, 결재선에 따라 승인과 반려를 처리하세요."
         actions={
           <>
-            <button className="btn txt add-txt" onClick={() => setDelegOpen(true)}>
-              대결 설정
-            </button>
             <button className="btn txt add-txt" onClick={() => setDraftOpen(true)}>
               기안 작성
             </button>
@@ -387,10 +380,7 @@ export default function Approvals() {
                     <Fragment key={a.id}>
                     <tr style={{ cursor: 'pointer' }} className={on ? 'pf-row on' : undefined} onClick={() => setOpenId(on ? null : a.id)}>
                       <td>
-                        <div className="t-title">{a.urgent && <span className="badge" style={{ marginRight: 6, background: 'var(--danger-soft)', color: 'var(--danger)', fontWeight: 800 }}>긴급</span>}{a.confidential && <span title="보안 문서 — 결재선에 지정된 사람만 열람" style={{ marginRight: 4 }}>🔒</span>}{a.title || a.memo}{folder === 'pending' && (() => {
-                          const cur = lines.slice().sort((x, y) => x.seq - y.seq).find((l) => l.decided === '대기')
-                          return cur && cur.approver_id !== myId ? <span className="badge gold" style={{ marginLeft: 6 }}>{empName[cur.approver_id ?? ''] ?? ''} 대결</span> : null
-                        })()}{a.status === '회수' && <span className="badge" style={{ marginLeft: 6 }}>회수</span>}</div>
+                        <div className="t-title">{a.urgent && <span className="badge" style={{ marginRight: 6, background: 'var(--danger-soft)', color: 'var(--danger)', fontWeight: 800 }}>긴급</span>}{a.confidential && <span title="보안 문서 — 결재선에 지정된 사람만 열람" style={{ marginRight: 4 }}>🔒</span>}{a.title || a.memo}{a.status === '회수' && <span className="badge" style={{ marginLeft: 6 }}>회수</span>}</div>
                         <div className="t-sub">{a.doc_no} · {on ? '내용 접기 ▴' : '내용 보기 ▾'}</div>
                       </td>
                       <td>{a.drafter_id ? empName[a.drafter_id] ?? '—' : '—'}</td>
@@ -509,7 +499,6 @@ export default function Approvals() {
       </section>
       )}
 
-      {delegOpen && <DelegateModal myId={myId ?? ''} empName={empName} onClose={() => setDelegOpen(false)} />}
       {reDraft && (
         <ApprovalDraftModal
           reuse
@@ -804,120 +793,6 @@ function PayRow({
         {expense && value ? '−' : ''}
         {won(value)}
       </span>
-    </div>
-  )
-}
-
-// 대결(위임) 설정 — 부재 기간 동안 대신 결재할 사람 지정
-function DelegateModal({ myId, empName, onClose }: { myId: string; empName: Record<string, string>; onClose: () => void }) {
-  const today = new Date().toISOString().slice(0, 10)
-  const [emps, setEmps] = useState<Pick<Employee, 'id' | 'name' | 'title'>[]>([])
-  const [rows, setRows] = useState<{ id: string; delegate_id: string; from_date: string; to_date: string; reason: string | null }[]>([])
-  const [delegateId, setDelegateId] = useState('')
-  const [from, setFrom] = useState(today)
-  const [to, setTo] = useState(today)
-  const [reason, setReason] = useState('')
-  const [err, setErr] = useState<string | null>(null)
-  const load = () =>
-    supabase
-      .from('approval_delegates')
-      .select('id,delegate_id,from_date,to_date,reason')
-      .eq('owner_id', myId)
-      .order('from_date', { ascending: false })
-      .then(({ data, error }) => {
-        if (error) setErr(error.message.includes('approval_delegates') ? '대결 기능에 필요한 SQL 41번을 먼저 실행해 주세요.' : error.message)
-        else setRows((data ?? []) as typeof rows)
-      })
-  useEffect(() => {
-    supabase
-      .from('employees')
-      .select('id,name,title')
-      .eq('status', '재직')
-      .then(({ data }) => setEmps(sortApprovers((data ?? []).filter((e) => e.id !== myId))))
-    load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-  async function add() {
-    if (!delegateId) return setErr('대결자를 선택하세요.')
-    if (to < from) return setErr('종료일이 시작일보다 빠릅니다.')
-    const { error } = await supabase.from('approval_delegates').insert({ owner_id: myId, delegate_id: delegateId, from_date: from, to_date: to, reason: reason.trim() || null })
-    if (error) return setErr(error.message)
-    setErr(null)
-    setReason('')
-    load()
-  }
-  async function del(id: string) {
-    await supabase.from('approval_delegates').delete().eq('id', id)
-    load()
-  }
-  return (
-    <div className="modal-bg" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 520 }}>
-        <div className="mh">
-          <div>
-            <div className="eyebrow">전자결재</div>
-            <h3>대결 설정</h3>
-          </div>
-          <button className="x" onClick={onClose}>
-            ✕
-          </button>
-        </div>
-        <div className="mb">
-          <p className="t-sub" style={{ marginTop: 0 }}>
-            출장·휴가 등 자리를 비우는 기간 동안, 지정한 사람이 내 결재대기 문서를 대신 처리합니다. 처리된 문서에는 "대결"로 표시됩니다.
-          </p>
-          <div className="mfield">
-            <label>대결자</label>
-            <select className="ctl" value={delegateId} onChange={(e) => setDelegateId(e.target.value)}>
-              <option value="">선택</option>
-              {emps.map((e) => (
-                <option key={e.id} value={e.id}>
-                  {approverLabel(e)}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <div className="mfield" style={{ flex: 1 }}>
-              <label>시작일</label>
-              <input className="ctl" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-            </div>
-            <div className="mfield" style={{ flex: 1 }}>
-              <label>종료일</label>
-              <input className="ctl" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-            </div>
-          </div>
-          <div className="mfield">
-            <label>사유 (선택)</label>
-            <input className="ctl" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="예: 해외 출장" />
-          </div>
-          {err && <div className="login-alert err" style={{ margin: '0 0 8px' }}>{err}</div>}
-          <button className="btn pri" onClick={add}>
-            대결 지정
-          </button>
-          {rows.length > 0 && (
-            <>
-              <div className="ad-sec" style={{ marginTop: 16 }}>내가 지정한 대결</div>
-              <table className="rowtbl" style={{ fontSize: 12 }}>
-                <tbody>
-                  {rows.map((r) => (
-                    <tr key={r.id}>
-                      <td><b>{empName[r.delegate_id] ?? '—'}</b></td>
-                      <td className="tnum">{r.from_date} ~ {r.to_date}</td>
-                      <td className="t-sub">{r.reason ?? ''}</td>
-                      <td style={{ textAlign: 'right' }}>
-                        <button className="sp-btn b2" onClick={() => del(r.id)} title="해지">
-                          −
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </>
-          )}
-        </div>
-      </div>
     </div>
   )
 }

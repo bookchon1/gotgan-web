@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CcPicker, ccLines } from '../components/CcPicker'
 import { AttachPicker, uploadAttachments } from '../components/AttachPicker'
-import { ApprStamps, useTitles, type Stamp } from '../components/ApprStamps'
 import { supabase } from '../lib/supabase'
 import { won, approverLabel, sortApprovers } from '../lib/format'
 import { useAuth } from '../lib/auth'
@@ -247,15 +246,7 @@ export function ApprovalDraftModal({
   const numOf = (s: string) => parseInt(s.replace(/[^0-9]/g, ''), 10) || 0
   const [mgr, setMgr] = useState(false)
   const agreeOpen = showAgree || !!agreeId
-  const myTitle = useTitles([me?.id])
   const nameOf = (id: string) => admins.find((a) => a.id === id)
-  const stampItems: Stamp[] = [
-    { role: '기안', name: me?.name ?? '', title: me?.id ? myTitle[me.id] : '', date: today().slice(5).replace('-', '/') },
-    { role: '검토', name: reviewerId ? nameOf(reviewerId)?.name ?? '' : '', title: reviewerId ? nameOf(reviewerId)?.title : '' },
-    ...(agreeOpen && agreeId ? [{ role: '합의', name: nameOf(agreeId)?.name ?? '', title: nameOf(agreeId)?.title }] : []),
-    { role: '승인', name: approverId ? nameOf(approverId)?.name ?? '' : '', title: approverId ? nameOf(approverId)?.title : '' },
-    ...(needsAcct ? [{ role: '회계', name: '회계' }] : []),
-  ]
   const ccNames = ccIds.map((id) => nameOf(id)?.name).filter(Boolean) as string[]
 
   const personSel = (value: string, set: (v: string) => void, ph: string) => (
@@ -394,9 +385,13 @@ export function ApprovalDraftModal({
                   </>
                 )}
               </dl>
-              <ApprStamps items={stampItems} />
             </div>
-            <input className="adm-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={def.titleHint} autoFocus />
+            <div className="adm-f">
+              <div className="adm-l">
+                제목<span className="req">*</span>
+              </div>
+              <input className="ctl" style={{ fontWeight: 600 }} value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
+            </div>
 
             {def.expense && (
               <div className="adm-grid">
@@ -421,7 +416,7 @@ export function ApprovalDraftModal({
                 </div>
                 <div className="adm-f">
                   <div className="adm-l">계정과목</div>
-                  <input className="ctl" value={account} onChange={(e) => setAccount(e.target.value)} placeholder="예: 외주용역비" />
+                  <input className="ctl" value={account} onChange={(e) => setAccount(e.target.value)}  />
                 </div>
                 <div className="adm-f">
                   <div className="adm-l">

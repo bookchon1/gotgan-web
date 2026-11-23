@@ -306,7 +306,7 @@ export default function Documents() {
           <ErrorBanner error={docQ.error} table="documents" />
           {upMsg && <div className="dx-up">{upMsg}</div>}
           <div className="toolbar" style={{ marginBottom: 10 }}>
-            <nav className="dx-crumb" aria-label="경로">
+            <div className="dx-crumb" role="navigation" aria-label="경로">
               <button onClick={() => setFolderId('all')} className={`${folderId === 'all' ? 'cur' : ''}${overId === 'root' ? ' drop' : ''}`} {...dnd.drop('root')}>공유문서</button>
               {folderId === 'none' ? (
                 <>
@@ -321,7 +321,7 @@ export default function Documents() {
                   </span>
                 ))
               )}
-            </nav>
+            </div>
             <label className="search r" style={{ marginLeft: 'auto' }}>
               <svg className="icon" width="16" height="16" viewBox="0 0 24 24">
                 <circle cx="11" cy="11" r="7" />

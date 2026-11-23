@@ -4,7 +4,8 @@ import { ErrorBanner, LoadingRow, EmptyRow } from '../components/States'
 import { supabase } from '../lib/supabase'
 import { useQuery } from '../lib/useQuery'
 import { useAuth } from '../lib/auth'
-import { approverLabel, dateOnly, sortApprovers } from '../lib/format'
+import { approverLabel, dateOnly, mmdd, sortApprovers } from '../lib/format'
+import { notifyApprovalsChanged } from '../lib/pendingApprovals'
 
 interface CompRow {
   id: string
@@ -16,6 +17,7 @@ interface CompRow {
   hours: number
   reason: string | null
   approver_id: string | null
+  approval_id: string | null
   status: '신청' | '승인' | '반려'
   decided_at: string | null
   created_at: string
@@ -75,7 +77,6 @@ export default function Overtime() {
   const isRegular = empById[myId]?.employment_type === '정규직'
   const bal = balanceOf(rows, myId)
   const mine = rows.filter((r) => r.employee_id === myId)
-  const toDecide = rows.filter((r) => r.approver_id === myId && r.status === '신청')
   const candidates = useMemo(
     () => sortApprovers(emps.filter((e) => e.status === '재직' && e.id !== myId)),
     [emps, myId],
@@ -85,25 +86,26 @@ export default function Overtime() {
     [emps],
   )
 
-  async function decide(r: CompRow, status: '승인' | '반려') {
-    setBusyId(r.id)
-    setMsg(null)
-    const { data, error } = await supabase
-      .from('comp_time')
-      .update({ status, decided_at: new Date().toISOString() })
-      .eq('id', r.id)
-      .eq('status', '신청')
-      .select('id')
-    setBusyId(null)
-    if (error || !data || data.length === 0) setMsg(error?.message ?? '처리되지 않았습니다. (이미 처리됐거나 권한 없음)')
-    rowQ.reload()
-  }
+  // 취소 = 전자결재 회수 (연결된 신청은 DB가 자동 삭제). 결재와 연결되지 않은 옛 신청은 바로 삭제
   async function cancel(r: CompRow) {
     setBusyId(r.id)
     setMsg(null)
-    const { data, error } = await supabase.from('comp_time').delete().eq('id', r.id).eq('status', '신청').select('id')
+    if (r.approval_id) {
+      const { data, error } = await supabase.from('approvals').update({ status: '회수' }).eq('id', r.approval_id).eq('status', '진행').select('id')
+      if (error || !data || data.length === 0) {
+        setBusyId(null)
+        return setMsg(error?.message ?? '취소되지 않았습니다. 이미 결재가 시작됐거나 처리된 문서입니다.')
+      }
+      await supabase.from('approvals').delete().eq('id', r.approval_id).eq('status', '회수') // SQL 29 필요 — 실패해도 무시
+    } else {
+      const { error } = await supabase.from('comp_time').delete().eq('id', r.id).eq('status', '신청')
+      if (error) {
+        setBusyId(null)
+        return setMsg(error.message)
+      }
+    }
     setBusyId(null)
-    if (error || !data || data.length === 0) setMsg(error?.message ?? '취소되지 않았습니다.')
+    notifyApprovalsChanged()
     rowQ.reload()
   }
 
@@ -148,52 +150,6 @@ export default function Overtime() {
         </div>
       )}
 
-      {toDecide.length > 0 && (
-        <section className="panel" style={{ marginBottom: 14 }}>
-          <div className="panel-h">
-            <h2>
-              승인 요청 <span className="count">{toDecide.length}</span>
-            </h2>
-          </div>
-          <div className="tbl-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>신청자</th>
-                  <th>구분</th>
-                  <th>날짜</th>
-                  <th style={{ textAlign: 'right' }}>시간</th>
-                  <th>사유</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {toDecide.map((r) => (
-                  <tr key={r.id}>
-                    <td className="t-title">{empById[r.employee_id]?.name ?? '—'}</td>
-                    <td>{r.kind === '적립' ? '연장근무 적립' : '대체휴무 사용'}</td>
-                    <td className="tnum">
-                      {dateOnly(r.work_date)}
-                      {r.start_time ? ` ${hm(r.start_time)}~${hm(r.end_time)}` : ''}
-                    </td>
-                    <td className="tnum" style={{ textAlign: 'right' }}>{fmtH(Number(r.hours))}</td>
-                    <td className="t-sub">{r.reason ?? ''}</td>
-                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      <button className="sp-btn b1" disabled={busyId === r.id} onClick={() => decide(r, '승인')}>
-                        승인
-                      </button>
-                      <button className="sp-btn b2" style={{ marginLeft: 5 }} disabled={busyId === r.id} onClick={() => decide(r, '반려')}>
-                        반려
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
-
       {isRegular && (
         <section className="panel" style={{ marginBottom: 14 }}>
           <div className="panel-h">
@@ -210,7 +166,7 @@ export default function Overtime() {
                   <th style={{ textAlign: 'right' }}>시간</th>
                   <th>사유</th>
                   <th>승인자</th>
-                  <th>상태</th>
+                  <th>결재 상태</th>
                   <th />
                 </tr>
               </thead>
@@ -247,7 +203,7 @@ export default function Overtime() {
             </table>
           </div>
           <p className="sec-mini" style={{ marginTop: 10 }}>
-            연장근무 시간은 <b>1:1</b>로 적립되고 소멸기한이 없습니다. 8시간 = 1일이며, 승인된 적립에서 승인된 사용을 뺀 값이 잔여입니다.
+            신청하면 <b>전자결재(휴가신청)</b>로 올라가고, 지정한 승인자가 결재대기에서 승인하면 반영됩니다. 연장근무는 <b>1:1</b>로 적립되고 소멸기한이 없으며, 8시간 = 1일입니다. 승인된 대체휴무는 일정표에도 표시됩니다.
           </p>
         </section>
       )}
@@ -294,6 +250,8 @@ export default function Overtime() {
         <ReqModal
           kind={modal}
           myId={myId}
+          myName={me?.name ?? ''}
+          myDept={me?.dept_key ?? null}
           available={bal.available}
           candidates={candidates}
           onClose={() => setModal(null)}
@@ -310,6 +268,8 @@ export default function Overtime() {
 function ReqModal({
   kind,
   myId,
+  myName,
+  myDept,
   available,
   candidates,
   onClose,
@@ -317,6 +277,8 @@ function ReqModal({
 }: {
   kind: '적립' | '사용'
   myId: string
+  myName: string
+  myDept: string | null
   available: number
   candidates: Emp[]
   onClose: () => void
@@ -346,9 +308,38 @@ function ReqModal({
   async function save() {
     if (!(hours > 0)) return setErr('시간을 입력하세요.')
     if (!approverId) return setErr('승인할 사람을 선택하세요.')
+    if (kind === '사용' && hours > 8) return setErr('대체휴무는 하루 최대 8시간까지 신청합니다. 여러 날은 날짜별로 따로 신청하세요.')
     if (kind === '사용' && hours > available + 1e-9) return setErr(`사용 가능한 잔여(${available}시간)를 넘었습니다.`)
     setBusy(true)
     setErr(null)
+    const label = kind === '적립' ? '연장근무 적립' : '대체휴무 사용'
+    const when = `${date}${kind === '적립' ? ` ${start}~${end}` : ''}`
+    // 1) 전자결재 문서(휴가신청) — 기안(본인) → 승인(지정한 승인자)
+    const docNo = `제${new Date().getFullYear()}-${String(Math.floor(Math.random() * 9000) + 1000)}호`
+    const { data: appr, error: ae } = await supabase
+      .from('approvals')
+      .insert({
+        doc_no: docNo,
+        kind: '휴가',
+        drafter_id: myId,
+        biz_code: '법인',
+        dept_key: myDept,
+        title: `${label} 신청 · ${mmdd(date)} ${hours}시간 (${myName})`,
+        memo: `구분: ${label}${kind === '적립' ? ' (1:1 적립)' : ''}\n일시: ${when}\n시간: ${hours}시간\n사유: ${reason.trim() || '-'}`,
+        req_date: today,
+        status: '진행',
+      })
+      .select('id')
+      .single()
+    if (ae || !appr) {
+      setBusy(false)
+      return setErr(ae?.message ?? '결재 문서 생성 실패')
+    }
+    await supabase.from('approval_lines').insert([
+      { approval_id: appr.id, seq: 1, approver_id: myId, role: '기안', decided: '승인', decided_at: new Date().toISOString() },
+      { approval_id: appr.id, seq: 2, approver_id: approverId, role: '승인', decided: '대기', decided_at: null },
+    ])
+    // 2) 연장·대체휴무 신청 기록 (결재 결과가 자동 반영됨)
     const { error } = await supabase.from('comp_time').insert({
       employee_id: myId,
       kind,
@@ -358,10 +349,15 @@ function ReqModal({
       hours,
       reason: reason.trim() || null,
       approver_id: approverId,
+      approval_id: appr.id,
       status: '신청',
     })
     setBusy(false)
-    if (error) return setErr(error.message)
+    if (error) {
+      await supabase.from('approvals').update({ status: '회수' }).eq('id', appr.id)
+      return setErr(error.message)
+    }
+    notifyApprovalsChanged()
     onSaved()
   }
 

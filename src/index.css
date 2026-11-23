@@ -1306,3 +1306,24 @@ td>.hr-in{max-width:160px}
 .adm .adm-unit span{font-size:12.5px;color:var(--muted)}
 .adm .adm-notice{padding:11px 14px;border-radius:8px;background:var(--brand-soft);color:var(--brand-ink);font-size:12.5px;font-weight:600;line-height:1.5}
 .adm .adm-notice.warn{background:var(--danger-soft);color:var(--danger)}
+
+/* ===== 내 정보 (me) ===== */
+.me .me-msg{margin:0 0 12px;padding:9px 12px;border-radius:8px;font-size:12.5px;background:var(--danger-soft);color:var(--danger)}
+.me .me-hero{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;padding:22px 26px;margin-bottom:14px;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-s)}
+.me .me-id{display:flex;align-items:center;gap:16px;min-width:0}
+.me .me-av{flex:none;width:56px;height:56px;border-radius:50%;display:grid;place-items:center;font-size:22px;font-weight:800;color:var(--brand-ink);background:var(--brand-soft)}
+.me .me-id h2{margin:0;font-size:20px;font-weight:800;letter-spacing:-.01em}
+.me .me-id p{margin:4px 0 0;font-size:13px;color:var(--muted)}
+.me .me-info{display:grid;grid-template-columns:repeat(2,minmax(150px,auto));gap:12px 36px;margin:0}
+.me .me-info dt{font-size:11.5px;font-weight:700;color:var(--muted);margin-bottom:3px}
+.me .me-info dd{margin:0;font-size:13.5px;font-weight:600;color:var(--ink);word-break:break-all}
+.me .me-kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-bottom:14px}
+.me .me-card{display:flex;flex-direction:column;gap:4px;padding:18px 20px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-s)}
+.me .me-card small{font-size:12px;font-weight:700;color:var(--muted)}
+.me .me-card b{font-size:30px;font-weight:800;letter-spacing:-.02em;line-height:1.15;color:var(--brand)}
+.me .me-card b i{font-style:normal;font-size:15px;font-weight:700;margin-left:3px;color:var(--ink-soft)}
+.me .me-card span{font-size:12.5px;font-weight:600;color:var(--ink-soft)}
+.me .me-card em{font-style:normal;font-size:11.5px;color:var(--muted)}
+.me .me-note{padding:14px 18px;margin-bottom:14px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);font-size:13px;color:var(--ink-soft)}
+@media (max-width:620px){.me .me-hero{padding:18px}.me .me-info{grid-template-columns:1fr 1fr;gap:10px 20px;width:100%}}
+@media (max-width:760px){.me .tbl-wrap{overflow-x:auto}.me .tbl-wrap table{min-width:560px}.me .tbl-wrap th,.me .tbl-wrap td{white-space:nowrap}}

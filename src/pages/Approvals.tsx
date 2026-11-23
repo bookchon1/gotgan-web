@@ -99,7 +99,27 @@ export default function Approvals() {
   const doneIds = new Set(done.map((d) => d.id))
   const drafted = all.filter((a) => a.drafter_id === myId && !doneIds.has(a.id))
 
-  const list = folder === 'pending' ? pending : folder === 'drafted' ? drafted : folder === 'cc' ? ccDocs : folder === 'temp' ? temps : done
+  const baseList = folder === 'pending' ? pending : folder === 'drafted' ? drafted : folder === 'cc' ? ccDocs : folder === 'temp' ? temps : done
+  // 검색·필터: 제목/문서번호/기안자, 종류, 기간(기안일), 상태
+  const [kw, setKw] = useState('')
+  const [kindF, setKindF] = useState('all')
+  const [stF, setStF] = useState('all')
+  const [fromD, setFromD] = useState('')
+  const [toD, setToD] = useState('')
+  const filtering = !!(kw.trim() || kindF !== 'all' || stF !== 'all' || fromD || toD)
+  const list = baseList.filter((a) => {
+    const q = kw.trim().toLowerCase()
+    if (q) {
+      const hay = `${a.title ?? ''} ${a.doc_no ?? ''} ${a.memo ?? ''} ${a.drafter_id ? empName[a.drafter_id] ?? '' : ''}`.toLowerCase()
+      if (!hay.includes(q)) return false
+    }
+    if (kindF !== 'all' && a.kind !== kindF) return false
+    if (stF !== 'all' && a.status !== stF) return false
+    const d = (a.req_date ?? '').slice(0, 10)
+    if (fromD && d < fromD) return false
+    if (toD && d > toD) return false
+    return true
+  })
   const title =
     folder === 'pending'
       ? '결재대기'
@@ -298,9 +318,41 @@ export default function Approvals() {
         <div className="panel-h">
           <div>
             <h2>
-              {title} <span className="count">{loading ? '…' : list.length}</span>
+              {title} <span className="count">{loading ? '…' : filtering ? `${list.length} / ${baseList.length}` : list.length}</span>
             </h2>
           </div>
+        </div>
+        <div className="toolbar" style={{ flexWrap: 'wrap', gap: 8 }}>
+          <label className="search">
+            <svg className="icon" width="15" height="15" viewBox="0 0 24 24">
+              <circle cx="11" cy="11" r="7" />
+              <path d="M21 21l-4-4" />
+            </svg>
+            <input placeholder="제목·내용·문서번호·기안자 검색" value={kw} onChange={(e) => setKw(e.target.value)} />
+          </label>
+          <select className="sel" value={kindF} onChange={(e) => setKindF(e.target.value)}>
+            <option value="all">전체 종류</option>
+            <option value="지출결의서">지출결의서</option>
+            <option value="품의">품의서</option>
+            <option value="휴가">휴가</option>
+            <option value="일반">일반·출장</option>
+          </select>
+          <select className="sel" value={stF} onChange={(e) => setStF(e.target.value)}>
+            <option value="all">전체 상태</option>
+            <option value="진행">진행</option>
+            <option value="승인">승인</option>
+            <option value="반려">반려</option>
+            <option value="회수">회수</option>
+            <option value="회계접수">회계접수</option>
+          </select>
+          <input className="ctl" type="date" style={{ width: 140 }} value={fromD} onChange={(e) => setFromD(e.target.value)} title="기안일 시작" />
+          <span className="t-sub">~</span>
+          <input className="ctl" type="date" style={{ width: 140 }} value={toD} onChange={(e) => setToD(e.target.value)} title="기안일 끝" />
+          {filtering && (
+            <button className="btn sec" style={{ padding: '5px 10px' }} onClick={() => { setKw(''); setKindF('all'); setStF('all'); setFromD(''); setToD('') }}>
+              초기화
+            </button>
+          )}
         </div>
         <div className="tbl-wrap">
           <table>
@@ -437,7 +489,7 @@ export default function Approvals() {
                   )
                 })}
               {!loading && list.length === 0 && (
-                <EmptyRow cols={hasAct ? 6 : 5} text={folder === 'pending' ? '결재할 문서가 없습니다.' : folder === 'temp' ? '임시보관한 문서가 없습니다.' : '문서가 없습니다.'} />
+                <EmptyRow cols={hasAct ? 6 : 5} text={filtering ? '조건에 맞는 문서가 없습니다.' : folder === 'pending' ? '결재할 문서가 없습니다.' : folder === 'temp' ? '임시보관한 문서가 없습니다.' : '문서가 없습니다.'} />
               )}
             </tbody>
           </table>

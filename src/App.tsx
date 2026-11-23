@@ -21,7 +21,6 @@ import {
 } from './pages/ops/DeptScreens'
 import Accounting from './pages/accounting/Accounting'
 import Labor from './pages/labor/Labor'
-import Overtime from './pages/Overtime'
 import Approvals from './pages/Approvals'
 import Calendar from './pages/Calendar'
 import Documents from './pages/Documents'
@@ -127,7 +126,6 @@ export default function App() {
 
         {/* 공통 */}
         <Route path="/approvals" element={<Approvals />} />
-        <Route path="/overtime" element={<Overtime />} />
         <Route path="/documents" element={<Documents />} />
         <Route
           path="/partners"

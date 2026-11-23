@@ -1438,6 +1438,29 @@ function LeaveView({ empById }: { empById: Record<string, { name: string; dept: 
     async () => await supabase.from('leave_records').select('*').order('start_date', { ascending: false }),
     [],
   )
+  // 연장근무 적립 · 대체휴무 사용 (전자결재 연장근무/휴가신청에서 생성) — 직원별 잔여 시간
+  const compQ = useQuery<{ employee_id: string; kind: string; status: string; hours: number }[]>(
+    async () => await supabase.from('comp_time').select('employee_id,kind,status,hours'),
+    [],
+  )
+  const compBy = useMemo(() => {
+    const m: Record<string, { earn: number; used: number; pend: number }> = {}
+    for (const r of compQ.data ?? []) {
+      const x = (m[r.employee_id] ??= { earn: 0, used: 0, pend: 0 })
+      const h = Number(r.hours) || 0
+      if (r.kind === '적립' && r.status === '승인') x.earn += h
+      if (r.kind === '사용' && r.status === '승인') x.used += h
+      if (r.kind === '사용' && r.status === '신청') x.pend += h
+    }
+    return m
+  }, [compQ.data])
+  /** 12시간 → "12시간 (1일 4시간)" (8시간 = 1일) */
+  const fmtH = (h: number) => {
+    const v = Math.round(h * 100) / 100
+    const d = Math.floor(Math.abs(v) / 8)
+    const r = Math.round((Math.abs(v) - d * 8) * 100) / 100
+    return `${v}시간${d > 0 ? ` (${v < 0 ? '-' : ''}${d}일${r ? ` ${r}시간` : ''})` : ''}`
+  }
   // '이월' 전용 레코드는 집계/표시용이 아니라 이월값 저장용 → 내역 목록에서 제외
   const records = (leaveQ.data ?? []).filter((r) => r.leave_type !== '이월')
 
@@ -1499,16 +1522,19 @@ function LeaveView({ empById }: { empById: Record<string, { name: string; dept: 
               <th style={{ textAlign: 'right' }}>부여</th>
               <th style={{ textAlign: 'right' }}>연차 사용</th>
               <th style={{ textAlign: 'right' }}>잔여</th>
-              <th style={{ textAlign: 'right' }}>대체·기타</th>
+              <th style={{ textAlign: 'right' }}>대체휴무 잔여</th>
+              <th style={{ textAlign: 'right' }}>대체·기타 사용</th>
             </tr>
           </thead>
           <tbody>
-            {leaveQ.loading && <LoadingRow cols={7} />}
+            {leaveQ.loading && <LoadingRow cols={8} />}
             {!leaveQ.loading &&
               allEmps.map((e) => {
                 const a = byEmp[e.id] ?? emptySlot
                 const { granted, basis } = grantedAnnual(e.join)
                 const rem = a.carry + granted - a.annualUsed
+                const c = compBy[e.id] ?? { earn: 0, used: 0, pend: 0 }
+                const cRem = c.earn - c.used
                 return (
                   <tr key={e.id}>
                     <td className="t-title">{e.name}</td>
@@ -1525,6 +1551,14 @@ function LeaveView({ empById }: { empById: Record<string, { name: string; dept: 
                     <td className="tnum" style={{ textAlign: 'right', fontWeight: 800, color: rem < 0 ? 'var(--danger)' : 'var(--brand)' }}>
                       {rem}
                     </td>
+                    <td
+                      className="tnum"
+                      style={{ textAlign: 'right', fontWeight: cRem ? 700 : 400, color: cRem < 0 ? 'var(--danger)' : cRem ? 'var(--brand)' : 'var(--muted)' }}
+                      title={`연장근무 적립 ${c.earn}시간 − 대체휴무 사용 ${c.used}시간${c.pend ? ` (사용 신청 중 ${c.pend}시간)` : ''}`}
+                    >
+                      {compQ.error ? '—' : c.earn || c.used || c.pend ? fmtH(cRem) : '—'}
+                      {c.pend > 0 && <small style={{ display: 'block', fontWeight: 400, color: 'var(--muted)' }}>신청 중 {c.pend}시간</small>}
+                    </td>
                     <td className="tnum" style={{ textAlign: 'right', color: 'var(--muted)' }}>
                       {a.otherUsed || '—'}
                     </td>
@@ -1532,7 +1566,7 @@ function LeaveView({ empById }: { empById: Record<string, { name: string; dept: 
                 )
               })}
             {!leaveQ.loading && allEmps.length === 0 && (
-              <EmptyRow cols={7} text="재직 직원이 없습니다." />
+              <EmptyRow cols={8} text="재직 직원이 없습니다." />
             )}
           </tbody>
         </table>
@@ -1540,6 +1574,7 @@ function LeaveView({ empById }: { empById: Record<string, { name: string; dept: 
       <p className="sec-mini" style={{ marginTop: 10 }}>
         <b>부여</b>는 입사일 기준 자동 계산: 입사 1년 미만은 월 1개(최대 11), 1년 이상은 15개 + 입사 2년 이후 2년마다 +1. (숫자에 마우스를 올리면 산정 근거 표시)
         <br />연차 사용 = 연차·반차·월차 등 연차 차감 유형의 승인 일수. <b>대체휴무·대체반차·병가·생일휴무는 연차에서 차감되지 않습니다</b>(대체·기타 열). 잔여 = 이월 + 부여 − 연차 사용.
+        <br /><b>대체휴무 잔여</b> = 연장근무 승인 적립(1:1) − 대체휴무 승인 사용. 8시간 = 1일, 소멸기한 없음. 연장근무·대체휴무는 전자결재(연장근무·휴가신청)에서 신청합니다.
       </p>
       {/* 휴가 사용 내역 — 이름 검색 */}
       {records.length > 0 && (() => {

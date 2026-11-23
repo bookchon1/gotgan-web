@@ -571,7 +571,7 @@ export function ApprovalDraftModal({
             <div className="adm-grid">{def.fields.map(renderField)}</div>
             {def.id === 'overtime' && (
               <div className={`adm-notice${regular === false ? ' warn' : ''}`}>
-                {regular === false ? '연장근무 적립은 정규직만 신청할 수 있습니다.' : '승인되면 인정 시간만큼 대체휴무로 적립됩니다. 소멸기한은 없고 8시간이 1일입니다.'}
+                {regular === false ? '연장근무 적립은 정규직만 신청할 수 있습니다.' : `승인되면 인정 시간만큼 대체휴무로 적립됩니다. 소멸기한은 없고 8시간이 1일입니다.${compAvail === null ? '' : ` 현재 대체휴무 잔여 ${hoursTxt(compAvail)}`}`}
               </div>
             )}
             {compNeed > 0 && (

@@ -94,8 +94,8 @@ export function Overview({ items, sales, go }: { items: Item[]; sales: Sale[]; g
             <ul className="pr-list">
               {d.attention.slice(0, 8).map((it) => (
                 <li key={it.id} onClick={() => go(isProduct(it) ? 'products' : 'materials', undefined, it.id)}>
-                  <Thumb it={it} size={32} />
-                  <div><b>{it.name}</b><small>{it.option_spec ?? ''}</small></div>
+                  <Thumb quiet it={it} size={32} />
+                  <div><b>{it.option_spec || it.name}</b><small>{it.option_spec ? it.name : ''}</small></div>
                   <span className="tnum q">{it.avail}</span>
                   <StatChip it={it} />
                 </li>
@@ -113,8 +113,8 @@ export function Overview({ items, sales, go }: { items: Item[]; sales: Sale[]; g
             <ul className="pr-list">
               {d.incoming.slice(0, 6).map((it) => (
                 <li key={it.id} onClick={() => go(isProduct(it) ? 'products' : 'materials', undefined, it.id)}>
-                  <Thumb it={it} size={32} />
-                  <div><b>{it.name}</b><small>{it.option_spec ?? ''}</small></div>
+                  <Thumb quiet it={it} size={32} />
+                  <div><b>{it.option_spec || it.name}</b><small>{it.option_spec ? it.name : ''}</small></div>
                   <span className="tnum q in">+{it.incoming}</span>
                 </li>
               ))}
@@ -130,7 +130,7 @@ export function Overview({ items, sales, go }: { items: Item[]; sales: Sale[]; g
                 return (
                   <li key={s.id}>
                     <small className="d">{s.sold_at.slice(5).replace('-', '/')}</small>
-                    <div><b>{it?.name ?? '삭제된 품목'}</b><small>{it?.option_spec ?? ''}</small></div>
+                    <div><b>{it ? it.option_spec || it.name : '삭제된 품목'}</b><small>{it?.option_spec ? it.name : ''}</small></div>
                     <span className="tnum q">{s.qty}개</span>
                     <span className="tnum amt">₩{won(s.qty * s.unit_price)}</span>
                   </li>

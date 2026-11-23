@@ -231,3 +231,65 @@
   .pr-majors button{grid-template-columns:90px 1fr 50px}
   .pr-bulk{flex-wrap:wrap}
 }
+
+/* ===== 정돈 (깔끔한 버전) ===== */
+.pr-head{margin-bottom:18px}
+.pr-pane{gap:16px}
+/* KPI: 카드 6개 → 한 줄 요약 막대 */
+.pr-kpis{gap:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.pr-kpi{border:0;border-radius:0;border-right:1px solid var(--line-2);padding:16px 20px;background:transparent}
+.pr-kpi:last-child{border-right:0}
+.pr-kpi.click:hover{background:var(--surface-2)}
+.pr-kpi b{font-size:24px}
+/* 카테고리 칩 → 세그먼트 */
+.pr-chips{display:inline-flex;flex-direction:row;flex-wrap:wrap;gap:2px;padding:3px;border-radius:10px;background:var(--line-2);align-self:flex-start}
+.pr-chips button{height:30px;padding:0 13px;border:0;border-radius:8px;background:transparent;font-weight:600;color:var(--muted)}
+.pr-chips button:hover{color:var(--ink);border:0}
+.pr-chips button.on{background:var(--surface);color:var(--ink);font-weight:800;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.pr-chips button.on i{color:var(--muted)}
+/* 표: 헤더는 바탕 없이 얇게, 행 막대 제거 */
+.pr-tbl thead th{background:transparent;padding:12px 14px;font-weight:600;border-bottom:1px solid var(--line)}
+.pr-tbl tbody td{padding:13px 14px;border-bottom:1px solid var(--line-2)}
+.pr-row.out>td:first-child,.pr-row.low>td:first-child{box-shadow:none}
+.pr-nm{gap:12px;min-width:240px}
+.pr-nm .t{font-weight:600}
+.pr-nm .s{gap:6px;margin-top:2px}
+.pr-nm .opt{padding:0;background:transparent;color:var(--ink-soft);font-weight:700}
+.pr-nm .opt+span::before{content:"·";margin-right:6px;color:var(--line)}
+/* 상태: 알약 → 점 + 글자 */
+.pr-st{height:auto;padding:0;background:transparent !important;font-weight:700;gap:6px}
+.pr-st::before{width:7px;height:7px}
+.pr-sc{height:auto;padding:0;background:transparent !important;font-weight:600;gap:6px}
+.pr-sc::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor;display:inline-block}
+.pr-sc.none{color:var(--muted)}
+.pr-inc{font-weight:600}
+.pr-mt{padding:0 !important;background:transparent !important;font-weight:600}
+.pr-mt.a{color:var(--info)} .pr-mt.b{color:var(--brand-d)} .pr-mt.c{color:var(--muted)}
+.pr-tag{padding:0;background:transparent;font-weight:600;color:var(--ink-soft)}
+.pr-qty{font-size:17px;font-weight:700}
+.pr-cat span{font-weight:500}
+/* 카드/섹션 */
+.pr-card{border-radius:14px;box-shadow:none}
+.pr-card.pad{padding:20px 22px}
+.pr-card h3{font-size:14px;margin-bottom:14px}
+.pr-foot{border-top:0;padding:12px 20px 14px}
+.pr-checks button{background:transparent}
+.pr-stack .bar{height:10px;border-radius:5px}
+.pr-list li{padding:10px 4px;border-radius:0}
+.pr-list li:hover{background:transparent}
+.pr-list li:hover b{color:var(--brand-d)}
+/* 도구줄 */
+.pr-search,.pr-sel,.pr-btn{height:34px;border-radius:8px}
+.pr-btn.pri{box-shadow:none}
+.pr-bulk{border-radius:12px}
+/* 패널 */
+.pr-drawer>header{border-bottom:0;padding-bottom:6px}
+.pr-sec h4{border-bottom:0;padding-bottom:0;margin-bottom:12px;color:var(--muted);font-size:12px;font-weight:700;letter-spacing:.02em}
+.pr-hero .nums>div{background:transparent;border:1px solid var(--line-2)}
+.pr-hero .nums .big{background:var(--surface-2);border:0}
+/* 구성표 */
+.pr-bl li.on{background:var(--surface-2)}
+.pr-bl li.on b{color:var(--brand-d)}
+.pr-br .ph{border-bottom:1px solid var(--line-2)}
+@media (max-width:1100px){.pr-kpi{flex:1 1 33%;border-bottom:1px solid var(--line-2)}.pr-kpis{display:flex;flex-wrap:wrap}}
+@media (max-width:640px){.pr-kpi{flex:1 1 50%}}

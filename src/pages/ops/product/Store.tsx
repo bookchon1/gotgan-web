@@ -47,7 +47,7 @@ export function StoreTab({ items, listings, loading, isAdmin, reload, preset }: 
                 const r = readiness(it, l)
                 return (
                   <tr key={it.id} className="pr-row" onClick={() => setOpen(it)}>
-                    <td><div className="pr-nm"><Thumb it={it} /><div><div className="t" title={it.name}>{it.name}</div><div className="s"><span className="opt">{it.option_spec ?? ''}</span><span>{it.item_id}</span></div></div></div></td>
+                    <td><div className="pr-nm"><Thumb quiet it={it} /><div><div className="t" title={it.name}>{it.name}</div><div className="s"><span className="opt">{it.option_spec ?? ''}</span><span>{it.item_id}</span></div></div></div></td>
                     <td><StoreChip v={it.store_status} /></td>
                     <td className="r tnum">{it.sell_price ? won(it.sell_price) : <span className="pr-dash">—</span>}</td>
                     <td><div className="pr-prog"><i><u style={{ width: `${r}%` }} className={r >= 100 ? 'ok' : ''} /></i><b className="tnum">{r}%</b></div></td>

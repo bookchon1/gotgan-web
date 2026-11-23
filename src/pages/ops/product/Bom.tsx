@@ -73,7 +73,7 @@ export function BomTab({ items, bom, isAdmin, reload }: { items: Item[]; bom: Bo
         <ul>
           {list.map((p) => (
             <li key={p.id} className={pid === p.id ? 'on' : ''} onClick={() => setPid(p.id)}>
-              <Thumb it={p} size={34} />
+              <Thumb quiet it={p} size={34} />
               <div><b>{p.name}</b><small>{p.option_spec ?? p.item_id}</small></div>
               {countOf.has(p.id) ? <em className="tnum">{countOf.get(p.id)}종</em> : <em className="none">—</em>}
             </li>
@@ -102,7 +102,7 @@ export function BomTab({ items, bom, isAdmin, reload }: { items: Item[]; bom: Bo
                 <tbody>
                   {calc.map(({ b, m, need, short }) => (
                     <tr key={b.id} className={short > 0 ? 'out' : ''}>
-                      <td>{m ? <div className="pr-nm"><Thumb it={m} size={32} /><div><div className="t" title={m.name}>{m.name}</div><div className="s"><span className="opt">{m.option_spec ?? ''}</span><span>{m.item_id}</span></div></div></div> : <span className="pr-dash">삭제된 자재</span>}</td>
+                      <td>{m ? <div className="pr-nm"><Thumb quiet it={m} size={32} /><div><div className="t" title={m.name}>{m.name}</div><div className="s"><span className="opt">{m.option_spec ?? ''}</span><span>{m.item_id}</span></div></div></div> : <span className="pr-dash">삭제된 자재</span>}</td>
                       <td className="r">{isAdmin ? <input className="ctl tnum pr-mini" defaultValue={b.qty_per} onBlur={(e) => { const v = Number(e.target.value); if (!isNaN(v) && v >= 0 && v !== b.qty_per) void setQty(b, v) }} /> : <span className="tnum">{b.qty_per}</span>}</td>
                       <td className="r">{m ? <><b className="tnum">{m.avail}</b> <StatChip it={m} /></> : '—'}</td>
                       <td className="r tnum">{n ? need : <span className="pr-dash">—</span>}</td>
@@ -123,7 +123,7 @@ export function BomTab({ items, bom, isAdmin, reload }: { items: Item[]; bom: Bo
                     <ul>
                       {cands.map((m) => (
                         <li key={m.id} onClick={() => addMat(m)}>
-                          <Thumb it={m} size={26} /><div><b>{m.name}</b><small>{m.option_spec ?? m.mat_type ?? ''}</small></div><em className="tnum">가용 {m.avail}</em>
+                          <Thumb quiet it={m} size={26} /><div><b>{m.name}</b><small>{m.option_spec ?? m.mat_type ?? ''}</small></div><em className="tnum">가용 {m.avail}</em>
                         </li>
                       ))}
                     </ul>

@@ -2,10 +2,11 @@ import { useState, type ReactNode } from 'react'
 import { imgUrl, statLabel, statOf, type Item } from './lib'
 
 /** 이미지 썸네일 — 없으면 이름 첫 글자 타일 */
-export function Thumb({ it, size = 40 }: { it: Pick<Item, 'image_path' | 'name' | 'category'>; size?: number }) {
+export function Thumb({ it, size = 40, quiet }: { it: Pick<Item, 'image_path' | 'name' | 'category'>; size?: number; quiet?: boolean }) {
   const [bad, setBad] = useState(false)
   const u = imgUrl(it.image_path)
   const style = { width: size, height: size, fontSize: Math.round(size * 0.42) }
+  if (quiet && (!u || bad)) return null // 이미지가 없으면 자리 표시 타일을 그리지 않음(목록을 깔끔하게)
   if (u && !bad) return <img className="pr-th" style={style} src={u} alt="" onError={() => setBad(true)} loading="lazy" />
   return (
     <span className={`pr-th ph ${it.category === '부자재' ? 'mat' : ''}`} style={style}>

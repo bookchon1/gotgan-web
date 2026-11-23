@@ -144,7 +144,7 @@ export function ItemsTab({
                       </td>
                       <td>
                         <div className="pr-nm">
-                          <Thumb it={it} />
+                          <Thumb quiet it={it} />
                           <div>
                             <div className="t" title={it.name}>{it.name}</div>
                             <div className="s">

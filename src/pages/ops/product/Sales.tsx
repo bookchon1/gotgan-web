@@ -68,7 +68,7 @@ export function SalesTab({ items, sales, loading, isAdmin, reload }: { items: It
               <span>판매 품목</span>
               {picked ? (
                 <div className="pr-picked">
-                  <Thumb it={picked} size={28} />
+                  <Thumb quiet it={picked} size={28} />
                   <div><b>{picked.name}</b><small>{picked.option_spec ?? ''} · 가용 {picked.avail}</small></div>
                   <button className="pr-lnk" onClick={() => { setF({ ...f, pid: '' }); setPq('') }}>변경</button>
                 </div>
@@ -79,7 +79,7 @@ export function SalesTab({ items, sales, loading, isAdmin, reload }: { items: It
                     <ul>
                       {cands.map((p) => (
                         <li key={p.id} onClick={() => { setF({ ...f, pid: p.id, price: p.sell_price }); setPq('') }}>
-                          <Thumb it={p} size={26} /><div><b>{p.name}</b><small>{p.option_spec ?? ''}</small></div><em className="tnum">가용 {p.avail}</em>
+                          <Thumb quiet it={p} size={26} /><div><b>{p.name}</b><small>{p.option_spec ?? ''}</small></div><em className="tnum">가용 {p.avail}</em>
                         </li>
                       ))}
                     </ul>
@@ -129,7 +129,7 @@ export function SalesTab({ items, sales, loading, isAdmin, reload }: { items: It
                   <tr key={s.id}>
                     <td className="tnum">{s.sold_at}</td>
                     <td>{s.channel ? <span className="pr-tag">{s.channel}</span> : '—'}</td>
-                    <td>{it ? <div className="pr-nm"><Thumb it={it} size={32} /><div><div className="t" title={it.name}>{it.name}</div><div className="s"><span className="opt">{it.option_spec ?? ''}</span><span>{it.item_id}</span></div></div></div> : <span className="pr-dash">삭제된 품목</span>}</td>
+                    <td>{it ? <div className="pr-nm"><Thumb quiet it={it} size={32} /><div><div className="t" title={it.name}>{it.name}</div><div className="s"><span className="opt">{it.option_spec ?? ''}</span><span>{it.item_id}</span></div></div></div> : <span className="pr-dash">삭제된 품목</span>}</td>
                     <td className="r tnum">{s.qty}</td>
                     <td className="r tnum">{won(s.unit_price)}</td>
                     <td className="r tnum b">{won(s.qty * s.unit_price)}</td>

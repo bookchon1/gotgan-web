@@ -4,20 +4,22 @@ import { AttachPicker, uploadAttachments } from '../components/AttachPicker'
 import { supabase } from '../lib/supabase'
 import { won, approverLabel, sortApprovers } from '../lib/format'
 import { useAuth } from '../lib/auth'
-import { FORMS, formById, formOfApproval, itemsTotal, restoreForm, serializeForm, leaveDays, type FormField, type ItemRow } from '../lib/apprForms'
+import { FORMS, formById, formOfApproval, itemsTotal, restoreForm, serializeForm, leaveDays, isCompLeave, overtimeHours, type FormField, type ItemRow } from '../lib/apprForms'
 import { notifyApprovalsChanged } from '../lib/pendingApprovals'
 import type { ArtProject, ArtBudget, Employee, Approval, ApprovalLine } from '../types/db'
 
 const DEPTS = ['management', 'art', 'product', 'promotion', 'experience', 'education']
 const today = () => new Date().toISOString().slice(0, 10)
 
-/** 전자결재 기안 작성 — 양식함(품의서·지출결의서·휴가원·출장신청서·일반 기안). 미술 지출결의서는 사업·예산 연동. */
+/** 전자결재 기안 작성 — 양식함(업무기안·지출결의·출장신청·연장근무·휴가신청). 미술 지출결의는 사업·예산 연동, 연장근무·대체휴무는 적립/사용 신청과 연동. */
 export function ApprovalDraftModal({
   onClose,
   onCreated,
   draft,
   draftLines,
   reuse,
+  initialForm,
+  presetValues,
 }: {
   onClose: () => void
   onCreated: () => void
@@ -26,10 +28,14 @@ export function ApprovalDraftModal({
   draftLines?: ApprovalLine[]
   /** true: 반려·회수 문서를 내용만 불러와 새 문서로 재기안 */
   reuse?: boolean
+  /** 새 기안을 열 때 처음 선택할 양식 id (poom·expense·trip·overtime·leave) */
+  initialForm?: string
+  /** 새 기안을 열 때 미리 채울 항목 (예: {'휴가 종류': '대체휴무'}) */
+  presetValues?: Record<string, string>
 }) {
   const { me } = useAuth()
   const dl = draftLines ?? []
-  const initDef = draft ? formOfApproval(draft) : formById('poom')
+  const initDef = draft ? formOfApproval(draft) : formById(initialForm ?? 'poom')
   const restored = useMemo(
     () => (draft ? restoreForm(initDef, draft.memo && draft.memo !== draft.title ? draft.memo : '') : { values: {}, items: {} }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -37,7 +43,7 @@ export function ApprovalDraftModal({
   )
   const [formId, setFormId] = useState(initDef.id)
   const def = formById(formId)
-  const [values, setValues] = useState<Record<string, string>>(restored.values)
+  const [values, setValues] = useState<Record<string, string>>({ ...restored.values, ...(draft ? {} : presetValues ?? {}) })
   const [itemsMap, setItemsMap] = useState<Record<string, ItemRow[]>>(restored.items)
   const [title, setTitle] = useState(draft?.title ?? '')
   const [biz, setBiz] = useState(draft?.biz_code ?? '법인')
@@ -106,8 +112,58 @@ export function ApprovalDraftModal({
       .then(({ data }) => setBudgets(data ?? []))
   }, [projectId])
 
-  const val = (f: FormField) => values[f.key] ?? (f.type === 'select' ? f.options?.[0] ?? '' : f.type === 'daterange' ? `${today()} ~ ${today()}` : '')
-  const setVal = (k: string, v: string) => setValues((p) => ({ ...p, [k]: v }))
+  const val = (f: FormField) =>
+    values[f.key] ??
+    (f.type === 'select'
+      ? f.options?.[0] ?? ''
+      : f.type === 'daterange'
+        ? `${today()} ~ ${today()}`
+        : f.type === 'timerange'
+          ? '18:00 ~ 20:00'
+          : f.type === 'hours'
+            ? String(overtimeHours(values['근무 시간'] ?? '18:00 ~ 20:00'))
+            : f.type === 'date' && f.today
+              ? today()
+              : '')
+  // 근무 시간을 바꾸면 인정 시간은 다시 자동 계산
+  const setVal = (k: string, v: string) =>
+    setValues((p) => {
+      const n = { ...p, [k]: v }
+      if (k === '근무 시간') delete n['인정 시간']
+      return n
+    })
+
+  // 연장근무(정규직만) · 대체휴무 잔여
+  const [regular, setRegular] = useState<boolean | null>(null)
+  const [compAvail, setCompAvail] = useState<number | null>(null)
+  useEffect(() => {
+    if (!me?.id) return
+    supabase
+      .from('employees')
+      .select('employment_type')
+      .eq('id', me.id)
+      .maybeSingle()
+      .then(({ data }) => setRegular((data as { employment_type?: string | null } | null)?.employment_type === '정규직'))
+    supabase
+      .from('comp_time')
+      .select('kind,status,hours')
+      .eq('employee_id', me.id)
+      .then(({ data, error }) => {
+        if (error) return setCompAvail(0)
+        let a = 0
+        for (const r of data ?? []) {
+          const h = Number(r.hours) || 0
+          if (r.kind === '적립' && r.status === '승인') a += h
+          if (r.kind === '사용' && (r.status === '승인' || r.status === '신청')) a -= h
+        }
+        setCompAvail(a)
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me?.id])
+  const leaveType = values['휴가 종류'] ?? '연차'
+  const leaveRange = values['기간'] ?? `${today()} ~ ${today()}`
+  const compNeed = def.id === 'leave' && isCompLeave(leaveType) ? leaveDays(leaveType, leaveRange) * 8 : 0
+  const hoursTxt = (h: number) => `${Math.round(h * 100) / 100}시간`
 
   /** asDraft=true: 임시보관(본인에게만 보임) / false: 상신 */
   async function persist(asDraft: boolean) {
@@ -117,7 +173,7 @@ export function ApprovalDraftModal({
     }
     // 기본값 채우기(선택·기간)
     const filled: Record<string, string> = { ...values }
-    for (const f of def.fields) if (f.type === 'select' || f.type === 'daterange') filled[f.key] = val(f)
+    for (const f of def.fields) if (f.type === 'select' || f.type === 'daterange' || f.type === 'timerange' || f.type === 'hours' || (f.type === 'date' && f.today)) filled[f.key] = val(f)
     if (!asDraft) {
       for (const f of def.fields) {
         if (f.required && !(filled[f.key] ?? '').trim()) {
@@ -131,12 +187,29 @@ export function ApprovalDraftModal({
           setErr('기간의 종료일이 시작일보다 빠릅니다.')
           return
         }
-        if (def.id === 'leave' && (filled['휴가 종류'] ?? '').startsWith('반차') && m[1] !== m[2]) {
+        if (def.id === 'leave' && (filled['휴가 종류'] ?? '').includes('반차') && m[1] !== m[2]) {
           setErr('반차는 하루만 선택하세요. (시작일과 종료일을 같게)')
           return
         }
         if (def.id === 'leave' && leaveDays(filled['휴가 종류'], filled['기간']) <= 0) {
           setErr('선택한 기간에 평일이 없습니다.')
+          return
+        }
+      }
+      if (def.id === 'overtime') {
+        if (regular === false) {
+          setErr('연장근무는 정규직만 신청할 수 있습니다.')
+          return
+        }
+        if (!(Number(filled['인정 시간']) > 0)) {
+          setErr('인정 시간을 입력하세요.')
+          return
+        }
+      }
+      if (def.id === 'leave' && isCompLeave(filled['휴가 종류'])) {
+        const need = leaveDays(filled['휴가 종류'], filled['기간']) * 8
+        if (need > (compAvail ?? 0) + 1e-9) {
+          setErr(`대체휴무 잔여가 부족합니다. (필요 ${hoursTxt(need)} / 사용 가능 ${hoursTxt(compAvail ?? 0)})`)
           return
         }
       }
@@ -200,6 +273,27 @@ export function ApprovalDraftModal({
     if (needsAcct) lines.push({ approval_id: apprId, seq: lines.length + 1, approver_id: me?.id ?? null, role: '회계접수', decided: '대기' })
     lines.push(...ccLines(apprId, lines.length + 1, ccIds))
     await supabase.from('approval_lines').insert(lines)
+    // 연장근무(적립)·대체휴무(사용) 신청 기록 — 결재 결과가 자동 반영된다
+    const isCompUse = def.id === 'leave' && isCompLeave(filled['휴가 종류'])
+    if (!asDraft && (def.id === 'overtime' || isCompUse)) {
+      const rg = (filled['근무 시간'] ?? '').match(/^(\d{2}:\d{2})\s~\s(\d{2}:\d{2})$/)
+      const st = (filled['기간'] ?? '').match(/^(\d{4}-\d{2}-\d{2})/)
+      const rec =
+        def.id === 'overtime'
+          ? { kind: '적립', work_date: filled['근무일'], start_time: rg?.[1] ?? null, end_time: rg?.[2] ?? null, hours: Number(filled['인정 시간']), reason: filled['사유'] || null }
+          : { kind: '사용', work_date: st?.[1] ?? today(), start_time: null, end_time: null, hours: leaveDays(filled['휴가 종류'], filled['기간']) * 8, reason: `${filled['휴가 종류']} ${filled['기간']}` }
+      const { error: ce } = await supabase.from('comp_time').insert({ ...rec, employee_id: me?.id, approver_id: approverId, approval_id: apprId, status: '신청' })
+      if (ce) {
+        if (draft && !reuse) await supabase.from('approvals').update({ status: '기안' }).eq('id', apprId)
+        else {
+          await supabase.from('approvals').update({ status: '회수' }).eq('id', apprId)
+          await supabase.from('approvals').delete().eq('id', apprId).eq('status', '회수')
+        }
+        setBusy(false)
+        setErr(ce.message.includes('row-level') ? '연장근무·대체휴무는 정규직만 신청할 수 있습니다.' : ce.message)
+        return
+      }
+    }
     if (files.length) {
       const bad = await uploadAttachments(apprId, files, me?.id ?? null)
       if (bad.length) alert(`첨부 실패: ${bad.join(', ')}\n문서는 ${asDraft ? '임시보관' : '상신'}되었습니다.`)
@@ -308,7 +402,7 @@ export function ApprovalDraftModal({
 
   const renderField = (f: FormField) => {
     if (f.type === 'items') return itemsEditor(f)
-    const half = f.type === 'select' || f.type === 'date' || f.type === 'daterange'
+    const half = f.type === 'select' || f.type === 'date' || f.type === 'daterange' || f.type === 'timerange' || f.type === 'hours'
     const days = f.type === 'daterange' && def.id === 'leave' ? leaveDays(values['휴가 종류'] ?? '연차', val(f)) : 0
     let input: JSX.Element
     if (f.type === 'textarea')
@@ -323,7 +417,23 @@ export function ApprovalDraftModal({
           ))}
         </select>
       )
-    else if (f.type === 'date') input = <input className="ctl" type="date" value={values[f.key] ?? ''} onChange={(e) => setVal(f.key, e.target.value)} />
+    else if (f.type === 'date') input = <input className="ctl" type="date" value={val(f)} onChange={(e) => setVal(f.key, e.target.value)} />
+    else if (f.type === 'timerange') {
+      const [s, e] = val(f).split(' ~ ')
+      input = (
+        <div className="adm-range">
+          <input className="ctl" type="time" value={s} onChange={(ev) => setVal(f.key, `${ev.target.value} ~ ${e}`)} />
+          <span>~</span>
+          <input className="ctl" type="time" value={e} onChange={(ev) => setVal(f.key, `${s} ~ ${ev.target.value}`)} />
+        </div>
+      )
+    } else if (f.type === 'hours')
+      input = (
+        <div className="adm-unit">
+          <input className="ctl num" type="number" min="0.5" step="0.5" value={val(f)} onChange={(e) => setVal(f.key, e.target.value)} />
+          <span>시간 · 1:1 적립</span>
+        </div>
+      )
     else if (f.type === 'daterange') {
       const [s, e] = val(f).split(' ~ ')
       input = (
@@ -360,7 +470,7 @@ export function ApprovalDraftModal({
             <div className="adm-tabs" role="tablist">
               {FORMS.map((f) => (
                 <button key={f.id} type="button" role="tab" aria-selected={formId === f.id} className={formId === f.id ? 'on' : ''} onClick={() => setFormId(f.id)}>
-                  {f.name}
+                  {f.label}
                 </button>
               ))}
             </div>
@@ -459,6 +569,17 @@ export function ApprovalDraftModal({
             )}
 
             <div className="adm-grid">{def.fields.map(renderField)}</div>
+            {def.id === 'overtime' && (
+              <div className={`adm-notice${regular === false ? ' warn' : ''}`}>
+                {regular === false ? '연장근무 적립은 정규직만 신청할 수 있습니다.' : '승인되면 인정 시간만큼 대체휴무로 적립됩니다. 소멸기한은 없고 8시간이 1일입니다.'}
+              </div>
+            )}
+            {compNeed > 0 && (
+              <div className={`adm-notice${compNeed > (compAvail ?? 0) + 1e-9 ? ' warn' : ''}`}>
+                대체휴무 {hoursTxt(compNeed)} 사용 · 사용 가능 잔여 {compAvail === null ? '확인 중' : hoursTxt(compAvail)}
+                {compNeed > (compAvail ?? 0) + 1e-9 ? ' — 잔여가 부족합니다' : ''}
+              </div>
+            )}
           </div>
 
           <aside className="adm-side">

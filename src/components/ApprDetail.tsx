@@ -1,4 +1,4 @@
-import { parseFormMemo, type ParsedForm } from '../lib/apprForms'
+import { formByName, parseFormMemo, type ParsedForm } from '../lib/apprForms'
 import { useEffect, useState } from 'react'
 import { won } from '../lib/format'
 import { supabase } from '../lib/supabase'
@@ -515,7 +515,7 @@ export function ApprDetail({ a, lines, empName }: { a: Approval; lines: Approval
         </button>
       </div>
       <div className="ad-head">
-        <span className="ad-kind">{KIND_LABEL[a.kind] ?? a.kind}</span>
+        <span className="ad-kind">{(formDoc && formByName(formDoc.form)?.label) || KIND_LABEL[a.kind] || a.kind}</span>
         <h4>{a.title || '(제목 없음)'}</h4>
         <span className="ad-amt tnum">{a.amount ? won(a.amount) + '원' : ''}</span>
       </div>

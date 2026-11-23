@@ -10,6 +10,7 @@ import { notifyApprovalsChanged } from '../lib/pendingApprovals'
 import type { Approval, ApprovalLine, Employee, Payslip, PayrollRun } from '../types/db'
 import { ApprovalDraftModal } from './ApprovalDraftModal'
 import { ApprDetail, parseOrder } from '../components/ApprDetail'
+import { formByName, parseFormMemo } from '../lib/apprForms'
 
 const KIND_BADGE: Record<string, { cls: string; label: string }> = {
   지출결의서: { cls: 'badge gold', label: '지출결의' },
@@ -334,10 +335,10 @@ export default function Approvals() {
           </label>
           <select className="sel" value={kindF} onChange={(e) => setKindF(e.target.value)}>
             <option value="all">전체 종류</option>
-            <option value="지출결의서">지출결의서</option>
-            <option value="품의">품의서</option>
-            <option value="휴가">휴가</option>
-            <option value="일반">일반·출장</option>
+            <option value="지출결의서">지출결의</option>
+            <option value="품의">업무기안·품의</option>
+            <option value="휴가">휴가신청</option>
+            <option value="일반">출장·연장근무·기타</option>
           </select>
           <select className="sel" value={stF} onChange={(e) => setStF(e.target.value)}>
             <option value="all">전체 상태</option>
@@ -385,7 +386,7 @@ export default function Approvals() {
                       </td>
                       <td>{a.drafter_id ? empName[a.drafter_id] ?? '—' : '—'}</td>
                       <td>
-                        <span className={kb.cls}>{kb.label}</span>
+                        <span className={kb.cls}>{(() => { const t = parseFormMemo(a.memo); return (t && formByName(t.form)?.label) || kb.label })()}</span>
                       </td>
                       <td>
                         <ApprFlow lines={lines} />

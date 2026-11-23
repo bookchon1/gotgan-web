@@ -4,8 +4,9 @@ import { ErrorBanner, LoadingRow, EmptyRow } from '../components/States'
 import { supabase } from '../lib/supabase'
 import { useQuery } from '../lib/useQuery'
 import { useAuth } from '../lib/auth'
-import { approverLabel, dateOnly, mmdd, sortApprovers } from '../lib/format'
+import { dateOnly } from '../lib/format'
 import { notifyApprovalsChanged } from '../lib/pendingApprovals'
+import { ApprovalDraftModal } from './ApprovalDraftModal'
 
 interface CompRow {
   id: string
@@ -58,6 +59,7 @@ function balanceOf(rows: CompRow[], empId: string) {
 
 export default function Overtime() {
   const { me, isAdmin } = useAuth()
+  // 신청은 전자결재 기안 작성에서 한다 (연장근무 양식 / 휴가신청 양식의 '대체휴무')
   const [modal, setModal] = useState<null | '적립' | '사용'>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
@@ -77,10 +79,6 @@ export default function Overtime() {
   const isRegular = empById[myId]?.employment_type === '정규직'
   const bal = balanceOf(rows, myId)
   const mine = rows.filter((r) => r.employee_id === myId)
-  const candidates = useMemo(
-    () => sortApprovers(emps.filter((e) => e.status === '재직' && e.id !== myId)),
-    [emps, myId],
-  )
   const regulars = useMemo(
     () => emps.filter((e) => e.employment_type === '정규직' && e.status === '재직').sort((a, b) => a.name.localeCompare(b.name, 'ko')),
     [emps],
@@ -112,23 +110,23 @@ export default function Overtime() {
   const top = isRegular ? (
     <>
       <button className="btn txt add-txt" onClick={() => setModal('적립')}>
-        + 연장근무 적립 신청
+        + 연장근무 신청
       </button>
       <button className="btn txt add-txt" onClick={() => setModal('사용')}>
-        + 대체휴무 사용 신청
+        + 대체휴무 신청
       </button>
     </>
   ) : undefined
 
   return (
     <div className="page on">
-      <PageHead eyebrow="" title="연장·대체휴무" actions={top} />
+      <PageHead eyebrow="" title="연장근무" actions={top} />
       <ErrorBanner error={rowQ.error} table="comp_time" />
       {msg && <div style={{ margin: '0 0 10px', padding: '8px 12px', borderRadius: 8, fontSize: 12.5, background: 'var(--danger-soft)', color: 'var(--danger)' }}>{msg}</div>}
 
       {!empQ.loading && !isRegular && (
         <section className="panel" style={{ padding: 16 }}>
-          연장근무 적립·대체휴무는 <b>정규직</b>만 신청할 수 있습니다.
+          연장근무와 대체휴무는 <b>정규직</b>만 신청할 수 있습니다.
         </section>
       )}
 
@@ -203,7 +201,7 @@ export default function Overtime() {
             </table>
           </div>
           <p className="sec-mini" style={{ marginTop: 10 }}>
-            신청하면 <b>전자결재(휴가신청)</b>로 올라가고, 지정한 승인자가 결재대기에서 승인하면 반영됩니다. 연장근무는 <b>1:1</b>로 적립되고 소멸기한이 없으며, 8시간 = 1일입니다. 승인된 대체휴무는 일정표에도 표시됩니다.
+            신청은 <b>전자결재</b>에서 합니다. 연장근무는 <b>연장근무</b> 양식으로, 대체휴무는 <b>휴가신청</b> 양식의 휴가 종류 <b>대체휴무</b>로 올리고, 지정한 승인자가 승인하면 반영됩니다. 연장근무는 <b>1:1</b>로 적립되고 소멸기한이 없으며, 8시간 = 1일입니다. 승인된 대체휴무는 일정표에도 표시됩니다.
           </p>
         </section>
       )}
@@ -247,203 +245,17 @@ export default function Overtime() {
       )}
 
       {modal && (
-        <ReqModal
-          kind={modal}
-          myId={myId}
-          myName={me?.name ?? ''}
-          myDept={me?.dept_key ?? null}
-          available={bal.available}
-          candidates={candidates}
+        <ApprovalDraftModal
+          initialForm={modal === '적립' ? 'overtime' : 'leave'}
+          presetValues={modal === '사용' ? { '휴가 종류': '대체휴무' } : undefined}
           onClose={() => setModal(null)}
-          onSaved={() => {
+          onCreated={() => {
             setModal(null)
+            notifyApprovalsChanged()
             rowQ.reload()
           }}
         />
       )}
-    </div>
-  )
-}
-
-function ReqModal({
-  kind,
-  myId,
-  myName,
-  myDept,
-  available,
-  candidates,
-  onClose,
-  onSaved,
-}: {
-  kind: '적립' | '사용'
-  myId: string
-  myName: string
-  myDept: string | null
-  available: number
-  candidates: Emp[]
-  onClose: () => void
-  onSaved: () => void
-}) {
-  const today = new Date().toISOString().slice(0, 10)
-  const [date, setDate] = useState(today)
-  const [start, setStart] = useState('18:00')
-  const [end, setEnd] = useState('20:00')
-  const [hoursTxt, setHoursTxt] = useState('')
-  const [reason, setReason] = useState('')
-  const [approverId, setApproverId] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState<string | null>(null)
-
-  // 적립: 시작·종료 시각으로 자동 계산(자정을 넘기면 다음 날로 계산), 직접 수정 가능
-  const auto = useMemo(() => {
-    if (kind !== '적립' || !start || !end) return 0
-    const [sh, sm] = start.split(':').map(Number)
-    const [eh, em] = end.split(':').map(Number)
-    let min = eh * 60 + em - (sh * 60 + sm)
-    if (min <= 0) min += 24 * 60
-    return Math.round((min / 60) * 100) / 100
-  }, [kind, start, end])
-  const hours = hoursTxt !== '' ? Number(hoursTxt) : auto
-
-  async function save() {
-    if (!(hours > 0)) return setErr('시간을 입력하세요.')
-    if (!approverId) return setErr('승인할 사람을 선택하세요.')
-    if (kind === '사용' && hours > 8) return setErr('대체휴무는 하루 최대 8시간까지 신청합니다. 여러 날은 날짜별로 따로 신청하세요.')
-    if (kind === '사용' && hours > available + 1e-9) return setErr(`사용 가능한 잔여(${available}시간)를 넘었습니다.`)
-    setBusy(true)
-    setErr(null)
-    const label = kind === '적립' ? '연장근무 적립' : '대체휴무 사용'
-    const when = `${date}${kind === '적립' ? ` ${start}~${end}` : ''}`
-    // 1) 전자결재 문서(휴가신청) — 기안(본인) → 승인(지정한 승인자)
-    const docNo = `제${new Date().getFullYear()}-${String(Math.floor(Math.random() * 9000) + 1000)}호`
-    const { data: appr, error: ae } = await supabase
-      .from('approvals')
-      .insert({
-        doc_no: docNo,
-        kind: '휴가',
-        drafter_id: myId,
-        biz_code: '법인',
-        dept_key: myDept,
-        title: `${label} 신청 · ${mmdd(date)} ${hours}시간 (${myName})`,
-        memo: `구분: ${label}${kind === '적립' ? ' (1:1 적립)' : ''}\n일시: ${when}\n시간: ${hours}시간\n사유: ${reason.trim() || '-'}`,
-        req_date: today,
-        status: '진행',
-      })
-      .select('id')
-      .single()
-    if (ae || !appr) {
-      setBusy(false)
-      return setErr(ae?.message ?? '결재 문서 생성 실패')
-    }
-    await supabase.from('approval_lines').insert([
-      { approval_id: appr.id, seq: 1, approver_id: myId, role: '기안', decided: '승인', decided_at: new Date().toISOString() },
-      { approval_id: appr.id, seq: 2, approver_id: approverId, role: '승인', decided: '대기', decided_at: null },
-    ])
-    // 2) 연장·대체휴무 신청 기록 (결재 결과가 자동 반영됨)
-    const { error } = await supabase.from('comp_time').insert({
-      employee_id: myId,
-      kind,
-      work_date: date,
-      start_time: kind === '적립' ? start : null,
-      end_time: kind === '적립' ? end : null,
-      hours,
-      reason: reason.trim() || null,
-      approver_id: approverId,
-      approval_id: appr.id,
-      status: '신청',
-    })
-    setBusy(false)
-    if (error) {
-      await supabase.from('approvals').update({ status: '회수' }).eq('id', appr.id)
-      return setErr(error.message)
-    }
-    notifyApprovalsChanged()
-    onSaved()
-  }
-
-  return (
-    <div className="modal-bg" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 460 }}>
-        <div className="mh">
-          <div>
-            <div className="eyebrow">연장·대체휴무</div>
-            <h3>{kind === '적립' ? '연장근무 적립 신청' : '대체휴무 사용 신청'}</h3>
-          </div>
-          <button className="x" onClick={onClose}>
-            ✕
-          </button>
-        </div>
-        <div className="mb">
-          <div className="mfield">
-            <label>{kind === '적립' ? '연장근무 날짜' : '대체휴무 사용 날짜'}</label>
-            <input className="ctl" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-          </div>
-          {kind === '적립' && (
-            <div style={{ display: 'flex', gap: 10 }}>
-              <div className="mfield" style={{ flex: 1 }}>
-                <label>시작</label>
-                <input className="ctl" type="time" value={start} onChange={(e) => { setStart(e.target.value); setHoursTxt('') }} />
-              </div>
-              <div className="mfield" style={{ flex: 1 }}>
-                <label>종료</label>
-                <input className="ctl" type="time" value={end} onChange={(e) => { setEnd(e.target.value); setHoursTxt('') }} />
-              </div>
-            </div>
-          )}
-          <div className="mfield">
-            <label>{kind === '적립' ? '인정 시간 (1:1 적립)' : '사용 시간'}</label>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              <input
-                className="ctl"
-                style={{ width: 110 }}
-                type="number"
-                min="0.5"
-                step="0.5"
-                value={hoursTxt !== '' ? hoursTxt : hours || ''}
-                onChange={(e) => setHoursTxt(e.target.value)}
-              />
-              <span className="t-sub">시간</span>
-              {kind === '사용' && (
-                <>
-                  <button type="button" className="btn" onClick={() => setHoursTxt('8')}>종일 8시간</button>
-                  <button type="button" className="btn" onClick={() => setHoursTxt('4')}>반일 4시간</button>
-                  <span className="t-sub">사용 가능 잔여 {available}시간</span>
-                </>
-              )}
-            </div>
-          </div>
-          <div className="mfield">
-            <label>사유</label>
-            <textarea
-              className="ctl"
-              rows={3}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder={kind === '적립' ? '연장근무 내용 (예: 현장 마감 작업)' : '사용 사유 (선택)'}
-            />
-          </div>
-          <div className="mfield">
-            <label>승인자</label>
-            <select className="ctl" value={approverId} onChange={(e) => setApproverId(e.target.value)}>
-              <option value="">승인</option>
-              {candidates.map((e) => (
-                <option key={e.id} value={e.id}>
-                  {approverLabel(e)}
-                </option>
-              ))}
-            </select>
-          </div>
-          {err && <div style={{ color: 'var(--danger)', fontSize: 12.5, marginTop: 6 }}>{err}</div>}
-        </div>
-        <div className="mf">
-          <button className="btn sec" onClick={onClose}>
-            취소
-          </button>
-          <button className="btn pri" onClick={save} disabled={busy}>
-            {busy ? '신청 중…' : '신청'}
-          </button>
-        </div>
-      </div>
     </div>
   )
 }

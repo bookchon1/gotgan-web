@@ -204,7 +204,7 @@ export default function Sidebar({
           to="/overtime"
         >
           <Icon name="clock" className="icon ic" />
-          <span>연장·대체휴무</span>
+          <span>연장근무</span>
         </NavLink>
 
         {isAdmin && (

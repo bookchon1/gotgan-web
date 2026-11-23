@@ -173,7 +173,7 @@ export default function Documents() {
         <aside className="dx-tree" aria-label="폴더">
           <button className={`dx-node${folderId === 'all' ? ' on' : ''}${overId === 'root' ? ' drop' : ''}`} onClick={() => setFolderId('all')} {...dnd.drop('root')}>
             <i>📁</i>
-            <span>모든 문서</span>
+            <span>공유문서</span>
           </button>
           <TreeLevel parent={null} depth={1} folders={folders} cur={folderId} openSet={openSet} setOpen={setOpenSet} go={setFolderId} dnd={dnd} canDragFolder={isAdmin} />
           <button className={`dx-node${folderId === 'none' ? ' on' : ''}${overId === 'none' ? ' drop' : ''}`} style={{ paddingLeft: 12 }} onClick={() => setFolderId('none')} {...dnd.drop('none')}>
@@ -186,7 +186,7 @@ export default function Documents() {
           <ErrorBanner error={docQ.error} table="documents" />
           <div className="toolbar" style={{ marginBottom: 10 }}>
             <nav className="dx-crumb" aria-label="경로">
-              <button onClick={() => setFolderId('all')} className={`${folderId === 'all' ? 'cur' : ''}${overId === 'root' ? ' drop' : ''}`} {...dnd.drop('root')}>모든 문서</button>
+              <button onClick={() => setFolderId('all')} className={`${folderId === 'all' ? 'cur' : ''}${overId === 'root' ? ' drop' : ''}`} {...dnd.drop('root')}>공유문서</button>
               {folderId === 'none' ? (
                 <>
                   <span>›</span>

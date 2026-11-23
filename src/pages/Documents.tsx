@@ -38,12 +38,27 @@ export default function Documents() {
     [],
   )
   const folders = folderQ.data ?? []
+  const curFolder = folderId !== 'all' && folderId !== 'none' ? folders.find((x) => x.id === folderId) ?? null : null
+  // 하위 폴더 포함 id 목록 (자기 자신 포함)
+  function descIds(id: string): string[] {
+    const out = [id]
+    for (const c of folders) if ((c.parent_id ?? null) === id) out.push(...descIds(c.id))
+    return out
+  }
+  // 현재 위치의 경로 (루트 → 현재)
+  const crumbs: DocumentFolder[] = []
+  for (let c = curFolder, guard = 0; c && guard < 20; guard++) {
+    crumbs.unshift(c)
+    c = c.parent_id ? folders.find((x) => x.id === c!.parent_id) ?? null : null
+  }
+  const shownFolders = folders.filter((f) => (f.parent_id ?? null) === (curFolder?.id ?? null))
 
   async function addFolder() {
-    const name = window.prompt('새 폴더 이름')?.trim()
+    const name = window.prompt(curFolder ? `'${curFolder.name}' 안에 만들 폴더 이름` : '새 폴더 이름')?.trim()
     if (!name) return
     const sort = folders.length ? Math.max(...folders.map((f) => f.sort)) + 1 : 0
-    const { error } = await supabase.from('document_folders').insert({ name, sort, created_by: me?.id ?? null })
+    const parent = folderId !== 'all' && folderId !== 'none' ? folderId : null
+    const { error } = await supabase.from('document_folders').insert({ name, sort, created_by: me?.id ?? null, ...(parent ? { parent_id: parent } : {}) })
     if (error) { alert(error.message); return }
     folderQ.reload()
   }
@@ -55,10 +70,10 @@ export default function Documents() {
     folderQ.reload()
   }
   async function removeFolder(f: DocumentFolder) {
-    if (!window.confirm(`'${f.name}' 폴더를 삭제하시겠습니까?\n(폴더 안 문서는 '미분류'로 이동합니다)`)) return
+    if (!window.confirm(`'${f.name}' 폴더를 삭제하시겠습니까?\n(하위 폴더도 함께 삭제되고, 안의 문서는 '미분류'로 이동합니다)`)) return
     const { error } = await supabase.from('document_folders').delete().eq('id', f.id)
     if (error) { alert(error.message); return }
-    if (folderId === f.id) setFolderId('all')
+    if (folderId !== 'all' && folderId !== 'none' && descIds(f.id).includes(folderId)) setFolderId(f.parent_id ?? 'all')
     folderQ.reload(); docQ.reload()
   }
   const empQ = useQuery<Pick<Employee, 'id' | 'name'>[]>(
@@ -124,18 +139,30 @@ export default function Documents() {
 
         {/* 경로(브레드크럼) — 폴더 안에 들어와 있을 때 */}
         {folderId !== 'all' && (
-          <div className="doc-crumb" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, padding: '2px 2px 12px' }}>
+          <div className="doc-crumb" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6, fontSize: 13, padding: '2px 2px 12px' }}>
             <button className="btn txt" style={{ padding: 0 }} onClick={() => setFolderId('all')}>📁 모든 문서</button>
-            <span style={{ color: 'var(--muted)' }}>›</span>
-            <strong>{folderId === 'none' ? '미분류' : (folders.find((f) => f.id === folderId)?.name ?? '폴더')}</strong>
+            {folderId === 'none' ? (
+              <>
+                <span style={{ color: 'var(--muted)' }}>›</span>
+                <strong>미분류</strong>
+              </>
+            ) : (
+              crumbs.map((c, i) => (
+                <span key={c.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ color: 'var(--muted)' }}>›</span>
+                  {i === crumbs.length - 1 ? <strong>{c.name}</strong> : <button className="btn txt" style={{ padding: 0 }} onClick={() => setFolderId(c.id)}>{c.name}</button>}
+                </span>
+              ))
+            )}
           </div>
         )}
 
         {/* 폴더 디렉터리 — '모든 문서'에서만, 하위 폴더로 들어가는 느낌 */}
-        {folderId === 'all' && (folders.length > 0 || true) && (
+        {folderId !== 'none' && (folderId === 'all' || shownFolders.length > 0) && (
           <div className="doc-dirs" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 8, marginBottom: 14 }}>
-            {folders.map((f) => {
-              const n = all.filter((d) => d.folder_id === f.id).length
+            {shownFolders.map((f) => {
+              const ids = descIds(f.id)
+              const n = all.filter((d) => d.folder_id && ids.includes(d.folder_id)).length
               return (
                 <div key={f.id} className="doc-dir" onClick={() => setFolderId(f.id)}
                   style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', border: '1px solid var(--line, #eee)', borderRadius: 9, cursor: 'pointer', position: 'relative', background: 'var(--card, #fff)' }}>
@@ -153,11 +180,11 @@ export default function Documents() {
                 </div>
               )
             })}
-            <div className="doc-dir" onClick={() => setFolderId('none')}
+            {folderId === 'all' && <div className="doc-dir" onClick={() => setFolderId('none')}
               style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', border: '1px dashed var(--line, #ddd)', borderRadius: 9, cursor: 'pointer', background: 'transparent' }}>
               <span style={{ fontSize: 20, opacity: 0.6 }}>🗂️</span>
               <div><strong style={{ display: 'block' }}>미분류</strong><small style={{ color: 'var(--muted)' }}>{all.filter((d) => !d.folder_id).length}개</small></div>
-            </div>
+            </div>}
           </div>
         )}
 
@@ -326,7 +353,7 @@ function DocEditModal({ doc, meId, folders, defaultFolderId, onClose, onSaved }:
               <label>폴더</label>
               <select className="ctl" value={folderId} onChange={(e) => setFolderId(e.target.value)}>
                 <option value="">미분류</option>
-                {folders.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+                {folders.map((f) => <option key={f.id} value={f.id}>{pathOf(f, folders)}</option>)}
               </select>
             </div>
           </div>
@@ -422,3 +449,14 @@ function DocDetailModal({ doc, ownerName, canEdit, onClose, onEdit, onDeleted }:
   )
 }
 
+
+function pathOf(f: DocumentFolder, all: DocumentFolder[]): string {
+  const names = [f.name]
+  for (let c = f, g = 0; c.parent_id && g < 20; g++) {
+    const p = all.find((x) => x.id === c.parent_id)
+    if (!p) break
+    names.unshift(p.name)
+    c = p
+  }
+  return names.join(' › ')
+}

@@ -329,6 +329,7 @@ export interface GotganDocument {
 export interface DocumentFolder {
   id: string
   name: string
+  parent_id?: string | null
   sort: number
   created_by: string | null
   created_at: string

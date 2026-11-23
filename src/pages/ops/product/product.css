@@ -293,3 +293,7 @@
 .pr-br .ph{border-bottom:1px solid var(--line-2)}
 @media (max-width:1100px){.pr-kpi{flex:1 1 33%;border-bottom:1px solid var(--line-2)}.pr-kpis{display:flex;flex-wrap:wrap}}
 @media (max-width:640px){.pr-kpi{flex:1 1 50%}}
+
+.pr-row1{display:flex;flex-direction:row;align-items:center;gap:8px;flex-wrap:wrap}
+.pr-row1 .pr-chips{align-self:center}
+.pr-top{gap:12px}

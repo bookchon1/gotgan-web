@@ -62,7 +62,7 @@ export default function ChangePassword() {
               <input
                 type={show ? 'text' : 'password'}
                 autoComplete="new-password"
-                placeholder="새 비밀번호 (4자 이상)"
+                placeholder="새 비밀번호"
                 value={pw1}
                 onChange={(e) => setPw1(e.target.value)}
                 required
@@ -81,7 +81,6 @@ export default function ChangePassword() {
               <input
                 type={show ? 'text' : 'password'}
                 autoComplete="new-password"
-                placeholder="한 번 더 입력"
                 value={pw2}
                 onChange={(e) => setPw2(e.target.value)}
                 required

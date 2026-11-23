@@ -165,7 +165,6 @@ export default function Certificates() {
               className="ctl"
               value={purpose}
               onChange={(e) => setPurpose(e.target.value)}
-              placeholder="예: 은행 제출용"
             />
           </div>
           <div className="mfield">
@@ -181,9 +180,7 @@ export default function Certificates() {
           </label>
         </div>
         <div className="cert-actions">
-          <span className="cert-hint">
-            미리보기를 확인한 뒤 <b>인쇄 / PDF 저장</b>을 누르면 브라우저 인쇄 창에서 PDF로 저장할 수 있습니다.
-          </span>
+          <span />
           <button className="btn pri" onClick={print} disabled={!selected}>
             인쇄 / PDF 저장
           </button>

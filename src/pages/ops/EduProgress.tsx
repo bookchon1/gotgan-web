@@ -129,7 +129,7 @@ export default function EduProgress() {
               <circle cx="11" cy="11" r="7" />
               <path d="M21 21l-4-4" />
             </svg>
-            <input placeholder="학생 검색" value={q} onChange={(e) => setQ(e.target.value)} />
+            <input placeholder="검색" value={q} onChange={(e) => setQ(e.target.value)} />
           </label>
         </div>
         <div className="tbl-wrap">
@@ -437,7 +437,6 @@ function StudentModal({ onClose, onSaved }: { onClose: () => void; onSaved: (id:
                 className="ctl"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="예: 정한솔"
                 autoFocus
               />
             </div>
@@ -447,7 +446,6 @@ function StudentModal({ onClose, onSaved }: { onClose: () => void; onSaved: (id:
                 className="ctl"
                 value={studentNo}
                 onChange={(e) => setStudentNo(e.target.value)}
-                placeholder="미입력 시 자동 생성"
               />
             </div>
           </div>
@@ -467,7 +465,6 @@ function StudentModal({ onClose, onSaved }: { onClose: () => void; onSaved: (id:
                 className="ctl"
                 value={classMain}
                 onChange={(e) => setClassMain(e.target.value)}
-                placeholder="예: 전문반"
               />
             </div>
             <div className="mfield" style={{ flex: 1 }}>
@@ -476,12 +473,8 @@ function StudentModal({ onClose, onSaved }: { onClose: () => void; onSaved: (id:
                 className="ctl"
                 value={classSub}
                 onChange={(e) => setClassSub(e.target.value)}
-                placeholder="예: 정규반"
               />
             </div>
-          </div>
-          <div className="sec-mini" style={{ display: 'block', margin: 0, color: 'var(--muted)', fontSize: 11.5 }}>
-            등록 시 이론 8 · 실기 8 · 시험 2 (총 18과목) 진도 항목이 미이수 상태로 생성됩니다.
           </div>
           {err && (
             <div className="login-alert err" style={{ margin: '8px 0 0' }}>

@@ -813,11 +813,11 @@ function LedgerAddModal({ onClose, onPosted, editTx }: { onClose: () => void; on
           <div style={{ display: 'flex', gap: 10 }}>
             <div className="mfield" style={{ flex: 1 }}>
               <label>계정</label>
-              <input className="ctl" value={account} onChange={(e) => setAccount(e.target.value)} placeholder="예: 이자수입" />
+              <input className="ctl" value={account} onChange={(e) => setAccount(e.target.value)} />
             </div>
             <div className="mfield" style={{ flex: 1 }}>
               <label>거래처</label>
-              <input className="ctl" value={partner} onChange={(e) => setPartner(e.target.value)} placeholder="(선택)" />
+              <input className="ctl" value={partner} onChange={(e) => setPartner(e.target.value)} />
             </div>
           </div>
           <div className="mfield">
@@ -828,12 +828,11 @@ function LedgerAddModal({ onClose, onPosted, editTx }: { onClose: () => void; on
               min={0}
               value={amount || ''}
               onChange={(e) => setAmount(parseInt(e.target.value, 10) || 0)}
-              placeholder="0"
             />
           </div>
           <div className="mfield">
             <label>적요</label>
-            <input className="ctl" value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="예: 보통예금 이자" />
+            <input className="ctl" value={memo} onChange={(e) => setMemo(e.target.value)} />
           </div>
 
           {err && <div className="login-alert err" style={{ margin: 0 }}>{err}</div>}

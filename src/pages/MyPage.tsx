@@ -124,7 +124,6 @@ export default function MyPage() {
     compQ.reload()
   }
 
-  const loading = empQ.loading || leaveQ.loading
   const info: [string, string][] = [
     ['입사일', join ? `${dateOnly(join)}${tenure(join) ? ` · ${tenure(join)}` : ''}` : '—'],
     ['고용형태', emp?.employment_type ?? '—'],
@@ -211,11 +210,7 @@ export default function MyPage() {
             <em>승인된 휴가 합계</em>
           </div>
         </div>
-      ) : (
-        !loading && (
-          <section className="me-note">연차와 대체휴무는 <b>정규직</b>에게 적용됩니다. 휴가 사용 내역은 아래에서 확인할 수 있습니다.</section>
-        )
-      )}
+      ) : null}
 
       {/* 휴가 사용 내역 */}
       <section className="panel" style={{ marginBottom: 14 }}>

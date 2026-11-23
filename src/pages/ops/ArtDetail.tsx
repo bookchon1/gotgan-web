@@ -492,7 +492,7 @@ export default function ArtDetail() {
             {editing ? (
               <>
                 <input className="hr-in ph-name" value={ef.name} onChange={(e) => setE('name', e.target.value)} placeholder="사업명" />
-                <input className="hr-in" style={{ width: 150 }} value={ef.short_name} onChange={(e) => setE('short_name', e.target.value)} placeholder="약칭 (일정표 표시)" title="업무일정 등 좁은 화면에 표시되는 짧은 사업 이름 (예: 한양도성)" />
+                <input className="hr-in" style={{ width: 150 }} value={ef.short_name} onChange={(e) => setE('short_name', e.target.value)} placeholder="약칭" />
                 <select className="hr-in" style={{ width: 110 }} value={ef.status} onChange={(e) => setE('status', e.target.value)}>
                   {ART_STATUSES.map((st) => (
                     <option key={st} value={st}>{st}</option>
@@ -515,7 +515,6 @@ export default function ArtDetail() {
                   style={{ width: 150, textAlign: 'right' }}
                   value={ef.contract_base ? won(ef.contract_base) : ''}
                   onChange={(e) => setE('contract_base', parseInt(e.target.value.replace(/[^0-9]/g, ''), 10) || 0)}
-                  placeholder="예: 220,000,000"
                 />
               ) : (
                 <b className="gold">{eok(contract)}</b>
@@ -644,8 +643,8 @@ export default function ArtDetail() {
                         </td>
                         <td><ContactSearch value={r.name} onChange={(v) => up('name', v)} placeholder="이름 (검색)" onPick={(h) => setStkRows((rows) => rows.map((x, j) => (j === i ? { ...x, ...hitToRow(h), name: hitToRow(h).name || x.name } : x)))} /></td>
                         <td><ContactSearch value={r.org} onChange={(v) => up('org', v)} placeholder="소속 (검색)" onPick={(h) => setStkRows((rows) => rows.map((x, j) => (j === i ? { ...x, ...hitToRow(h), name: hitToRow(h).name || x.name } : x)))} /></td>
-                        <td><input className="hr-in" value={r.phone} onChange={(e) => up('phone', e.target.value)} placeholder="010-0000-0000" /></td>
-                        <td><input className="hr-in" type="email" value={r.email} onChange={(e) => up('email', e.target.value)} placeholder="name@example.com" /></td>
+                        <td><input className="hr-in" value={r.phone} onChange={(e) => up('phone', e.target.value)} /></td>
+                        <td><input className="hr-in" type="email" value={r.email} onChange={(e) => up('email', e.target.value)} /></td>
                         <td style={{ textAlign: 'center' }}>
                           <button className="btn txt" title="삭제" style={{ padding: '2px 6px', color: 'var(--danger)' }} onClick={() => setStkRows((rows) => rows.filter((_, j) => j !== i))}>✕</button>
                         </td>
@@ -711,8 +710,8 @@ export default function ArtDetail() {
                       <tr key={r.id ?? `n${i}`}>
                         <td><ContactSearch value={r.name} onChange={(v) => up('name', v)} placeholder="이름 (검색)" onPick={(h) => setAdvRows((rows) => rows.map((x, j) => (j === i ? { ...x, ...hitToRow(h), name: hitToRow(h).name || x.name } : x)))} /></td>
                         <td><ContactSearch value={r.org} onChange={(v) => up('org', v)} placeholder="소속 (검색)" onPick={(h) => setAdvRows((rows) => rows.map((x, j) => (j === i ? { ...x, ...hitToRow(h), name: hitToRow(h).name || x.name } : x)))} /></td>
-                        <td><input className="hr-in" value={r.phone} onChange={(e) => up('phone', e.target.value)} placeholder="010-0000-0000" /></td>
-                        <td><input className="hr-in" type="email" value={r.email} onChange={(e) => up('email', e.target.value)} placeholder="name@example.com" /></td>
+                        <td><input className="hr-in" value={r.phone} onChange={(e) => up('phone', e.target.value)} /></td>
+                        <td><input className="hr-in" type="email" value={r.email} onChange={(e) => up('email', e.target.value)} /></td>
                         <td>
                           <input
                             className="hr-in tnum"
@@ -720,7 +719,6 @@ export default function ArtDetail() {
                             inputMode="numeric"
                             value={r.default_fee ? won(r.default_fee) : ''}
                             onChange={(e) => up('default_fee', Number(e.target.value.replace(/[^0-9]/g, '')) || 0)}
-                            placeholder="300,000"
                           />
                         </td>
                         <td style={{ textAlign: 'center' }}>
@@ -984,7 +982,7 @@ export default function ArtDetail() {
               {changes.length === 0 && !addChange && (
                 <tr>
                   <td colSpan={6} style={{ color: 'var(--muted)', textAlign: 'center', padding: 12 }}>
-                    설계변경 내역이 없습니다. (변경 시 당초 계약금은 그대로 보존됩니다)
+                    설계변경 내역이 없습니다.
                   </td>
                 </tr>
               )}
@@ -1110,11 +1108,7 @@ export default function ArtDetail() {
                   inputMode="numeric"
                   value={budgetForm.alloc ? budgetForm.alloc.toLocaleString('ko-KR') : ''}
                   onChange={(e) => setBudgetForm({ ...budgetForm, alloc: Number(e.target.value.replace(/[^0-9]/g, '')) || 0 })}
-                  placeholder="예: 50,000,000"
                 />
-              </div>
-              <div className="hint" style={{ fontSize: 11, color: 'var(--muted)' }}>
-                같은 항목을 다시 등록하면 예산액이 갱신됩니다.
               </div>
             </div>
             <div className="mf">

@@ -118,7 +118,7 @@ export default function Documents() {
               <circle cx="11" cy="11" r="7" />
               <path d="M21 21l-4-4" />
             </svg>
-            <input placeholder="제목·작성자·분류 검색" value={q} onChange={(e) => setQ(e.target.value)} />
+            <input placeholder="검색" value={q} onChange={(e) => setQ(e.target.value)} />
           </label>
         </div>
 
@@ -306,11 +306,11 @@ function DocEditModal({ doc, meId, folders, defaultFolderId, onClose, onSaved }:
           <div style={{ display: 'flex', gap: 10 }}>
             <div className="mfield" style={{ flex: 1 }}>
               <label>문서 이름</label>
-              <input className="ctl" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="예: 2026 보존처리 표준계약서" autoFocus />
+              <input className="ctl" value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
             </div>
             <div className="mfield" style={{ width: 150 }}>
               <label>분류</label>
-              <input className="ctl" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="계약/규정/보고서" />
+              <input className="ctl" value={category} onChange={(e) => setCategory(e.target.value)} />
             </div>
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
@@ -332,8 +332,7 @@ function DocEditModal({ doc, meId, folders, defaultFolderId, onClose, onSaved }:
           </div>
           <div className="mfield">
             <label>내용</label>
-            <textarea className="ctl" rows={8} value={body} onChange={(e) => setBody(e.target.value)}
-              placeholder="문서 내용을 입력하세요." style={{ resize: 'vertical' }} />
+            <textarea className="ctl" rows={8} value={body} onChange={(e) => setBody(e.target.value)} style={{ resize: 'vertical' }} />
           </div>
           <div className="mfield">
             <label>첨부 파일</label>

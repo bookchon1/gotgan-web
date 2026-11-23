@@ -84,7 +84,7 @@ export default function EduMaterials() {
               <circle cx="11" cy="11" r="7" />
               <path d="M21 21l-4-4" />
             </svg>
-            <input placeholder="제목·파일명 검색" value={q} onChange={(e) => setQ(e.target.value)} />
+            <input placeholder="검색" value={q} onChange={(e) => setQ(e.target.value)} />
           </label>
         </div>
         <div className="tbl-wrap">
@@ -233,7 +233,6 @@ function MaterialModal({
                 className="ctl"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
-                placeholder="예: 단청학개론"
               />
             </div>
           </div>
@@ -243,7 +242,6 @@ function MaterialModal({
               className="ctl"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="예: 단청의 역사와 분류 강의안"
               autoFocus
             />
           </div>
@@ -253,7 +251,6 @@ function MaterialModal({
               className="ctl"
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="예: 1~3주차 이론 수업 (선택)"
             />
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
@@ -263,7 +260,6 @@ function MaterialModal({
                 className="ctl"
                 value={fileName}
                 onChange={(e) => setFileName(e.target.value)}
-                placeholder="예: 단청개론.pdf (선택)"
               />
             </div>
             <div className="mfield" style={{ width: 120 }}>
@@ -275,13 +271,8 @@ function MaterialModal({
                 step={0.1}
                 value={fileSizeMb}
                 onChange={(e) => setFileSizeMb(e.target.value)}
-                placeholder="예: 2.4"
               />
             </div>
-          </div>
-          <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 4 }}>
-            파일 실체 업로드는 Supabase Storage('edu-materials' 버킷) 연동 후 지원됩니다. 현재는 자료 메타데이터만
-            등록됩니다.
           </div>
           {err && (
             <div className="login-alert err" style={{ margin: '8px 0 0' }}>

@@ -379,7 +379,6 @@ export function Step20Editor({
                 )}
                 <div className="cmt-add">
                   <AutoTextarea
-                    placeholder="메모 입력"
                     value={cmtDraft[s.id] || ''}
                     onChange={(v) => setCmtDraft((d) => ({ ...d, [s.id]: v }))}
                     onBlur={() => addComment(s.id)}
@@ -411,7 +410,6 @@ export function Step20Editor({
             <span style={{ color: 'var(--muted)', fontSize: 11.5 }}>에</span>
             <input
               className="s20addname"
-              placeholder="새 공정 이름 (예: 2차 자문)"
               value={addName}
               onChange={(e) => setAddName(e.target.value)}
               onKeyDown={(e) => {

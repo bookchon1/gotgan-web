@@ -149,7 +149,7 @@ export default function Inventory() {
               <circle cx="11" cy="11" r="7" />
               <path d="M21 21l-4-4" />
             </svg>
-            <input placeholder="품목·코드 검색 (또는 '부족')" value={q} onChange={(e) => setQ(e.target.value)} />
+            <input placeholder="검색" value={q} onChange={(e) => setQ(e.target.value)} />
           </label>
         </div>
         <div className="tbl-wrap">
@@ -291,7 +291,6 @@ export default function Inventory() {
               <>
                 선택 <b>{selectedItems.length}품목</b> · 발주 예상액{' '}
                 <b style={{ color: 'var(--brand)' }}>₩{won(selTotal)}</b>{' '}
-                <span style={{ color: 'var(--muted)' }}>(수량·단가는 작성 시 조정)</span>
               </>
             ) : (
               '품목을 선택하면 발주 예상액이 집계됩니다. (재고 충분 품목도 함께 구입 가능)'
@@ -335,7 +334,7 @@ export default function Inventory() {
               <div style={{ display: 'flex', gap: 10 }}>
                 <div className="mfield" style={{ flex: 1 }}>
                   <label>품목명</label>
-                  <input className="ctl" value={addForm.name} onChange={(e) => setAddForm({ ...addForm, name: e.target.value })} placeholder="예: 한지 (중목)" autoFocus />
+                  <input className="ctl" value={addForm.name} onChange={(e) => setAddForm({ ...addForm, name: e.target.value })} autoFocus />
                 </div>
                 <div className="mfield" style={{ width: 120 }}>
                   <label>구분</label>
@@ -348,11 +347,11 @@ export default function Inventory() {
               <div style={{ display: 'flex', gap: 10 }}>
                 <div className="mfield" style={{ flex: 1 }}>
                   <label>코드</label>
-                  <input className="ctl" value={addForm.code} onChange={(e) => setAddForm({ ...addForm, code: e.target.value })} placeholder="예: A-001" />
+                  <input className="ctl" value={addForm.code} onChange={(e) => setAddForm({ ...addForm, code: e.target.value })} />
                 </div>
                 <div className="mfield" style={{ flex: 1 }}>
                   <label>보관 위치</label>
-                  <input className="ctl" value={addForm.location} onChange={(e) => setAddForm({ ...addForm, location: e.target.value })} placeholder="예: 창고 2층" />
+                  <input className="ctl" value={addForm.location} onChange={(e) => setAddForm({ ...addForm, location: e.target.value })} />
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 10 }}>

@@ -386,8 +386,6 @@ export default function ArtList() {
           </table>
         </div>
         <div className="table-foot">
-          <span>수금 = 대금 수령 합계 · 미수금 = 계약금액(설계변경 반영) − 수금 (예산현황 연동) · D-day = 준공 예정일 기준 · 준공했지만 진행률 100% 미만이면 준공일 기준 D+경과일</span>
-          <span>행을 클릭하면 사업 상세로 이동합니다.</span>
         </div>
       </section>
 
@@ -509,13 +507,12 @@ export function ArtProjectModal({
               className="ctl"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="예: 삼국유사 목판 보존처리"
               autoFocus
             />
           </div>
           <div className="mfield">
-            <label>약칭 <span style={{ fontWeight: 400, color: 'var(--muted)' }}>(업무일정 등에 짧게 표시 · 비우면 자동)</span></label>
-            <input className="ctl" value={shortName} onChange={(e) => setShortName(e.target.value)} placeholder="예: 한양도성" />
+            <label>약칭</label>
+            <input className="ctl" value={shortName} onChange={(e) => setShortName(e.target.value)} />
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <div className="mfield" style={{ flex: 1 }}>
@@ -524,7 +521,6 @@ export function ArtProjectModal({
                 className="ctl"
                 value={client}
                 onChange={(e) => setClient(e.target.value)}
-                placeholder="예: 국립경주박물관"
               />
             </div>
             <div className="mfield" style={{ width: 140 }}>
@@ -608,7 +604,6 @@ export function ArtProjectModal({
               type="text"
               value={contractBase ? won(contractBase) : ''}
               onChange={(e) => setContractBase(parseInt(e.target.value.replace(/[^0-9]/g, ''), 10) || 0)}
-              placeholder="예: 220,000,000"
             />
           </div>
 

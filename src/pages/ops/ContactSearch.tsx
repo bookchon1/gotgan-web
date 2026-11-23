@@ -73,7 +73,6 @@ export function ContactSearch({
       />
       {open && hits.length > 0 && pos && (
         <div className="csug" style={{ left: pos.left, top: pos.top, width: pos.width }}>
-          <div className="csug-h">업체정보에서 검색 · 선택하면 자동 입력</div>
           {hits.map((h) => (
             <button
               key={h.id}

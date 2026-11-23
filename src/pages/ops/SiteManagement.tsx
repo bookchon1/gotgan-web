@@ -187,7 +187,7 @@ function DailyTab({
             <circle cx="11" cy="11" r="7" />
             <path d="M21 21l-4-4" />
           </svg>
-          <input placeholder="작성일 검색" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input placeholder="검색" value={q} onChange={(e) => setQ(e.target.value)} />
         </label>
       </div>
       {rowErr && <div className="login-alert err" style={{ margin: '0 0 8px' }}>{rowErr}</div>}
@@ -756,7 +756,7 @@ function WorkersTab({
             <circle cx="11" cy="11" r="7" />
             <path d="M21 21l-4-4" />
           </svg>
-          <input placeholder="작업자 이름 검색" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input placeholder="검색" value={q} onChange={(e) => setQ(e.target.value)} />
         </label>
         <button className="btn txt add-txt" style={{ marginLeft: 'auto' }} onClick={() => setAddOpen(true)}>
           + 작업자 추가
@@ -807,9 +807,6 @@ function WorkersTab({
             {!loading && list.length === 0 && <EmptyRow cols={3} text="등록된 작업자가 없습니다." />}
           </tbody>
         </table>
-      </div>
-      <div className="sec-mini" style={{ marginTop: 10 }}>
-        일당 변경은 새로 작성·저장하는 기록부터 적용됩니다. 정산된 기록의 이름·금액은 보존됩니다.
       </div>
 
       {addOpen && <WorkerModal onClose={() => setAddOpen(false)} onSaved={() => { setAddOpen(false); onChanged() }} />}
@@ -871,7 +868,7 @@ function WorkerModal({
         <div className="mb">
           <div className="mfield">
             <label>이름</label>
-            <input className="ctl" value={name} onChange={(e) => setName(e.target.value)} placeholder="예: 박작업" autoFocus />
+            <input className="ctl" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
           </div>
           <div className="mfield">
             <label>일당 (원)</label>
@@ -882,7 +879,6 @@ function WorkerModal({
               step={10000}
               value={wage || ''}
               onChange={(e) => setWage(parseInt(e.target.value, 10) || 0)}
-              placeholder="0"
             />
           </div>
           {editing && (
@@ -1053,7 +1049,7 @@ function DailyDraftModal({
 
           <div className="mfield">
             <label>현장 업무</label>
-            <input className="ctl" value={workText} onChange={(e) => setWorkText(e.target.value)} placeholder="예: 목재 표면 세척·균열 조사" />
+            <input className="ctl" value={workText} onChange={(e) => setWorkText(e.target.value)} />
           </div>
 
           <div className="mfield">
@@ -1092,7 +1088,6 @@ function DailyDraftModal({
               step={1000}
               value={meal || ''}
               onChange={(e) => setMeal(parseInt(e.target.value, 10) || 0)}
-              placeholder="0"
             />
           </div>
 

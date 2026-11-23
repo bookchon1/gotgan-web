@@ -96,7 +96,7 @@ function PartnerForm({
     <div className="pf">
       <div className="pf-h">{title}</div>
       <div className="pf-grid">
-        {fld('거래처명 *', 'name', { ph: '예: 국립경주박물관', span: 2 })}
+        {fld('거래처명 *', 'name', { span: 2 })}
         <label className="pf-f">
           <span>구분</span>
           <select className="hr-in" value={f.kind} onChange={(e) => set('kind', e.target.value)}>
@@ -105,11 +105,11 @@ function PartnerForm({
             ))}
           </select>
         </label>
-        {fld('사업자번호', 'biz_no', { ph: '000-00-00000' })}
+        {fld('사업자번호', 'biz_no', {})}
         {fld('담당자', 'person', { span: 2 })}
-        {fld('연락처1 (대표)', 'phone1', { ph: '010-0000-0000' })}
+        {fld('연락처1 (대표)', 'phone1', {})}
         {fld('연락처2', 'phone2')}
-        {fld('이메일', 'email', { ph: 'name@example.com', type: 'email', span: 2 })}
+        {fld('이메일', 'email', { type: 'email', span: 2 })}
         {fld('주소', 'address', { span: 2 })}
         {fld('메모', 'memo', { span: 4 })}
       </div>
@@ -206,7 +206,7 @@ export function PartnerView() {
               <circle cx="11" cy="11" r="7" />
               <path d="M21 21l-4-4" />
             </svg>
-            <input placeholder="업체명·담당자·구분·연락처 검색" value={q} onChange={(e) => setQ(e.target.value)} />
+            <input placeholder="검색" value={q} onChange={(e) => setQ(e.target.value)} />
           </label>
           <button
             className="btn pri"

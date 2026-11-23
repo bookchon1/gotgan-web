@@ -366,7 +366,7 @@ function AttAddModal({
             </div>
             <div className="mfield" style={{ flex: 1 }}>
               <label>업무 내용</label>
-              <input className="ctl" value={f.task} onChange={(e) => setF({ ...f, task: e.target.value })} placeholder="예: 유물 포장 보조, 전시 설치" />
+              <input className="ctl" value={f.task} onChange={(e) => setF({ ...f, task: e.target.value })} />
             </div>
           </div>
         </div>
@@ -520,7 +520,7 @@ function WorkerModal({
           <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
             <div className="mfield" style={{ flex: 1, margin: 0 }}>
               <label>이름</label>
-              <input className="ctl" value={name} onChange={(e) => setName(e.target.value)} placeholder="예: 김일용" />
+              <input className="ctl" value={name} onChange={(e) => setName(e.target.value)} />
             </div>
             <div className="mfield" style={{ width: 130, margin: 0 }}>
               <label>기본 일당</label>
@@ -1596,7 +1596,6 @@ function LeaveView({ empById }: { empById: Record<string, { name: string; dept: 
                   <path d="M21 21l-4-4" />
                 </svg>
                 <input
-                  placeholder="이름으로 검색 (예: 이윤정)"
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
                 />

@@ -474,7 +474,6 @@ export function ApprovalDraftModal({
                 </button>
               ))}
             </div>
-            <span className="adm-desc">{def.desc}</span>
           </div>
         </header>
 
@@ -536,7 +535,6 @@ export function ApprovalDraftModal({
                     disabled={itemsSum > 0}
                     value={itemsSum > 0 ? won(itemsSum) : amount ? won(amount) : ''}
                     onChange={(e) => setAmount(numOf(e.target.value))}
-                    placeholder="0"
                   />
                 </div>
                 {isArt && (
@@ -569,11 +567,7 @@ export function ApprovalDraftModal({
             )}
 
             <div className="adm-grid">{def.fields.map(renderField)}</div>
-            {def.id === 'overtime' && (
-              <div className={`adm-notice${regular === false ? ' warn' : ''}`}>
-                {regular === false ? '연장근무 적립은 정규직만 신청할 수 있습니다.' : `승인되면 인정 시간만큼 대체휴무로 적립됩니다. 소멸기한은 없고 8시간이 1일입니다.${compAvail === null ? '' : ` 현재 대체휴무 잔여 ${hoursTxt(compAvail)}`}`}
-              </div>
-            )}
+            {def.id === 'overtime' && regular === false && <div className="adm-notice warn">연장근무 적립은 정규직만 신청할 수 있습니다.</div>}
             {compNeed > 0 && (
               <div className={`adm-notice${compNeed > (compAvail ?? 0) + 1e-9 ? ' warn' : ''}`}>
                 대체휴무 {hoursTxt(compNeed)} 사용 · 사용 가능 잔여 {compAvail === null ? '확인 중' : hoursTxt(compAvail)}
@@ -713,7 +707,7 @@ export function ApprovalDraftModal({
         </div>
 
         <footer className="adm-foot">
-          {err ? <div className="adm-err">{err}</div> : <span className="adm-fhint">임시보관한 문서는 나에게만 보입니다</span>}
+          {err ? <div className="adm-err">{err}</div> : <span />}
           <button className="adm-b ghost" onClick={onClose} disabled={busy}>
             취소
           </button>

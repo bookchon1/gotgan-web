@@ -275,7 +275,6 @@ function PaymentModal({
                 step={10000}
                 value={charged || ''}
                 onChange={(e) => setCharged(parseInt(e.target.value, 10) || 0)}
-                placeholder="0"
               />
             </div>
             <div className="mfield" style={{ flex: 1 }}>
@@ -287,7 +286,6 @@ function PaymentModal({
                 step={10000}
                 value={paid || ''}
                 onChange={(e) => setPaid(parseInt(e.target.value, 10) || 0)}
-                placeholder="0"
               />
             </div>
           </div>
@@ -297,7 +295,7 @@ function PaymentModal({
           </div>
           <div className="mfield">
             <label>메모</label>
-            <input className="ctl" value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="(선택)" />
+            <input className="ctl" value={memo} onChange={(e) => setMemo(e.target.value)} />
           </div>
           <div className="ops-stats" style={{ marginBottom: 0 }}>
             <div className="s">

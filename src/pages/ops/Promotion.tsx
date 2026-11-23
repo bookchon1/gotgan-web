@@ -86,7 +86,7 @@ export default function Promotion() {
               <circle cx="11" cy="11" r="7" />
               <path d="M21 21l-4-4" />
             </svg>
-            <input placeholder="활동명·채널·담당자 검색" value={q} onChange={(e) => setQ(e.target.value)} />
+            <input placeholder="검색" value={q} onChange={(e) => setQ(e.target.value)} />
           </label>
         </div>
         <div className="tbl-wrap">
@@ -232,7 +232,6 @@ function PromoModal({
               className="ctl"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="예: 삼국유사 목판 복원 과정 연재"
               autoFocus
             />
           </div>
@@ -288,12 +287,11 @@ function PromoModal({
               type="url"
               value={link}
               onChange={(e) => setLink(e.target.value)}
-              placeholder="https://"
             />
           </div>
           <div className="mfield">
             <label>메모</label>
-            <input className="ctl" value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="(선택)" />
+            <input className="ctl" value={memo} onChange={(e) => setMemo(e.target.value)} />
           </div>
           {err && (
             <div className="login-alert err" style={{ margin: 0 }}>

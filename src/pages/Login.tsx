@@ -117,7 +117,6 @@ export default function Login() {
               <input
                 type="text"
                 autoComplete="username"
-                placeholder="이름을 입력하세요"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required

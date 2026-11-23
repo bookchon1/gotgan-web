@@ -448,7 +448,6 @@ function PersonalEventModal({
               className="ctl"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="예: 오후 반차 / 병원 방문"
               autoFocus
             />
           </div>
@@ -463,7 +462,6 @@ function PersonalEventModal({
                 className="ctl"
                 value={memo}
                 onChange={(e) => setMemo(e.target.value)}
-                placeholder="선택 입력"
               />
             </div>
           )}

@@ -205,7 +205,6 @@ export default function Tasks() {
             <h2>
               {label} <span className="count">{taskQ.loading ? '…' : tasks.length}</span>
             </h2>
-            <span style={{ fontSize: 11, color: 'var(--muted)' }}>⠿ 끌어서 순서를 바꿀 수 있어요</span>
           </div>
           {/* 월 단위 이동 — 데이터는 그대로, 보기만 월별로 나눔 (달력 기준, 빈 달도 이동) */}
           <div className="month-nav" style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
@@ -379,7 +378,6 @@ export default function Tasks() {
                   className="ctl"
                   value={form.title}
                   onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  placeholder="예: 보존처리 설계도면 작성"
                   autoFocus
                 />
               </div>
@@ -387,9 +385,6 @@ export default function Tasks() {
                 <div className="mfield">
                   <label>담당자</label>
                   <input className="ctl" value={me?.name ?? ''} readOnly disabled />
-                  <div className="hint" style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
-                    담당자는 로그인한 작성자로 자동 지정됩니다.
-                  </div>
                 </div>
               )}
               <div style={{ display: 'flex', gap: 10 }}>
@@ -405,7 +400,7 @@ export default function Tasks() {
               <div style={{ display: 'flex', gap: 10 }}>
                 <div className="mfield" style={{ flex: 1 }}>
                   <label>세부분류</label>
-                  <input className="ctl" value={form.detail} onChange={(e) => setForm({ ...form, detail: e.target.value })} placeholder="예: 설계 / 조사 / 작업" />
+                  <input className="ctl" value={form.detail} onChange={(e) => setForm({ ...form, detail: e.target.value })} />
                 </div>
                 <div className="mfield" style={{ width: 130 }}>
                   <label>상태</label>

@@ -1,6 +1,4 @@
 import { Fragment, useMemo, useState } from 'react'
-import { PageHead } from '../components/PageHead'
-import { Icon } from '../components/Icon'
 import { ErrorBanner, LoadingRow, EmptyRow } from '../components/States'
 import { supabase } from '../lib/supabase'
 import { useQuery } from '../lib/useQuery'
@@ -129,10 +127,10 @@ export default function Approvals() {
         : folder === 'drafted'
           ? '상신문서'
           : folder === 'cc'
-            ? '참조 문서'
+            ? '참조문서'
             : folder === 'temp'
               ? '임시보관'
-              : '완료 문서'
+              : '완료문서'
 
   const loading = apprQ.loading || linesQ.loading
   const hasAct = folder === 'pending' || folder === 'drafted' || folder === 'temp'
@@ -283,28 +281,34 @@ export default function Approvals() {
   }
 
   return (
-    <div className="page on">
-      <PageHead
-        eyebrow="DECISIONS, CONNECTED"
-        title="전자결재"
-        desc="기안을 작성하고, 결재선에 따라 승인과 반려를 처리하세요."
-        actions={
-          <>
-            <button className="btn txt add-txt" onClick={() => setDraftOpen(true)}>
-              기안 작성
-            </button>
-          </>
-        }
-      />
+    <div className="page on ap">
+      <header className="ap-head">
+        <div>
+          <h1>전자결재</h1>
+          <p>
+            {pending.length > 0 ? (
+              <>
+                내가 결재할 문서 <b>{pending.length}건</b>이 있습니다.
+              </>
+            ) : (
+              '지금 결재할 문서가 없습니다.'
+            )}
+            {drafted.filter((a) => a.status === '진행').length > 0 && ` · 결재가 진행 중인 상신 ${drafted.filter((a) => a.status === '진행').length}건`}
+          </p>
+        </div>
+        <button className="ap-new" onClick={() => setDraftOpen(true)}>
+          <span>＋</span> 기안 작성
+        </button>
+      </header>
 
-      <div className="folders">
-        <Fold k="pending" cur={folder} set={setFolder} icon="doc" title="결재대기" n={pending.length} />
-        <Fold k="received" cur={folder} set={setFolder} icon="approval" title="수신문서" n={mySlips.length} />
-        <Fold k="drafted" cur={folder} set={setFolder} icon="clock" title="상신문서" n={drafted.length} />
-        <Fold k="done" cur={folder} set={setFolder} icon="check" title="완료 문서" n={done.length} />
-        <Fold k="cc" cur={folder} set={setFolder} icon="doc" title="참조 문서" n={ccDocs.length} />
-        <Fold k="temp" cur={folder} set={setFolder} icon="doc" title="임시보관" n={temps.length} />
-      </div>
+      <nav className="ap-tabs" role="tablist">
+        <Tab k="pending" cur={folder} set={setFolder} title="결재대기" n={pending.length} hot />
+        <Tab k="received" cur={folder} set={setFolder} title="수신문서" n={mySlips.length} />
+        <Tab k="drafted" cur={folder} set={setFolder} title="상신문서" n={drafted.length} />
+        <Tab k="done" cur={folder} set={setFolder} title="완료문서" n={done.length} />
+        <Tab k="cc" cur={folder} set={setFolder} title="참조문서" n={ccDocs.length} />
+        <Tab k="temp" cur={folder} set={setFolder} title="임시보관" n={temps.length} />
+      </nav>
 
       {folder === 'received' ? (
         <ReceivedBox
@@ -315,32 +319,30 @@ export default function Approvals() {
           meName={me?.name ?? ''}
         />
       ) : (
-      <section className="panel">
+      <section className="ap-card">
         <ErrorBanner error={apprQ.error} table="approvals" />
         {actErr && <div className="login-alert err" style={{ margin: '0 0 8px' }}>{actErr}</div>}
-        <div className="panel-h">
-          <div>
-            <h2>
-              {title} <span className="count">{loading ? '…' : filtering ? `${list.length} / ${baseList.length}` : list.length}</span>
-            </h2>
-          </div>
+        <div className="ap-sec">
+          <h2>
+            {title} <span>{loading ? '…' : filtering ? `${list.length} / ${baseList.length}` : list.length}</span>
+          </h2>
         </div>
-        <div className="toolbar" style={{ flexWrap: 'wrap', gap: 8 }}>
-          <label className="search">
-            <svg className="icon" width="15" height="15" viewBox="0 0 24 24">
+        <div className="ap-bar">
+          <label className="ap-search">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <circle cx="11" cy="11" r="7" />
               <path d="M21 21l-4-4" />
             </svg>
-            <input placeholder="제목·내용·문서번호·기안자 검색" value={kw} onChange={(e) => setKw(e.target.value)} />
+            <input placeholder="검색" value={kw} onChange={(e) => setKw(e.target.value)} />
           </label>
-          <select className="sel" value={kindF} onChange={(e) => setKindF(e.target.value)}>
+          <select className="ap-sel" value={kindF} onChange={(e) => setKindF(e.target.value)}>
             <option value="all">전체 종류</option>
             <option value="지출결의서">지출결의</option>
             <option value="품의">업무기안·품의</option>
             <option value="휴가">휴가신청</option>
             <option value="일반">출장·연장근무·기타</option>
           </select>
-          <select className="sel" value={stF} onChange={(e) => setStF(e.target.value)}>
+          <select className="ap-sel" value={stF} onChange={(e) => setStF(e.target.value)}>
             <option value="all">전체 상태</option>
             <option value="진행">진행</option>
             <option value="승인">승인</option>
@@ -348,17 +350,28 @@ export default function Approvals() {
             <option value="회수">회수</option>
             <option value="회계접수">회계접수</option>
           </select>
-          <input className="ctl" type="date" style={{ width: 140 }} value={fromD} onChange={(e) => setFromD(e.target.value)} title="기안일 시작" />
-          <span className="t-sub">~</span>
-          <input className="ctl" type="date" style={{ width: 140 }} value={toD} onChange={(e) => setToD(e.target.value)} title="기안일 끝" />
+          <div className="ap-range" title="기안일 기간">
+            <input type="date" value={fromD} onChange={(e) => setFromD(e.target.value)} aria-label="기안일 시작" />
+            <span>~</span>
+            <input type="date" value={toD} onChange={(e) => setToD(e.target.value)} aria-label="기안일 끝" />
+          </div>
           {filtering && (
-            <button className="btn sec" style={{ padding: '5px 10px' }} onClick={() => { setKw(''); setKindF('all'); setStF('all'); setFromD(''); setToD('') }}>
+            <button
+              className="ap-lnk"
+              onClick={() => {
+                setKw('')
+                setKindF('all')
+                setStF('all')
+                setFromD('')
+                setToD('')
+              }}
+            >
               초기화
             </button>
           )}
         </div>
         <div className="tbl-wrap">
-          <table>
+          <table className="ap-tbl">
             <thead>
               <tr>
                 <th>문서</th>
@@ -381,35 +394,34 @@ export default function Approvals() {
                     <Fragment key={a.id}>
                     <tr style={{ cursor: 'pointer' }} className={on ? 'pf-row on' : undefined} onClick={() => setOpenId(on ? null : a.id)}>
                       <td>
-                        <div className="t-title">{a.urgent && <span className="badge" style={{ marginRight: 6, background: 'var(--danger-soft)', color: 'var(--danger)', fontWeight: 800 }}>긴급</span>}{a.confidential && <span title="보안 문서 — 결재선에 지정된 사람만 열람" style={{ marginRight: 4 }}>🔒</span>}{a.title || a.memo}{a.status === '회수' && <span className="badge" style={{ marginLeft: 6 }}>회수</span>}</div>
+                        <div className="t-title">{a.title || a.memo}{a.status === '회수' && <span className="badge gray" style={{ marginLeft: 6 }}>회수</span>}</div>
                         <div className="t-sub">{a.doc_no} · {on ? '내용 접기 ▴' : '내용 보기 ▾'}</div>
                       </td>
-                      <td>{a.drafter_id ? empName[a.drafter_id] ?? '—' : '—'}</td>
+                      <td>
+                        {a.drafter_id && empName[a.drafter_id] ? (
+                          <span className="ap-who">
+                            <i>{empName[a.drafter_id].slice(0, 1)}</i>
+                            {empName[a.drafter_id]}
+                          </span>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
                       <td>
                         <span className={kb.cls}>{(() => { const t = parseFormMemo(a.memo); return (t && formByName(t.form)?.label) || kb.label })()}</span>
                       </td>
                       <td>
-                        <ApprFlow lines={lines} />
+                        <ApprFlow lines={lines} empName={empName} />
                       </td>
                       <td className="tnum" style={{ textAlign: 'right' }}>
                         {a.amount ? won(a.amount) + '원' : '—'}
                       </td>
                       {folder === 'pending' && (
                         <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
-                          <button
-                            className="btn pri"
-                            style={{ padding: '5px 11px', fontSize: 11.5 }}
-                            onClick={() => decide(a, '승인')}
-                            disabled={busy}
-                          >
+                          <button className="ap-ok" onClick={() => decide(a, '승인')} disabled={busy}>
                             승인
                           </button>
-                          <button
-                            className="btn sec"
-                            style={{ padding: '5px 11px', fontSize: 11.5, marginLeft: 5 }}
-                            onClick={() => decide(a, '반려')}
-                            disabled={busy}
-                          >
+                          <button className="ap-no" onClick={() => decide(a, '반려')} disabled={busy}>
                             반려
                           </button>
                         </td>
@@ -480,7 +492,7 @@ export default function Approvals() {
                                 rows={2}
                                 value={comments[a.id] ?? ''}
                                 onChange={(e) => setComments((p) => ({ ...p, [a.id]: e.target.value }))}
-                                placeholder="승인·반려 의견을 남길 수 있습니다 (반려 시 필수)"
+                                placeholder="의견"
                                 onClick={(e) => e.stopPropagation()}
                               />
                             </div>
@@ -492,7 +504,21 @@ export default function Approvals() {
                   )
                 })}
               {!loading && list.length === 0 && (
-                <EmptyRow cols={hasAct ? 6 : 5} text={filtering ? '조건에 맞는 문서가 없습니다.' : folder === 'pending' ? '결재할 문서가 없습니다.' : folder === 'temp' ? '임시보관한 문서가 없습니다.' : '문서가 없습니다.'} />
+                <tr className="ap-empty">
+                  <td colSpan={hasAct ? 6 : 5}>
+                    <div className="ap-zero">
+                      <i>{folder === 'pending' ? '✓' : '·'}</i>
+                      <b>{filtering ? '조건에 맞는 문서가 없습니다' : folder === 'pending' ? '결재할 문서가 없습니다' : folder === 'temp' ? '임시보관한 문서가 없습니다' : '문서가 없습니다'}</b>
+                      <span>
+                        {filtering
+                          ? '검색어나 필터를 바꿔 보세요.'
+                          : folder === 'pending'
+                            ? '내 차례가 된 문서가 생기면 여기에 표시됩니다.'
+                            : '새 기안은 오른쪽 위 기안 작성 버튼에서 올릴 수 있습니다.'}
+                      </span>
+                    </div>
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>
@@ -537,36 +563,17 @@ export default function Approvals() {
   )
 }
 
-function Fold({
-  k,
-  cur,
-  set,
-  icon,
-  title,
-  n,
-}: {
-  k: Folder
-  cur: Folder
-  set: (f: Folder) => void
-  icon: string
-  title: string
-  n: number
-}) {
+function Tab({ k, cur, set, title, n, hot }: { k: Folder; cur: Folder; set: (f: Folder) => void; title: string; n: number; hot?: boolean }) {
   return (
-    <button className={`folder${cur === k ? ' on' : ''}`} onClick={() => set(k)}>
-      <span className="fi">
-        <Icon name={icon} size={20} />
-      </span>
-      <div>
-        <strong>{title}</strong>
-        <small>{n}건</small>
-      </div>
+    <button role="tab" aria-selected={cur === k} className={`ap-tab${cur === k ? ' on' : ''}${hot && n > 0 ? ' hot' : ''}`} onClick={() => set(k)}>
+      <small>{title}</small>
+      <b className="tnum">{n}</b>
     </button>
   )
 }
 
 // 결재선 진행 표시 (시안 appr-flow)
-function ApprFlow({ lines: all }: { lines: ApprovalLine[] }) {
+function ApprFlow({ lines: all, empName }: { lines: ApprovalLine[]; empName?: Record<string, string> }) {
   const lines = all.filter((l) => l.role !== '참조')
   if (lines.length === 0) return <span className="t-sub">—</span>
   return (
@@ -577,13 +584,13 @@ function ApprFlow({ lines: all }: { lines: ApprovalLine[] }) {
           <span key={l.id} style={{ display: 'inline-flex', alignItems: 'center' }}>
             {i > 0 && <span className="bar" />}
             <div className={`step ${cls}`}>
-              <span className="node">
+              <span className="node" title={`${l.role} ${l.approver_id ? empName?.[l.approver_id] ?? '' : ''} · ${l.decided}`}>
                 {l.decided === '승인' ? (
                   <svg className="icon" width="11" height="11" viewBox="0 0 24 24">
                     <path d="M5 12l4 4 10-10" />
                   </svg>
                 ) : (
-                  i + 1
+                  l.role === '회계접수' ? '회' : l.role.slice(0, 1)
                 )}
               </span>
             </div>
@@ -623,9 +630,6 @@ function ReceivedBox({
           <h2>
             수신문서 <span className="count">{loading ? '…' : slips.length}</span>
           </h2>
-          <p>
-            결재 대상은 아니지만 나에게 전달된 문서입니다. <b>각자 본인에게 수신된 문서만 표시됩니다.</b>
-          </p>
         </div>
       </div>
       <div className="tbl-wrap">
@@ -648,7 +652,6 @@ function ReceivedBox({
                   <tr key={s.id} style={{ cursor: 'pointer' }} onClick={() => setView(s)}>
                     <td>
                       <div className="t-title">{ym} 급여명세서</div>
-                      <div className="t-sub">본인만 열람 가능</div>
                     </td>
                     <td>
                       <span className="badge gold">급여명세서</span>
@@ -679,9 +682,6 @@ function ReceivedBox({
             )}
           </tbody>
         </table>
-      </div>
-      <div className="table-foot">
-        <span>급여명세서는 노무 담당자가 각 직원에게 수신 처리하며, 받는 사람만 목록에 보이고 열람할 수 있습니다.</span>
       </div>
 
       {view && <PayslipModal slip={view} ym={runYm[view.run_id] ?? ''} name={meName} onClose={() => setView(null)} />}

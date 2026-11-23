@@ -639,7 +639,6 @@ function CardUploadModal({ onClose, onUploaded }: { onClose: () => void; onUploa
               rows={6}
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder={'2026-10-18,신한카드,한국미술재료상사,1200000,안료 구매\n2026-10-14,국민카드,북촌지류,800000,한지 구매'}
               style={{ fontFamily: 'monospace', fontSize: 12 }}
             />
           </div>

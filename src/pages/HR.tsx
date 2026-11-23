@@ -495,7 +495,6 @@ function EmpCardModal({
               <Field label="생일 (월-일)">
                 <input
                   className="ctl"
-                  placeholder="예: 03-15"
                   value={form.birth_md ?? ''}
                   onChange={(e) => set('birth_md', e.target.value)}
                 />
@@ -509,7 +508,7 @@ function EmpCardModal({
                 </select>
               </Field>
               <Field label="휴대폰">
-                <input className="ctl" placeholder="010-0000-0000" value={form.phone ?? ''} onChange={(e) => set('phone', e.target.value)} />
+                <input className="ctl" value={form.phone ?? ''} onChange={(e) => set('phone', e.target.value)} />
               </Field>
               <Field label="이메일">
                 <input className="ctl" value={form.email ?? ''} onChange={(e) => set('email', e.target.value)} />
@@ -518,10 +517,10 @@ function EmpCardModal({
                 <input className="ctl" value={form.address ?? ''} onChange={(e) => set('address', e.target.value)} />
               </Field>
               <Field label="비상연락처 (이름/관계)">
-                <input className="ctl" placeholder="예: 홍길동 (배우자)" value={form.emergency_name ?? ''} onChange={(e) => set('emergency_name', e.target.value)} />
+                <input className="ctl" value={form.emergency_name ?? ''} onChange={(e) => set('emergency_name', e.target.value)} />
               </Field>
               <Field label="비상연락처 (번호)">
-                <input className="ctl" placeholder="010-0000-0000" value={form.emergency_phone ?? ''} onChange={(e) => set('emergency_phone', e.target.value)} />
+                <input className="ctl" value={form.emergency_phone ?? ''} onChange={(e) => set('emergency_phone', e.target.value)} />
               </Field>
             </div>
           )}
@@ -576,10 +575,10 @@ function EmpCardModal({
                 )}
               </Field>
               <Field label="직급">
-                <input className="ctl" placeholder="예: 선임연구원" value={form.title ?? ''} onChange={(e) => set('title', e.target.value)} />
+                <input className="ctl" value={form.title ?? ''} onChange={(e) => set('title', e.target.value)} />
               </Field>
               <Field label="직책">
-                <input className="ctl" placeholder="예: 팀장 (없으면 비움)" value={form.position ?? ''} onChange={(e) => set('position', e.target.value)} />
+                <input className="ctl" value={form.position ?? ''} onChange={(e) => set('position', e.target.value)} />
               </Field>
               <Field label="고용형태">
                 <select className="ctl" value={form.employment_type ?? ''} onChange={(e) => set('employment_type', e.target.value)}>
@@ -617,13 +616,13 @@ function EmpCardModal({
           {tab === 'edu' && (
             <div className="hr-grid">
               <Field label="최종학력" full>
-                <input className="ctl" placeholder="예: OO대학교 미술사학과 졸업" value={form.education ?? ''} onChange={(e) => set('education', e.target.value)} />
+                <input className="ctl" value={form.education ?? ''} onChange={(e) => set('education', e.target.value)} />
               </Field>
               <Field label="현재 담당업무" full>
-                <textarea className="ctl" rows={3} placeholder="현재 담당업무" value={form.career ?? ''} onChange={(e) => set('career', e.target.value)} />
+                <textarea className="ctl" rows={3} value={form.career ?? ''} onChange={(e) => set('career', e.target.value)} />
               </Field>
               <Field label="자격증" full>
-                <textarea className="ctl" rows={2} placeholder="예: 문화재수리기술자(보존과학), 박물관 1급 정학예사" value={form.certifications ?? ''} onChange={(e) => set('certifications', e.target.value)} />
+                <textarea className="ctl" rows={2} value={form.certifications ?? ''} onChange={(e) => set('certifications', e.target.value)} />
               </Field>
             </div>
           )}
@@ -724,7 +723,7 @@ function AssignTab({ empId }: { empId: string }) {
               </option>
             ))}
           </select>
-          <input className="ctl" placeholder="내용 (예: 연구원 → 선임연구원)" value={form.detail} onChange={(e) => setForm({ ...form, detail: e.target.value })} />
+          <input className="ctl" value={form.detail} onChange={(e) => setForm({ ...form, detail: e.target.value })} />
           <button className="btn pri" onClick={add} disabled={busy || !form.eff_date}>
             {busy ? '…' : '등록'}
           </button>

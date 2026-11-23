@@ -28,7 +28,6 @@ export function AttachPicker({ files, onChange, className = 'mfield' }: { files:
             {f.name} ({kb(f.size)}) ✕
           </span>
         ))}
-        {!files.length && <span style={{ color: 'var(--muted)', fontSize: 12 }}>견적서·영수증 등 (파일당 20MB)</span>}
       </div>
     </div>
   )

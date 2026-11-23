@@ -72,7 +72,7 @@ export default function Experience() {
               <circle cx="11" cy="11" r="7" />
               <path d="M21 21l-4-4" />
             </svg>
-            <input placeholder="체험명·대상·분류 검색" value={q} onChange={(e) => setQ(e.target.value)} />
+            <input placeholder="검색" value={q} onChange={(e) => setQ(e.target.value)} />
           </label>
         </div>
         <div className="tbl-wrap">
@@ -198,7 +198,6 @@ function ExperienceModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
               className="ctl"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="예: 단청 문양 그리기"
               autoFocus
             />
           </div>
@@ -209,7 +208,6 @@ function ExperienceModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
                 className="ctl"
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                placeholder="예: 전통미술·공예"
               />
             </div>
             <div className="mfield" style={{ flex: 1 }}>
@@ -218,7 +216,6 @@ function ExperienceModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
                 className="ctl"
                 value={target}
                 onChange={(e) => setTarget(e.target.value)}
-                placeholder="예: 초등~성인"
               />
             </div>
           </div>
@@ -229,7 +226,6 @@ function ExperienceModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
                 className="ctl"
                 value={duration}
                 onChange={(e) => setDuration(e.target.value)}
-                placeholder="예: 90분"
               />
             </div>
             <div className="mfield" style={{ width: 120 }}>
@@ -240,7 +236,6 @@ function ExperienceModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
                 min={1}
                 value={capacity || ''}
                 onChange={(e) => setCapacity(parseInt(e.target.value, 10) || 0)}
-                placeholder="0"
               />
             </div>
             <div className="mfield" style={{ flex: 1 }}>
@@ -249,13 +244,12 @@ function ExperienceModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
                 className="ctl"
                 value={place}
                 onChange={(e) => setPlace(e.target.value)}
-                placeholder="예: 체험실 1"
               />
             </div>
           </div>
           <div className="mfield">
             <label>메모</label>
-            <input className="ctl" value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="준비물 등 (선택)" />
+            <input className="ctl" value={memo} onChange={(e) => setMemo(e.target.value)} />
           </div>
           {err && (
             <div className="login-alert err" style={{ margin: 0 }}>

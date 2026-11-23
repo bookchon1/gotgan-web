@@ -246,7 +246,7 @@ export default function Dashboard() {
         </div>
         <div className="stat dark" role="link" tabIndex={0} style={{ cursor: 'pointer' }} onClick={() => nav('/approvals')} onKeyDown={(e) => e.key === 'Enter' && nav('/approvals')}>
           <div>
-            <div className="lbl">결재 대기</div>
+            <div className="lbl">결재대기</div>
             <div className="val tnum">
               {apQ.loading || lineQ.loading ? '…' : pendingCount}
               <small>건</small>

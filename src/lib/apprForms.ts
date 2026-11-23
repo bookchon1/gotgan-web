@@ -44,7 +44,7 @@ export const FORMS: FormDef[] = [
     desc: '업무 추진·구매 등 결재를 받기 위한 문서',
     titleHint: '',
     fields: [
-      { key: '상세 내용', type: 'textarea', required: true, rows: 8, placeholder: '목적, 배경, 추진 내용·방법, 시행 희망일 등을 적으세요' },
+      { key: '상세 내용', type: 'textarea', required: true, rows: 8 },
       { key: '소요 예산', type: 'items' },
     ],
   },
@@ -57,7 +57,7 @@ export const FORMS: FormDef[] = [
     titleHint: '',
     expense: true,
     fields: [
-      { key: '지출 사유', type: 'textarea', rows: 3, placeholder: '지출 목적·사유' },
+      { key: '지출 사유', type: 'textarea', rows: 3 },
       { key: '지출 내역', type: 'items' },
     ],
   },
@@ -87,7 +87,7 @@ export const FORMS: FormDef[] = [
       { key: '근무일', type: 'date', required: true, today: true },
       { key: '근무 시간', type: 'timerange', required: true },
       { key: '인정 시간', type: 'hours', required: true },
-      { key: '사유', type: 'textarea', required: true, rows: 3, placeholder: '연장근무 내용' },
+      { key: '사유', type: 'textarea', required: true, rows: 3 },
     ],
   },
   {
@@ -101,7 +101,7 @@ export const FORMS: FormDef[] = [
       { key: '휴가 종류', type: 'select', required: true, options: LEAVE_TYPES },
       { key: '기간', type: 'daterange', required: true },
       { key: '휴가 사유', type: 'textarea', required: true, rows: 3 },
-      { key: '비상 연락처', type: 'text', placeholder: '휴가 중 연락 가능한 번호' },
+      { key: '비상 연락처', type: 'text' },
     ],
   },
 ]

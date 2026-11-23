@@ -134,7 +134,7 @@ function SupplyForm({
     <div className="pf">
       <div className="pf-h">{title}</div>
       <div className="pf-grid">
-        {fld('품목명 *', 'name', { ph: '예: 메틸셀룰로오스(MC)', span: 2 })}
+        {fld('품목명 *', 'name', { span: 2 })}
         <label className="pf-f">
           <span>분류</span>
           <select className="hr-in" value={f.category} onChange={(e) => set('category', e.target.value)}>
@@ -143,13 +143,13 @@ function SupplyForm({
             ))}
           </select>
         </label>
-        {fld('규격', 'spec', { ph: '예: 500g' })}
+        {fld('규격', 'spec', {})}
         {isNew && fld('현재고', 'stock', { numeric: true })}
-        {fld('단위', 'unit', { ph: '개·병·통·장' })}
+        {fld('단위', 'unit', {})}
         {fld('적정(최소) 재고', 'min_qty', { numeric: true })}
         {fld('단가(원)', 'unit_price', { numeric: true })}
-        {isNew ? fld('보관 위치', 'location', { ph: '예: 약품장 2단', span: 2 }) : fld('보관 위치', 'location', { ph: '예: 약품장 2단' })}
-        {isNew ? fld('메모 · 구매 링크', 'memo', { span: 2, ph: '구매 링크(https://…)를 붙여넣으면 목록에서 눌러 열 수 있어요' }) : fld('메모 · 구매 링크', 'memo', { span: 4, ph: '구매 링크(https://…)를 붙여넣으면 목록에서 눌러 열 수 있어요' })}
+        {isNew ? fld('보관 위치', 'location', { span: 2 }) : fld('보관 위치', 'location', {})}
+        {isNew ? fld('메모 · 구매 링크', 'memo', { span: 2 }) : fld('메모 · 구매 링크', 'memo', { span: 4 })}
       </div>
       {err && <div className="login-alert err" style={{ margin: '8px 0 0' }}>{err}</div>}
       <div className="pf-act">
@@ -211,11 +211,11 @@ function MovePanel({ s, onChanged }: { s: Supply; onChanged: () => void }) {
         <b className="sp-mv-t">입·출고</b>
         <input className="hr-in" style={{ width: 80 }} inputMode="numeric" placeholder="수량" value={qty} onChange={(e) => setQty(String(num(e.target.value) || ''))} />
         <span className="t-sub">{s.unit}</span>
-        <input className="hr-in" style={{ flex: 1, minWidth: 140 }} placeholder="메모 (예: 한양도성 사업 사용 / 구매 입고)" value={memo} onChange={(e) => setMemo(e.target.value)} />
+        <input className="hr-in" style={{ flex: 1, minWidth: 140 }} value={memo} onChange={(e) => setMemo(e.target.value)} />
         <button className="sp-btn b1" onClick={() => apply('입고')} disabled={busy}>입고</button>
         <button className="sp-btn b2" onClick={() => apply('출고')} disabled={busy}>출고</button>
       </div>
-      {s.incoming > 0 && <div className="t-sub" style={{ fontSize: 11 }}>입고예정 {s.incoming}{s.unit} — 물품이 도착하면 수량을 넣고 <b>입고</b>를 누르세요.</div>}
+      {s.incoming > 0 && <div className="t-sub" style={{ fontSize: 11 }}>입고예정 {s.incoming}{s.unit}</div>}
       {err && <div className="login-alert err" style={{ margin: '6px 0 0' }}>{err}</div>}
       <div className="sp-hist">
         {(movesQ.data ?? []).length === 0 && <div className="t-sub" style={{ fontSize: 11 }}>입출고 이력이 없습니다.</div>}
@@ -545,7 +545,7 @@ export default function ArtSupplies() {
             </select>
             <label className="search">
               <svg className="icon" width="16" height="16" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4-4" /></svg>
-              <input placeholder="품목·규격·위치 검색" value={q} onChange={(e) => setQ(e.target.value)} />
+              <input placeholder="검색" value={q} onChange={(e) => setQ(e.target.value)} />
             </label>
             {lowCount > 0 && (
               <button className="sp-btn b2" onClick={selectLow}>부족 품목 선택</button>

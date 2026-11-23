@@ -199,14 +199,6 @@ export default function Sidebar({
           <span>문서보관</span>
         </NavLink>
 
-        <NavLink
-          className={({ isActive }) => `ni${isActive ? ' on' : ''}`}
-          to="/me"
-        >
-          <Icon name="user" className="icon ic" />
-          <span>내 정보</span>
-        </NavLink>
-
         {isAdmin && (
           <NavLink
             className={({ isActive }) => `ni${isActive ? ' on' : ''}`}
@@ -223,6 +215,14 @@ export default function Sidebar({
         >
           <Icon name="calendar" className="icon ic" />
           <span>일정표</span>
+        </NavLink>
+
+        <NavLink
+          className={({ isActive }) => `ni${isActive ? ' on' : ''}`}
+          to="/me"
+        >
+          <Icon name="user" className="icon ic" />
+          <span>내 정보</span>
         </NavLink>
       </nav>
 

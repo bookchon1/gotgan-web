@@ -20,7 +20,7 @@ export function ApprStamps({ items }: { items: Stamp[] }) {
           <div className="stp-r">{s.role}</div>
           <div className="stp-t">{s.title || ' '}</div>
           <div className="stp-n">
-            <b>{s.name || '—'}</b>
+            <b>{s.name || '\u00a0'}</b>
             {s.state && <span className={s.state === '반려' ? 'rej' : ''}>{s.state}</span>}
           </div>
           <div className="stp-d">{s.date || ' '}</div>

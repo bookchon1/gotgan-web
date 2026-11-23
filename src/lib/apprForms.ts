@@ -1,7 +1,7 @@
 // 전자결재 양식함 — 양식 정의 + 본문(memo) 직렬화/해석
 // 본문 형식:
 //   [양식:품의서]
-//   품의 목적: …            ← 한 줄 항목 (text/date/select/daterange)
+//   시행 희망일: …          ← 한 줄 항목 (text/date/select/daterange)
 //   ■ 상세 내용             ← 여러 줄 항목 (textarea) / 표(items)
 //   …
 import type { Approval } from '../types/db'
@@ -38,7 +38,6 @@ export const FORMS: FormDef[] = [
     desc: '업무 추진·구매 등 결재를 받기 위한 문서',
     titleHint: '예: 보존처리 약품 구매 품의',
     fields: [
-      { key: '품의 목적', type: 'text', required: true, placeholder: '한 줄로 목적을 적으세요' },
       { key: '시행 희망일', type: 'date' },
       { key: '상세 내용', type: 'textarea', required: true, rows: 5, placeholder: '배경·추진 내용·방법 등' },
       { key: '기대 효과', type: 'textarea', rows: 3 },

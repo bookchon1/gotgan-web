@@ -251,7 +251,7 @@ export function ApprovalDraftModal({
   const nameOf = (id: string) => admins.find((a) => a.id === id)
   const stampItems: Stamp[] = [
     { role: '기안', name: me?.name ?? '', title: me?.id ? myTitle[me.id] : '', date: today().slice(5).replace('-', '/') },
-    ...(reviewerId ? [{ role: '검토', name: nameOf(reviewerId)?.name ?? '', title: nameOf(reviewerId)?.title }] : []),
+    { role: '검토', name: reviewerId ? nameOf(reviewerId)?.name ?? '' : '', title: reviewerId ? nameOf(reviewerId)?.title : '' },
     ...(agreeOpen && agreeId ? [{ role: '합의', name: nameOf(agreeId)?.name ?? '', title: nameOf(agreeId)?.title }] : []),
     { role: '승인', name: approverId ? nameOf(approverId)?.name ?? '' : '', title: approverId ? nameOf(approverId)?.title : '' },
     ...(needsAcct ? [{ role: '회계', name: '회계' }] : []),

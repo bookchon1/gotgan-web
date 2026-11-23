@@ -734,6 +734,17 @@ function WorkersTab({
   const [q, setQ] = useState('')
   const [addOpen, setAddOpen] = useState(false)
   const [editOf, setEditOf] = useState<SiteWorker | null>(null)
+  const [delId, setDelId] = useState<string | null>(null)
+  const [rowErr, setRowErr] = useState<string | null>(null)
+  async function del(w: SiteWorker) {
+    if (delId !== w.id) return setDelId(w.id)
+    setDelId(null)
+    setRowErr(null)
+    const { data, error } = await supabase.from('site_workers').delete().eq('id', w.id).select('id')
+    if (error) return setRowErr(error.message)
+    if (!data || data.length === 0) return setRowErr('삭제되지 않았습니다 (권한 확인 — SQL 33 실행 필요)')
+    onChanged()
+  }
 
   const list = useMemo(() => (!q.trim() ? workers : workers.filter((w) => w.name.includes(q.trim()))), [workers, q])
 
@@ -748,9 +759,10 @@ function WorkersTab({
           <input placeholder="작업자 이름 검색" value={q} onChange={(e) => setQ(e.target.value)} />
         </label>
         <button className="btn txt add-txt" style={{ marginLeft: 'auto' }} onClick={() => setAddOpen(true)}>
-          작업자 등록
+          + 작업자 추가
         </button>
       </div>
+      {rowErr && <div className="err" style={{ margin: '0 0 8px' }}>{rowErr}</div>}
       <div className="tbl-wrap">
         <table>
           <thead>
@@ -778,7 +790,16 @@ function WorkersTab({
                   </td>
                   <td style={{ textAlign: 'right' }}>
                     <button className="btn sec" style={{ padding: '5px 10px' }} onClick={() => setEditOf(w)}>
-                      이름·일당 수정
+                      이름·일당 변경
+                    </button>
+                    <button
+                      className="btn sec"
+                      style={{ padding: '5px 10px', marginLeft: 6, ...(delId === w.id ? { color: 'var(--danger,#c0392b)', fontWeight: 800 } : {}) }}
+                      title="작업자 삭제"
+                      onClick={() => del(w)}
+                      onBlur={() => setDelId(null)}
+                    >
+                      {delId === w.id ? '정말 삭제' : '−'}
                     </button>
                   </td>
                 </tr>
@@ -799,7 +820,7 @@ function WorkersTab({
   )
 }
 
-// 작업자 등록/수정 모달
+// 작업자 추가/변경 모달
 function WorkerModal({
   worker,
   onClose,
@@ -841,7 +862,7 @@ function WorkerModal({
         <div className="mh">
           <div>
             <div className="eyebrow">현장 · 작업자</div>
-            <h3>{editing ? '이름·일당 수정' : '작업자 등록'}</h3>
+            <h3>{editing ? '이름·일당 변경' : '작업자 추가'}</h3>
           </div>
           <button className="x" onClick={onClose}>
             ✕

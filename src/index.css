@@ -1395,3 +1395,38 @@ td>.hr-in{max-width:160px}
   .ap-search{flex-basis:100%} .ap-sel{flex:1;min-width:0} .ap-range{flex:1 1 100%}.ap-range input{flex:1;width:auto}
   .ap-tbl{min-width:640px}
 }
+
+/* ===== 문서보관 탐색기형 (dx) ===== */
+.dx{display:grid;grid-template-columns:230px minmax(0,1fr);gap:0;padding:0 !important;overflow:hidden}
+.dx-tree{border-right:1px solid var(--line-2);background:var(--surface-2);padding:10px 6px;min-height:340px;overflow:auto}
+.dx-main{padding:14px 18px 8px;min-width:0}
+.dx-node{display:flex;align-items:center;gap:2px;width:100%;border:0;background:transparent;border-radius:7px;font:inherit;font-size:13px;color:var(--ink);text-align:left;cursor:pointer;padding:5px 6px}
+.dx-node:hover{background:var(--line-2)}
+.dx-node.on{background:var(--brand-soft);color:var(--brand-ink);font-weight:700}
+.dx-node i{font-style:normal;font-size:15px;margin-right:6px}
+.dx-node>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+button.dx-node{gap:0;padding-left:12px}
+.dx-tg,.dx-nm{border:0;background:transparent;font:inherit;color:inherit;cursor:pointer;padding:0}
+.dx-tg{width:18px;flex:none;font-size:11px;color:var(--muted);text-align:center}
+.dx-tg:disabled{cursor:default}
+.dx-nm{display:flex;align-items:center;flex:1;min-width:0;text-align:left;font-size:13px;padding:2px 0}
+.dx-nm i{font-style:normal;font-size:15px;margin-right:6px}
+.dx-nm span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dx-crumb{display:flex;align-items:center;flex-wrap:wrap;gap:4px;font-size:13.5px;color:var(--muted)}
+.dx-crumb button{border:0;background:transparent;font:inherit;color:var(--ink-soft);cursor:pointer;padding:2px 4px;border-radius:5px}
+.dx-crumb button:hover{background:var(--line-2);color:var(--ink)}
+.dx-crumb b{color:var(--ink);font-weight:800;padding:2px 4px}
+.dx-seg{display:inline-flex;align-items:center;gap:4px}
+.dx-dir:hover>td{background:var(--surface-2)}
+.dx-when{margin-right:8px}
+.dx-acts{display:inline-flex;gap:2px;opacity:0;transition:opacity .15s}
+.dx-dir:hover .dx-acts{opacity:1}
+.dx-acts button{border:0;background:none;cursor:pointer;color:var(--muted);padding:2px 4px;font-size:12px}
+.dx-acts button:hover{color:var(--ink)}
+@media (max-width:760px){
+  .dx{grid-template-columns:1fr}
+  .dx-tree{border-right:0;border-bottom:1px solid var(--line-2);min-height:0;max-height:200px}
+  .dx-main{padding:12px 12px 6px}
+  .dx-acts{opacity:1}
+  .dx-tbl{min-width:560px}
+}

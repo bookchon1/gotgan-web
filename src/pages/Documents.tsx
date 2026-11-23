@@ -51,6 +51,7 @@ export default function Documents() {
     crumbs.unshift(c)
     c = c.parent_id ? folders.find((x) => x.id === c!.parent_id) ?? null : null
   }
+  const [openSet, setOpenSet] = useState<Record<string, boolean>>({})
   const shownFolders = folders.filter((f) => (f.parent_id ?? null) === (curFolder?.id ?? null))
 
   async function addFolder() {
@@ -121,115 +122,118 @@ export default function Documents() {
         }
       />
 
-      <section className="panel">
-        <ErrorBanner error={docQ.error} table="documents" />
-        <div className="toolbar">
-          <h2 style={{ fontSize: 15, fontWeight: 800 }}>
-            {folderId === 'all' ? '모든 문서' : folderId === 'none' ? '미분류' : (folders.find((f) => f.id === folderId)?.name ?? '문서')}{' '}
-            <span className="count">{docQ.loading ? '…' : list.length}</span>
-          </h2>
-          <label className="search r" style={{ marginLeft: 'auto' }}>
-            <svg className="icon" width="16" height="16" viewBox="0 0 24 24">
-              <circle cx="11" cy="11" r="7" />
-              <path d="M21 21l-4-4" />
-            </svg>
-            <input placeholder="검색" value={q} onChange={(e) => setQ(e.target.value)} />
-          </label>
-        </div>
+      <section className="panel dx">
+        <aside className="dx-tree" aria-label="폴더">
+          <button className={`dx-node${folderId === 'all' ? ' on' : ''}`} onClick={() => setFolderId('all')}>
+            <i>📁</i>
+            <span>모든 문서</span>
+          </button>
+          <TreeLevel parent={null} depth={1} folders={folders} cur={folderId} openSet={openSet} setOpen={setOpenSet} go={setFolderId} />
+          <button className={`dx-node${folderId === 'none' ? ' on' : ''}`} style={{ paddingLeft: 12 }} onClick={() => setFolderId('none')}>
+            <i>🗂️</i>
+            <span>미분류</span>
+          </button>
+        </aside>
 
-        {/* 경로(브레드크럼) — 폴더 안에 들어와 있을 때 */}
-        {folderId !== 'all' && (
-          <div className="doc-crumb" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6, fontSize: 13, padding: '2px 2px 12px' }}>
-            <button className="btn txt" style={{ padding: 0 }} onClick={() => setFolderId('all')}>📁 모든 문서</button>
-            {folderId === 'none' ? (
-              <>
-                <span style={{ color: 'var(--muted)' }}>›</span>
-                <strong>미분류</strong>
-              </>
-            ) : (
-              crumbs.map((c, i) => (
-                <span key={c.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ color: 'var(--muted)' }}>›</span>
-                  {i === crumbs.length - 1 ? <strong>{c.name}</strong> : <button className="btn txt" style={{ padding: 0 }} onClick={() => setFolderId(c.id)}>{c.name}</button>}
-                </span>
-              ))
-            )}
+        <div className="dx-main">
+          <ErrorBanner error={docQ.error} table="documents" />
+          <div className="toolbar" style={{ marginBottom: 10 }}>
+            <nav className="dx-crumb" aria-label="경로">
+              <button onClick={() => setFolderId('all')} className={folderId === 'all' ? 'cur' : ''}>모든 문서</button>
+              {folderId === 'none' ? (
+                <>
+                  <span>›</span>
+                  <b>미분류</b>
+                </>
+              ) : (
+                crumbs.map((c, i) => (
+                  <span key={c.id} className="dx-seg">
+                    <span>›</span>
+                    {i === crumbs.length - 1 ? <b>{c.name}</b> : <button onClick={() => setFolderId(c.id)}>{c.name}</button>}
+                  </span>
+                ))
+              )}
+            </nav>
+            <label className="search r" style={{ marginLeft: 'auto' }}>
+              <svg className="icon" width="16" height="16" viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="7" />
+                <path d="M21 21l-4-4" />
+              </svg>
+              <input placeholder="검색" value={q} onChange={(e) => setQ(e.target.value)} />
+            </label>
           </div>
-        )}
 
-        {/* 폴더 디렉터리 — '모든 문서'에서만, 하위 폴더로 들어가는 느낌 */}
-        {folderId !== 'none' && (folderId === 'all' || shownFolders.length > 0) && (
-          <div className="doc-dirs" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 8, marginBottom: 14 }}>
-            {shownFolders.map((f) => {
-              const ids = descIds(f.id)
-              const n = all.filter((d) => d.folder_id && ids.includes(d.folder_id)).length
-              return (
-                <div key={f.id} className="doc-dir" onClick={() => setFolderId(f.id)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', border: '1px solid var(--line, #eee)', borderRadius: 9, cursor: 'pointer', position: 'relative', background: 'var(--card, #fff)' }}>
-                  <span style={{ fontSize: 20 }}>📁</span>
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <strong style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</strong>
-                    <small style={{ color: 'var(--muted)' }}>{n}개</small>
-                  </div>
-                  {isAdmin && (
-                    <span style={{ display: 'flex', gap: 2 }} onClick={(e) => e.stopPropagation()}>
-                      <button title="이름 변경" onClick={() => renameFolder(f)} style={{ border: 0, background: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 2, fontSize: 12 }}>✎</button>
-                      <button title="삭제" onClick={() => removeFolder(f)} style={{ border: 0, background: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 2, fontSize: 12 }}>✕</button>
-                    </span>
-                  )}
-                </div>
-              )
-            })}
-            {folderId === 'all' && <div className="doc-dir" onClick={() => setFolderId('none')}
-              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', border: '1px dashed var(--line, #ddd)', borderRadius: 9, cursor: 'pointer', background: 'transparent' }}>
-              <span style={{ fontSize: 20, opacity: 0.6 }}>🗂️</span>
-              <div><strong style={{ display: 'block' }}>미분류</strong><small style={{ color: 'var(--muted)' }}>{all.filter((d) => !d.folder_id).length}개</small></div>
-            </div>}
+          <div className="tbl-wrap">
+            <table className="dx-tbl">
+              <thead>
+                <tr>
+                  <th>이름</th>
+                  <th>유형</th>
+                  <th>첨부</th>
+                  <th>소유자</th>
+                  <th>공유 범위</th>
+                  <th>수정일</th>
+                </tr>
+              </thead>
+              <tbody>
+                {docQ.loading && <LoadingRow cols={6} />}
+                {!q && folderId !== 'none' &&
+                  shownFolders.map((f) => {
+                    const ids = descIds(f.id)
+                    const n = all.filter((d) => d.folder_id && ids.includes(d.folder_id)).length
+                    return (
+                      <tr key={f.id} className="dx-dir" onClick={() => setFolderId(f.id)} style={{ cursor: 'pointer' }}>
+                        <td>
+                          <span className="owner">
+                            <span className="av-s" style={{ borderRadius: 7, background: 'transparent', fontSize: 16 }}>📁</span>
+                            <div className="t-title">{f.name}</div>
+                          </span>
+                        </td>
+                        <td className="t-sub">폴더 · {n}개</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td className="tnum" style={{ color: 'var(--muted)' }}>
+                          <span className="dx-when">{mmdd(f.created_at)}</span>
+                          {isAdmin && (
+                            <span className="dx-acts" onClick={(e) => e.stopPropagation()}>
+                              <button title="이름 변경" onClick={() => renameFolder(f)}>✎</button>
+                              <button title="삭제" onClick={() => removeFolder(f)}>✕</button>
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                {!docQ.loading &&
+                  list.map((d) => (
+                    <tr key={d.id} onClick={() => setDetail(d)} style={{ cursor: 'pointer' }}>
+                      <td>
+                        <span className="owner">
+                          <span className="av-s" style={{ borderRadius: 7 }}>📄</span>
+                          <div className="t-title">{d.title}</div>
+                        </span>
+                      </td>
+                      <td className="t-sub">{d.category || '문서'}</td>
+                      <td>{d.file_path ? <span className="badge" style={{ fontSize: 10 }}>📎 파일</span> : ''}</td>
+                      <td>
+                        <span className="owner">
+                          <span className="av-s">{d.owner_id ? (empName[d.owner_id] ?? '—').slice(0, 1) : '—'}</span>
+                          {d.owner_id ? empName[d.owner_id] ?? '—' : '—'}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={SCOPE_BADGE[d.share_scope]}>
+                          {d.share_scope === '개인' ? '개인 보관' : `${d.share_scope} 공유`}
+                        </span>
+                      </td>
+                      <td className="tnum" style={{ color: 'var(--muted)' }}>{mmdd(d.updated_at || d.created_at)}</td>
+                    </tr>
+                  ))}
+                {!docQ.loading && list.length === 0 && (q || folderId === 'none' || shownFolders.length === 0) && !docQ.error && <EmptyRow cols={6} text="비어 있습니다." />}
+              </tbody>
+            </table>
           </div>
-        )}
-
-        <div className="tbl-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>문서 이름</th>
-                <th>분류</th>
-                <th>첨부</th>
-                <th>소유자</th>
-                <th>공유 범위</th>
-                <th>수정일</th>
-              </tr>
-            </thead>
-            <tbody>
-              {docQ.loading && <LoadingRow cols={6} />}
-              {!docQ.loading &&
-                list.map((d) => (
-                  <tr key={d.id} onClick={() => setDetail(d)} style={{ cursor: 'pointer' }}>
-                    <td>
-                      <span className="owner">
-                        <span className="av-s" style={{ borderRadius: 7 }}>📄</span>
-                        <div className="t-title">{d.title}</div>
-                      </span>
-                    </td>
-                    <td className="t-sub">{d.category || ''}</td>
-                    <td>{d.file_path ? <span className="badge" style={{ fontSize: 10 }}>📎 파일</span> : ''}</td>
-                    <td>
-                      <span className="owner">
-                        <span className="av-s">{d.owner_id ? (empName[d.owner_id] ?? '—').slice(0, 1) : '—'}</span>
-                        {d.owner_id ? empName[d.owner_id] ?? '—' : '—'}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={SCOPE_BADGE[d.share_scope]}>
-                        {d.share_scope === '개인' ? '개인 보관' : `${d.share_scope} 공유`}
-                      </span>
-                    </td>
-                    <td className="tnum" style={{ color: 'var(--muted)' }}>{mmdd(d.updated_at || d.created_at)}</td>
-                  </tr>
-                ))}
-              {!docQ.loading && list.length === 0 && !docQ.error && <EmptyRow cols={6} text="문서가 없습니다. '문서 등록'으로 추가하세요." />}
-            </tbody>
-          </table>
         </div>
       </section>
 
@@ -459,4 +463,39 @@ function pathOf(f: DocumentFolder, all: DocumentFolder[]): string {
     c = p
   }
   return names.join(' › ')
+}
+
+function TreeLevel({ parent, depth, folders, cur, openSet, setOpen, go }: {
+  parent: string | null; depth: number; folders: DocumentFolder[]; cur: string
+  openSet: Record<string, boolean>; setOpen: (v: Record<string, boolean>) => void; go: (id: string) => void
+}) {
+  const kids = folders.filter((f) => (f.parent_id ?? null) === parent)
+  // 현재 폴더의 상위 경로는 자동으로 펼침
+  const anc = new Set<string>()
+  for (let c = folders.find((x) => x.id === cur), g = 0; c && c.parent_id && g < 20; g++) {
+    anc.add(c.parent_id)
+    c = folders.find((x) => x.id === c!.parent_id)
+  }
+  return (
+    <>
+      {kids.map((f) => {
+        const has = folders.some((x) => x.parent_id === f.id)
+        const open = openSet[f.id] ?? anc.has(f.id)
+        return (
+          <div key={f.id}>
+            <div className={`dx-node${cur === f.id ? ' on' : ''}`} style={{ paddingLeft: 6 + depth * 14 }}>
+              <button className="dx-tg" disabled={!has} aria-label={open ? '접기' : '펼치기'} onClick={() => setOpen({ ...openSet, [f.id]: !open })}>
+                {has ? (open ? '▾' : '▸') : ''}
+              </button>
+              <button className="dx-nm" onClick={() => go(f.id)}>
+                <i>{open && has ? '📂' : '📁'}</i>
+                <span>{f.name}</span>
+              </button>
+            </div>
+            {has && open && <TreeLevel parent={f.id} depth={depth + 1} folders={folders} cur={cur} openSet={openSet} setOpen={setOpen} go={go} />}
+          </div>
+        )
+      })}
+    </>
+  )
 }

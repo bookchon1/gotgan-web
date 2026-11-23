@@ -67,6 +67,7 @@ export function ApprovalDraftModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   const [urgent, setUrgent] = useState(!!draft?.urgent)
+  const [confidential, setConfidential] = useState(!!draft?.confidential)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
@@ -167,6 +168,7 @@ export function ApprovalDraftModal({
       req_date: today(),
       status: asDraft ? '기안' : '진행',
       ...(urgent || draft?.urgent ? { urgent } : {}),
+      ...((confidential && !def.expense) || draft?.confidential ? { confidential: confidential && !def.expense } : {}),
     }
     let apprId = draft?.id ?? ''
     if (draft && !reuse) {
@@ -182,7 +184,7 @@ export function ApprovalDraftModal({
       const { data: appr, error } = await supabase.from('approvals').insert({ doc_no: docNo, ...row }).select('id').single()
       if (error || !appr) {
         setBusy(false)
-        setErr(error?.message?.includes('urgent') ? '긴급 표시에 필요한 SQL 38번을 먼저 실행해 주세요.' : error?.message ?? '생성 실패')
+        setErr(error?.message?.includes('urgent') ? '긴급 표시에 필요한 SQL 38번을 먼저 실행해 주세요.' : error?.message?.includes('confidential') ? '보안 문서에 필요한 SQL 42번을 먼저 실행해 주세요.' : error?.message ?? '생성 실패')
         return
       }
       apprId = appr.id
@@ -409,6 +411,12 @@ export function ApprovalDraftModal({
               <input type="checkbox" checked={urgent} onChange={(e) => setUrgent(e.target.checked)} />
               <span style={urgent ? { color: 'var(--danger)' } : undefined}>긴급 문서 (결재대기 맨 위에 표시)</span>
             </label>
+            {!def.expense && (
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 7, marginLeft: 16, fontWeight: 600, fontSize: 12.5, cursor: 'pointer' }}>
+                <input type="checkbox" checked={confidential} onChange={(e) => setConfidential(e.target.checked)} />
+                <span>🔒 보안 문서 (결재선에 지정된 사람만 열람)</span>
+              </label>
+            )}
           </div>
 
           {def.expense && (

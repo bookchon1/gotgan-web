@@ -387,7 +387,7 @@ export default function Approvals() {
                     <Fragment key={a.id}>
                     <tr style={{ cursor: 'pointer' }} className={on ? 'pf-row on' : undefined} onClick={() => setOpenId(on ? null : a.id)}>
                       <td>
-                        <div className="t-title">{a.urgent && <span className="badge" style={{ marginRight: 6, background: 'var(--danger-soft)', color: 'var(--danger)', fontWeight: 800 }}>긴급</span>}{a.title || a.memo}{folder === 'pending' && (() => {
+                        <div className="t-title">{a.urgent && <span className="badge" style={{ marginRight: 6, background: 'var(--danger-soft)', color: 'var(--danger)', fontWeight: 800 }}>긴급</span>}{a.confidential && <span title="보안 문서 — 결재선에 지정된 사람만 열람" style={{ marginRight: 4 }}>🔒</span>}{a.title || a.memo}{folder === 'pending' && (() => {
                           const cur = lines.slice().sort((x, y) => x.seq - y.seq).find((l) => l.decided === '대기')
                           return cur && cur.approver_id !== myId ? <span className="badge gold" style={{ marginLeft: 6 }}>{empName[cur.approver_id ?? ''] ?? ''} 대결</span> : null
                         })()}{a.status === '회수' && <span className="badge" style={{ marginLeft: 6 }}>회수</span>}</div>

@@ -294,6 +294,7 @@ export interface Approval {
   req_date: string | null
   status: ApprovalStatus
   urgent?: boolean
+  confidential?: boolean
 }
 
 export interface ApprovalLine {

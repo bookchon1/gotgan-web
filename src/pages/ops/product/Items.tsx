@@ -86,12 +86,7 @@ export function ItemsTab({
             onChange={(v) => { setGrp(v); setMinor('all') }}
             options={[{ v: 'all', label: '전체', n: mine.length }, ...groups.map((g) => ({ v: g, label: g, n: cnt((it) => key(it) === g) }))]}
           />
-          <span className="pr-sp" />
-          <button className="pr-btn" onClick={exportCsv}>엑셀 내려받기</button>
-          {isAdmin && <button className="pr-btn pri" onClick={() => setEdit('new')}>＋ {isP ? '상품' : '자재'} 등록</button>}
-        </div>
-        <div className="pr-tools">
-          <SearchBox value={q} onChange={setQ} width={260} />
+          <SearchBox value={q} onChange={setQ} />
           {minors.length > 0 && (
             <select className="pr-sel" value={minor} onChange={(e) => setMinor(e.target.value)}>
               <option value="all">소분류 전체</option>
@@ -110,6 +105,11 @@ export function ItemsTab({
               {[...STORE_STATES, '미지정'].map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           )}
+          <span className="pr-sp" />
+          <span className="pr-ends">
+            <button className="pr-btn" onClick={exportCsv}>내려받기</button>
+            {isAdmin && <button className="pr-btn pri" onClick={() => setEdit('new')}>＋ 등록</button>}
+          </span>
         </div>
       </div>
 

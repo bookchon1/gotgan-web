@@ -297,3 +297,9 @@
 .pr-row1{display:flex;flex-direction:row;align-items:center;gap:8px;flex-wrap:wrap}
 .pr-row1 .pr-chips{align-self:center}
 .pr-top{gap:12px}
+.pr-row1 .pr-search{flex:0 1 200px;min-width:150px}
+.pr-row1 .pr-chips{margin-right:6px}
+@media (max-width:640px){.pr-row1 .pr-search{flex:1 1 100%}.pr-row1 .pr-sp{display:none}}
+.pr-ends{display:inline-flex;flex-direction:row;gap:8px;flex:none}
+.pr-row1 .pr-search{flex:0 1 170px;min-width:130px}
+.pr-row1 .pr-chips button{padding:0 11px;font-size:12.5px}

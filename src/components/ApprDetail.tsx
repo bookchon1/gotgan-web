@@ -341,6 +341,96 @@ function OrderTable({ o }: { o: { reason: string; rows: Row[]; total: string } }
 const KIND_LABEL: Record<string, string> = { 지출결의서: '지출결의서', 품의: '품의서', 휴가: '휴가신청', 일반: '일반' }
 
 /** 결재 문서 내용 (행을 눌렀을 때 펼침) — 지출결의서·품의서·기타 공통 */
+
+const esc = (t: unknown) => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+const nl = (t: string) => esc(t).replace(/\n/g, '<br>')
+
+/** 결재 문서를 정식 기안서 양식으로 인쇄(또는 PDF로 저장) */
+function printDoc(a: Approval, lines: ApprovalLine[], empName: Record<string, string>, atts: { name: string }[], target: string) {
+  const w = window.open('', '_blank')
+  if (!w) return alert('팝업이 차단되었습니다. 브라우저에서 이 사이트의 팝업을 허용해 주세요.')
+  const body = a.memo && a.memo !== a.title ? a.memo : ''
+  const form = body ? parseFormMemo(body) : null
+  const orderTbl = (o: { reason: string; rows: Row[]; total: string }) =>
+    `${o.reason ? `<p>${nl(o.reason)}</p>` : ''}<table class="grid"><thead><tr><th>품목</th><th>수량</th><th>단가(원)</th><th>금액(원)</th></tr></thead><tbody>${o.rows
+      .map((r) => `<tr><td>${esc(r.name)}</td><td class="r">${esc(r.qty + r.unit)}</td><td class="r">${esc(r.price)}</td><td class="r">${esc(r.amount)}</td></tr>`)
+      .join('')}${o.total ? `<tr class="sum"><td colspan="3">합계</td><td class="r">${esc(o.total)}</td></tr>` : ''}</tbody></table>`
+  let content = ''
+  if (form) {
+    content += form.kv.length ? `<table class="grid kv">${form.kv.map((k) => `<tr><th>${esc(k.label)}</th><td>${esc(k.value)}</td></tr>`).join('')}</table>` : ''
+    for (const sec of form.sections) {
+      const t = parseOrder(sec.body)
+      content += `<h3>${esc(sec.label)}</h3>${t ? orderTbl(t) : `<div class="txt">${nl(sec.body)}</div>`}`
+    }
+  } else if (body) {
+    const t = parseOrder(body)
+    content += t ? `<h3>구매 내역</h3>${orderTbl(t)}` : `<h3>내용</h3><div class="txt">${nl(body)}</div>`
+  }
+  if (a.kind === '지출결의서') {
+    content =
+      `<h3>지출 내역</h3><table class="grid"><thead><tr><th>건명</th><th>계정</th><th>반영 사업 · 예산항목</th><th>금액(원)</th></tr></thead><tbody><tr><td>${esc(a.title)}</td><td>${esc(a.account || '—')}</td><td>${esc(target || '—')}</td><td class="r">${a.amount ? won(a.amount) : '—'}</td></tr></tbody></table>` +
+      content
+  }
+  const flow = lines.filter((l) => l.role !== '참조').slice().sort((x, y) => x.seq - y.seq)
+  const stamp = (l: ApprovalLine) => {
+    const nm = l.approver_id ? empName[l.approver_id] ?? '' : l.role === '회계접수' ? '회계' : ''
+    const st = l.role === '기안' ? '기안' : l.decided === '승인' ? '승인' : l.decided === '반려' ? '반려' : ''
+    const dt = l.decided_at ? l.decided_at.slice(5, 10).replace('-', '/') : ''
+    return `<td><div class="role">${esc(l.role)}</div><div class="nm">${esc(nm)}</div><div class="st ${l.decided === '반려' ? 'rej' : ''}">${esc(st)}</div><div class="dt">${esc(dt)}</div></td>`
+  }
+  const comments = flow.filter((l) => l.comment).map((l) => `<tr><th>${esc(l.role)} ${esc(l.approver_id ? empName[l.approver_id] ?? '' : '')}</th><td>${nl(l.comment ?? '')}</td></tr>`).join('')
+  const ccs = lines.filter((l) => l.role === '참조').map((l) => (l.approver_id ? empName[l.approver_id] ?? '' : '')).filter(Boolean)
+  const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${esc(a.doc_no ?? '')} ${esc(a.title)}</title>
+<style>
+@page{size:A4;margin:16mm 15mm}
+*{box-sizing:border-box}
+body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;font-size:12px;color:#111;margin:0}
+h1{text-align:center;font-size:24px;letter-spacing:.4em;margin:6px 0 18px}
+h3{font-size:13px;margin:16px 0 6px;border-left:3px solid #333;padding-left:6px}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.stamps{border-collapse:collapse;margin-left:auto}
+.stamps td{border:1px solid #333;width:64px;text-align:center;padding:0;vertical-align:top}
+.stamps .role{background:#f0f0f0;border-bottom:1px solid #333;font-size:10.5px;padding:2px 0}
+.stamps .nm{font-size:12px;font-weight:700;padding:8px 2px 2px}
+.stamps .st{font-size:11px;color:#1a6b45;height:16px}
+.stamps .st.rej{color:#b00020}
+.stamps .dt{font-size:10px;color:#555;padding-bottom:3px}
+table.grid{border-collapse:collapse;width:100%;margin-bottom:4px}
+.grid th,.grid td{border:1px solid #555;padding:5px 8px;text-align:left;vertical-align:top}
+.grid th{background:#f2f2f2;font-weight:700;width:110px}
+.grid thead th{width:auto;text-align:center}
+.grid .r{text-align:right;font-variant-numeric:tabular-nums}
+.grid .sum td{font-weight:700;background:#fafafa}
+.kv th{width:110px}
+.txt{border:1px solid #555;padding:10px 12px;min-height:60px;line-height:1.7}
+.meta{margin-top:4px}
+.foot{margin-top:18px;font-size:11px;color:#444}
+@media print{.noprint{display:none}}
+.noprint{text-align:center;margin:10px}
+</style></head><body>
+<div class="noprint"><button onclick="window.print()">인쇄 / PDF로 저장</button></div>
+<h1>${esc(form ? form.form : KIND_LABEL[a.kind] ?? a.kind)}</h1>
+<div class="top">
+  <table class="grid meta" style="width:58%">
+    <tr><th>문서번호</th><td>${esc(a.doc_no ?? '—')}</td></tr>
+    <tr><th>기안일자</th><td>${esc(a.req_date ?? '—')}</td></tr>
+    <tr><th>기안자</th><td>${esc(a.drafter_id ? empName[a.drafter_id] ?? '—' : '—')}</td></tr>
+    ${a.dept_key ? `<tr><th>부서</th><td>${esc(deptLabel(a.dept_key))}</td></tr>` : ''}
+    ${a.biz_code ? `<tr><th>사업자</th><td>${esc(bizShort(a.biz_code))}</td></tr>` : ''}
+  </table>
+  <table class="stamps"><tr>${flow.map(stamp).join('')}</tr></table>
+</div>
+<table class="grid" style="margin-top:8px"><tr><th>제 목</th><td><b>${esc(a.title)}</b></td></tr>${a.amount ? `<tr><th>금 액</th><td>${won(a.amount)}원</td></tr>` : ''}${ccs.length ? `<tr><th>참 조</th><td>${esc(ccs.join(', '))}</td></tr>` : ''}${atts.length ? `<tr><th>첨부파일</th><td>${atts.map((f) => esc(f.name)).join('<br>')}</td></tr>` : ''}</table>
+${content}
+${comments ? `<h3>결재 의견</h3><table class="grid">${comments}</table>` : ''}
+<div class="foot">출력일 ${new Date().toISOString().slice(0, 10)} · 곳간 전자결재</div>
+</body></html>`
+  w.document.open()
+  w.document.write(html)
+  w.document.close()
+  setTimeout(() => w.focus(), 100)
+}
+
 export function ApprDetail({ a, lines, empName }: { a: Approval; lines: ApprovalLine[]; empName: Record<string, string> }) {
   const [projName, setProjName] = useState('')
   useEffect(() => {
@@ -415,6 +505,11 @@ export function ApprDetail({ a, lines, empName }: { a: Approval; lines: Approval
 
   return (
     <div className="ad">
+      <div style={{ float: 'right' }}>
+        <button type="button" className="sp-btn b2" onClick={() => printDoc(a, lines, empName, atts, target)}>
+          인쇄 · PDF
+        </button>
+      </div>
       <div className="ad-head">
         <span className="ad-kind">{KIND_LABEL[a.kind] ?? a.kind}</span>
         <h4>{a.title || '(제목 없음)'}</h4>

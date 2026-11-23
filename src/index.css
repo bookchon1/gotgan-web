@@ -1430,3 +1430,6 @@ button.dx-node{gap:0;padding-left:12px}
   .dx-acts{opacity:1}
   .dx-tbl{min-width:560px}
 }
+.dx-node.drop,.dx-crumb button.drop{background:var(--brand-soft);outline:2px dashed var(--brand);outline-offset:-2px}
+.dx-dir.drop>td{background:var(--brand-soft)}
+.dx-tbl tr[draggable=true]{-webkit-user-drag:element}

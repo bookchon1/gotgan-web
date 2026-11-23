@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState, type DragEvent } from 'react'
 import { PageHead } from '../components/PageHead'
 import { ErrorBanner, LoadingRow, EmptyRow } from '../components/States'
 import { supabase } from '../lib/supabase'
@@ -99,6 +99,53 @@ export default function Documents() {
 
   const canEdit = (d: GotganDocument) => d.owner_id === me?.id || me?.role === 'admin'
 
+  // ── 끌어서 옮기기 (폴더 → 폴더, 문서 → 폴더) ──
+  const dragRef = useRef<{ kind: 'folder' | 'doc'; id: string } | null>(null)
+  const [overId, setOverId] = useState<string | null>(null)
+  async function dropOn(target: string) {
+    const d = dragRef.current
+    dragRef.current = null
+    setOverId(null)
+    if (!d) return
+    if (d.kind === 'folder') {
+      if (!isAdmin || target === 'none') return
+      const f = folders.find((x) => x.id === d.id)
+      if (!f) return
+      const np = target === 'root' ? null : target
+      if ((f.parent_id ?? null) === np) return
+      if (np && descIds(f.id).includes(np)) { alert('폴더를 자기 자신이나 그 하위 폴더로는 옮길 수 없습니다.'); return }
+      const { data, error } = await supabase.from('document_folders').update({ parent_id: np }).eq('id', f.id).select('id')
+      if (error) { alert(error.message); return }
+      if (!data || data.length === 0) { alert('옮기지 못했습니다. 권한을 확인해 주세요.'); return }
+      folderQ.reload()
+    } else {
+      const doc = all.find((x) => x.id === d.id)
+      if (!doc || !canEdit(doc)) return
+      const nf = target === 'root' || target === 'none' ? null : target
+      if ((doc.folder_id ?? null) === nf) return
+      const { data, error } = await supabase.from('documents').update({ folder_id: nf }).eq('id', doc.id).select('id')
+      if (error) { alert(error.message); return }
+      if (!data || data.length === 0) { alert('옮기지 못했습니다. 권한을 확인해 주세요.'); return }
+      docQ.reload()
+    }
+  }
+  const dnd: Dnd = {
+    over: overId,
+    drag: (kind, id, ok) =>
+      ok
+        ? {
+            draggable: true,
+            onDragStart: (e: DragEvent) => { dragRef.current = { kind, id }; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', id) },
+            onDragEnd: () => { dragRef.current = null; setOverId(null) },
+          }
+        : {},
+    drop: (target) => ({
+      onDragOver: (e: DragEvent) => { if (dragRef.current) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (overId !== target) setOverId(target) } },
+      onDragLeave: () => setOverId((o) => (o === target ? null : o)),
+      onDrop: (e: DragEvent) => { e.preventDefault(); void dropOn(target) },
+    }),
+  }
+
   return (
     <div className="page on">
       <PageHead
@@ -124,12 +171,12 @@ export default function Documents() {
 
       <section className="panel dx">
         <aside className="dx-tree" aria-label="폴더">
-          <button className={`dx-node${folderId === 'all' ? ' on' : ''}`} onClick={() => setFolderId('all')}>
+          <button className={`dx-node${folderId === 'all' ? ' on' : ''}${overId === 'root' ? ' drop' : ''}`} onClick={() => setFolderId('all')} {...dnd.drop('root')}>
             <i>📁</i>
             <span>모든 문서</span>
           </button>
-          <TreeLevel parent={null} depth={1} folders={folders} cur={folderId} openSet={openSet} setOpen={setOpenSet} go={setFolderId} />
-          <button className={`dx-node${folderId === 'none' ? ' on' : ''}`} style={{ paddingLeft: 12 }} onClick={() => setFolderId('none')}>
+          <TreeLevel parent={null} depth={1} folders={folders} cur={folderId} openSet={openSet} setOpen={setOpenSet} go={setFolderId} dnd={dnd} canDragFolder={isAdmin} />
+          <button className={`dx-node${folderId === 'none' ? ' on' : ''}${overId === 'none' ? ' drop' : ''}`} style={{ paddingLeft: 12 }} onClick={() => setFolderId('none')} {...dnd.drop('none')}>
             <i>🗂️</i>
             <span>미분류</span>
           </button>
@@ -139,7 +186,7 @@ export default function Documents() {
           <ErrorBanner error={docQ.error} table="documents" />
           <div className="toolbar" style={{ marginBottom: 10 }}>
             <nav className="dx-crumb" aria-label="경로">
-              <button onClick={() => setFolderId('all')} className={folderId === 'all' ? 'cur' : ''}>모든 문서</button>
+              <button onClick={() => setFolderId('all')} className={`${folderId === 'all' ? 'cur' : ''}${overId === 'root' ? ' drop' : ''}`} {...dnd.drop('root')}>모든 문서</button>
               {folderId === 'none' ? (
                 <>
                   <span>›</span>
@@ -149,7 +196,7 @@ export default function Documents() {
                 crumbs.map((c, i) => (
                   <span key={c.id} className="dx-seg">
                     <span>›</span>
-                    {i === crumbs.length - 1 ? <b>{c.name}</b> : <button onClick={() => setFolderId(c.id)}>{c.name}</button>}
+                    {i === crumbs.length - 1 ? <b>{c.name}</b> : <button onClick={() => setFolderId(c.id)} className={overId === c.id ? 'drop' : ''} {...dnd.drop(c.id)}>{c.name}</button>}
                   </span>
                 ))
               )}
@@ -182,7 +229,7 @@ export default function Documents() {
                     const ids = descIds(f.id)
                     const n = all.filter((d) => d.folder_id && ids.includes(d.folder_id)).length
                     return (
-                      <tr key={f.id} className="dx-dir" onClick={() => setFolderId(f.id)} style={{ cursor: 'pointer' }}>
+                      <tr key={f.id} className={`dx-dir${overId === f.id ? ' drop' : ''}`} onClick={() => setFolderId(f.id)} style={{ cursor: 'pointer' }} {...dnd.drag('folder', f.id, isAdmin)} {...dnd.drop(f.id)}>
                         <td>
                           <span className="owner">
                             <span className="av-s" style={{ borderRadius: 7, background: 'transparent', fontSize: 16 }}>📁</span>
@@ -207,7 +254,7 @@ export default function Documents() {
                   })}
                 {!docQ.loading &&
                   list.map((d) => (
-                    <tr key={d.id} onClick={() => setDetail(d)} style={{ cursor: 'pointer' }}>
+                    <tr key={d.id} onClick={() => setDetail(d)} style={{ cursor: 'pointer' }} {...dnd.drag('doc', d.id, canEdit(d))}>
                       <td>
                         <span className="owner">
                           <span className="av-s" style={{ borderRadius: 7 }}>📄</span>
@@ -465,9 +512,16 @@ function pathOf(f: DocumentFolder, all: DocumentFolder[]): string {
   return names.join(' › ')
 }
 
-function TreeLevel({ parent, depth, folders, cur, openSet, setOpen, go }: {
+type Dnd = {
+  over: string | null
+  drag: (kind: 'folder' | 'doc', id: string, ok: boolean) => Record<string, unknown>
+  drop: (target: string) => { onDragOver: (e: DragEvent) => void; onDragLeave: () => void; onDrop: (e: DragEvent) => void }
+}
+
+function TreeLevel({ parent, depth, folders, cur, openSet, setOpen, go, dnd, canDragFolder }: {
   parent: string | null; depth: number; folders: DocumentFolder[]; cur: string
   openSet: Record<string, boolean>; setOpen: (v: Record<string, boolean>) => void; go: (id: string) => void
+  dnd: Dnd; canDragFolder: boolean
 }) {
   const kids = folders.filter((f) => (f.parent_id ?? null) === parent)
   // 현재 폴더의 상위 경로는 자동으로 펼침
@@ -483,7 +537,7 @@ function TreeLevel({ parent, depth, folders, cur, openSet, setOpen, go }: {
         const open = openSet[f.id] ?? anc.has(f.id)
         return (
           <div key={f.id}>
-            <div className={`dx-node${cur === f.id ? ' on' : ''}`} style={{ paddingLeft: 6 + depth * 14 }}>
+            <div className={`dx-node${cur === f.id ? ' on' : ''}${dnd.over === f.id ? ' drop' : ''}`} style={{ paddingLeft: 6 + depth * 14 }} {...dnd.drag('folder', f.id, canDragFolder)} {...dnd.drop(f.id)}>
               <button className="dx-tg" disabled={!has} aria-label={open ? '접기' : '펼치기'} onClick={() => setOpen({ ...openSet, [f.id]: !open })}>
                 {has ? (open ? '▾' : '▸') : ''}
               </button>
@@ -492,7 +546,7 @@ function TreeLevel({ parent, depth, folders, cur, openSet, setOpen, go }: {
                 <span>{f.name}</span>
               </button>
             </div>
-            {has && open && <TreeLevel parent={f.id} depth={depth + 1} folders={folders} cur={cur} openSet={openSet} setOpen={setOpen} go={go} />}
+            {has && open && <TreeLevel parent={f.id} depth={depth + 1} folders={folders} cur={cur} openSet={openSet} setOpen={setOpen} go={go} dnd={dnd} canDragFolder={canDragFolder} />}
           </div>
         )
       })}

@@ -50,6 +50,21 @@ export function ApprovalDraftModal({
   const [ccIds, setCcIds] = useState<string[]>(dl.filter((l) => l.role === '참조').map((l) => l.approver_id as string).filter(Boolean))
   const [files, setFiles] = useState<File[]>([])
   const [approverId, setApproverId] = useState(dl.find((l) => l.role === '승인')?.approver_id ?? '')
+  // 저장된 결재선 (자주 쓰는 검토·승인·참조 묶음)
+  interface Preset { id: string; name: string; reviewer_id: string | null; approver_id: string | null; cc_ids: string[] }
+  const [presets, setPresets] = useState<Preset[]>([])
+  const [presetName, setPresetName] = useState<string | null>(null) // null=입력 닫힘
+  const [presetMsg, setPresetMsg] = useState<string | null>(null)
+  const loadPresets = () =>
+    supabase
+      .from('approval_line_presets')
+      .select('id,name,reviewer_id,approver_id,cc_ids')
+      .order('created_at', { ascending: true })
+      .then(({ data }) => setPresets((data ?? []) as Preset[]))
+  useEffect(() => {
+    loadPresets()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [urgent, setUrgent] = useState(!!draft?.urgent)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -194,6 +209,35 @@ export function ApprovalDraftModal({
     onCreated()
   }
   const submit = () => persist(false)
+
+  function applyPreset(id: string) {
+    const p = presets.find((x) => x.id === id)
+    if (!p) return
+    const ok = (v: string | null) => (v && admins.some((a) => a.id === v) ? v : '')
+    setReviewerId(ok(p.reviewer_id))
+    setApproverId(ok(p.approver_id))
+    setCcIds((p.cc_ids ?? []).filter((c) => admins.some((a) => a.id === c)))
+  }
+  async function savePreset() {
+    const name = (presetName ?? '').trim()
+    if (!name) return setPresetMsg('결재선 이름을 입력하세요.')
+    if (!reviewerId && !approverId) return setPresetMsg('검토·승인 중 하나는 선택한 뒤 저장하세요.')
+    const { error } = await supabase.from('approval_line_presets').insert({
+      owner_id: me?.id,
+      name,
+      reviewer_id: reviewerId || null,
+      approver_id: approverId || null,
+      cc_ids: ccIds,
+    })
+    if (error) return setPresetMsg(error.message.includes('approval_line_presets') ? '결재선 저장에 필요한 SQL 39번을 먼저 실행해 주세요.' : error.message)
+    setPresetName(null)
+    setPresetMsg('저장했습니다.')
+    loadPresets()
+  }
+  async function deletePreset(id: string) {
+    await supabase.from('approval_line_presets').delete().eq('id', id)
+    loadPresets()
+  }
 
   const itemsEditor = (f: FormField) => {
     const rows = itemsMap[f.key] ?? []
@@ -437,6 +481,47 @@ export function ApprovalDraftModal({
           {/* 결재선 */}
           <div className="mfield">
             <label>결재선</label>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', marginBottom: 8 }}>
+              <select
+                className="ctl"
+                style={{ width: 190 }}
+                value=""
+                onChange={(e) => {
+                  applyPreset(e.target.value)
+                  setPresetMsg(null)
+                }}
+              >
+                <option value="">저장된 결재선 불러오기</option>
+                {presets.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+              {presetName === null ? (
+                <button type="button" className="sp-btn b1" onClick={() => { setPresetName(''); setPresetMsg(null) }}>
+                  현재 결재선 저장
+                </button>
+              ) : (
+                <>
+                  <input className="ctl" style={{ width: 160 }} value={presetName} onChange={(e) => setPresetName(e.target.value)} placeholder="결재선 이름" autoFocus />
+                  <button type="button" className="sp-btn b1" onClick={savePreset}>저장</button>
+                  <button type="button" className="sp-btn b2" onClick={() => setPresetName(null)}>취소</button>
+                </>
+              )}
+              {presets.length > 0 && (
+                <details style={{ fontSize: 11.5 }}>
+                  <summary style={{ cursor: 'pointer', color: 'var(--muted)' }}>관리</summary>
+                  {presets.map((p) => (
+                    <div key={p.id} style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '2px 0' }}>
+                      <span>{p.name}</span>
+                      <button type="button" className="sp-btn b2" onClick={() => deletePreset(p.id)} title="삭제">−</button>
+                    </div>
+                  ))}
+                </details>
+              )}
+              {presetMsg && <span className="t-sub" style={{ fontSize: 11.5 }}>{presetMsg}</span>}
+            </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <select className="ctl" value={reviewerId} onChange={(e) => setReviewerId(e.target.value)} style={{ flex: 1 }}>
                 <option value="">검토</option>

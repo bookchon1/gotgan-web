@@ -305,6 +305,7 @@ export interface ApprovalLine {
   decided: '대기' | '승인' | '반려'
   decided_at: string | null
   comment?: string | null
+  acted_by?: string | null
 }
 
 export interface GotganDocument {

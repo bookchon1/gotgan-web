@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useQuery } from '../lib/useQuery'
 import { mmdd } from '../lib/format'
 import { useAuth } from '../lib/auth'
+import { unzipSync } from 'fflate'
 import type { GotganDocument, Employee, DocumentFolder } from '../types/db'
 
 const SCOPE_BADGE: Record<string, string> = {
@@ -13,6 +14,53 @@ const SCOPE_BADGE: Record<string, string> = {
   개인: 'badge',
 }
 const BUCKET = 'documents'
+
+// ── 올리기 보조 ──
+type UpItem = { dirs: string[]; name: string; file: File }
+const MIME: Record<string, string> = { pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', txt: 'text/plain', csv: 'text/csv' }
+const JUNK = /(^|\/)(thumbs\.db|\.ds_store|desktop\.ini|__macosx)(\/|$)/i
+
+/** 압축 파일 안 이름 복원 (UTF-8 표시가 없는 한글 zip은 CP949) + 맥 자모분리 정리 */
+function fixName(n: string): string {
+  let out = n
+  if (/[\u0080-\u00ff]/.test(n) && ![...n].some((c) => c.charCodeAt(0) > 255)) {
+    try {
+      const bytes = Uint8Array.from([...n].map((c) => c.charCodeAt(0)))
+      const dec = new TextDecoder('euc-kr', { fatal: true }).decode(bytes)
+      if (!dec.includes('\uFFFD')) out = dec
+    } catch { /* 그대로 */ }
+  }
+  return out.normalize('NFC')
+}
+
+async function expandZip(zip: File): Promise<UpItem[]> {
+  const data = unzipSync(new Uint8Array(await zip.arrayBuffer()))
+  const items: UpItem[] = []
+  for (const [raw, bytes] of Object.entries(data)) {
+    const full = fixName(raw)
+    if (full.endsWith('/') || JUNK.test(full)) continue
+    const parts = full.split('/').filter(Boolean)
+    const name = parts.pop()
+    if (!name) continue
+    const ext = name.split('.').pop()?.toLowerCase() ?? ''
+    items.push({ dirs: parts, name, file: new File([bytes as BlobPart], name, { type: MIME[ext] ?? 'application/octet-stream' }) })
+  }
+  return items
+}
+
+async function collectItems(files: File[]): Promise<UpItem[]> {
+  const items: UpItem[] = []
+  for (const f of files) {
+    if (JUNK.test(f.name)) continue
+    if (/\.zip$/i.test(f.name)) { items.push(...(await expandZip(f))); continue }
+    const rel = (f as File & { webkitRelativePath?: string }).webkitRelativePath
+    const parts = rel ? rel.normalize('NFC').split('/').filter(Boolean) : [f.name]
+    const name = parts.pop() ?? f.name
+    if (JUNK.test(rel ?? '')) continue
+    items.push({ dirs: parts, name, file: f })
+  }
+  return items
+}
 
 function fmtSize(n: number | null): string {
   if (!n) return ''
@@ -99,6 +147,74 @@ export default function Documents() {
 
   const canEdit = (d: GotganDocument) => d.owner_id === me?.id || me?.role === 'admin'
 
+  // ── 파일·폴더·압축 올리기 ──
+  const fileIn = useRef<HTMLInputElement>(null)
+  const dirIn = useRef<HTMLInputElement>(null)
+  const [upMsg, setUpMsg] = useState<string | null>(null)
+  async function uploadMany(picked: File[]) {
+    if (!picked.length || !me?.id) return
+    try {
+      setUpMsg('파일 확인 중…')
+      const items = await collectItems(picked)
+      if (!items.length) { setUpMsg(null); alert('올릴 파일이 없습니다.'); return }
+      const needDirs = items.some((i) => i.dirs.length > 0)
+      if (needDirs && !isAdmin) { setUpMsg(null); alert('폴더가 들어 있는 압축·폴더 올리기는 관리자만 할 수 있습니다.'); return }
+      const where = curFolder ? pathOf(curFolder, folders) : '공유문서'
+      if (!window.confirm(`${items.length}개 파일을 '${where}'에 올립니다.${needDirs ? '\n(압축·폴더 안의 폴더 구조를 그대로 만듭니다)' : ''}\n공유 범위는 전사 공유로 등록됩니다.`)) { setUpMsg(null); return }
+      // 폴더 캐시: "부모id|이름" → id
+      const known = new Map<string, string>()
+      for (const f of folders) known.set(`${f.parent_id ?? ''}|${f.name}`, f.id)
+      let nextSort = folders.length ? Math.max(...folders.map((f) => f.sort)) + 1 : 0
+      const base = curFolder?.id ?? null
+      const ensure = async (dirs: string[]): Promise<string | null> => {
+        let parent = base
+        for (const d of dirs) {
+          const key = `${parent ?? ''}|${d}`
+          let id = known.get(key)
+          if (!id) {
+            const { data, error } = await supabase.from('document_folders')
+              .insert({ name: d, sort: nextSort++, created_by: me.id, ...(parent ? { parent_id: parent } : {}) }).select('id').single()
+            if (error || !data) throw error ?? new Error('폴더 생성 실패')
+            id = data.id as string
+            known.set(key, id)
+          }
+          parent = id
+        }
+        return parent
+      }
+      const exist = new Set(all.map((d) => `${d.folder_id ?? ''}|${d.file_name ?? ''}`))
+      let done = 0, skipped = 0
+      const failed: string[] = []
+      for (const it of items) {
+        setUpMsg(`올리는 중… ${done + skipped + failed.length + 1} / ${items.length}`)
+        try {
+          const fid = await ensure(it.dirs)
+          if (exist.has(`${fid ?? ''}|${it.name}`)) { skipped++; continue }
+          const title = it.name.replace(/\.[^./]+$/, '') || it.name
+          const { data, error } = await supabase.from('documents')
+            .insert({ title, share_scope: '전사', folder_id: fid, owner_id: me.id, updated_at: new Date().toISOString() }).select('id').single()
+          if (error || !data) throw error ?? new Error('등록 실패')
+          const safe = it.name.replace(/[^\w.\-가-힣]/g, '_')
+          const path = `${data.id}/${Date.now()}_${safe}`
+          const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, it.file, { upsert: true, contentType: it.file.type || undefined })
+          if (upErr) { await supabase.from('documents').delete().eq('id', data.id); throw upErr }
+          const { error: pErr } = await supabase.from('documents').update({ file_path: path, file_name: it.name, file_size: it.file.size }).eq('id', data.id)
+          if (pErr) throw pErr
+          exist.add(`${fid ?? ''}|${it.name}`)
+          done++
+        } catch (e) {
+          failed.push(`${it.name} (${e instanceof Error ? e.message : '실패'})`)
+        }
+      }
+      setUpMsg(null)
+      folderQ.reload(); docQ.reload()
+      alert(`올리기 완료: ${done}개 등록${skipped ? ` · ${skipped}개는 이미 있어 건너뜀` : ''}${failed.length ? `\n실패 ${failed.length}개:\n${failed.slice(0, 8).join('\n')}` : ''}`)
+    } catch (e) {
+      setUpMsg(null)
+      alert(e instanceof Error ? e.message : '올리기에 실패했습니다.')
+    }
+  }
+
   // ── 끌어서 옮기기 (폴더 → 폴더, 문서 → 폴더) ──
   const dragRef = useRef<{ kind: 'folder' | 'doc'; id: string } | null>(null)
   const [overId, setOverId] = useState<string | null>(null)
@@ -164,7 +280,11 @@ export default function Documents() {
                 )}
               </>
             )}
+            <button className="btn txt" onClick={() => fileIn.current?.click()} disabled={!!upMsg} title="파일 또는 압축(zip)을 풀어서 올립니다">파일 올리기</button>
+            {isAdmin && <button className="btn txt" onClick={() => dirIn.current?.click()} disabled={!!upMsg}>폴더 올리기</button>}
             <button className="btn txt add-txt" onClick={() => setEditDoc('new')}>문서 등록</button>
+            <input ref={fileIn} type="file" multiple hidden onChange={(e) => { const f = Array.from(e.target.files ?? []); e.target.value = ''; void uploadMany(f) }} />
+            <input ref={dirIn} type="file" hidden {...({ webkitdirectory: '', directory: '' } as Record<string, string>)} onChange={(e) => { const f = Array.from(e.target.files ?? []); e.target.value = ''; void uploadMany(f) }} />
           </div>
         }
       />
@@ -184,6 +304,7 @@ export default function Documents() {
 
         <div className="dx-main">
           <ErrorBanner error={docQ.error} table="documents" />
+          {upMsg && <div className="dx-up">{upMsg}</div>}
           <div className="toolbar" style={{ marginBottom: 10 }}>
             <nav className="dx-crumb" aria-label="경로">
               <button onClick={() => setFolderId('all')} className={`${folderId === 'all' ? 'cur' : ''}${overId === 'root' ? ' drop' : ''}`} {...dnd.drop('root')}>공유문서</button>

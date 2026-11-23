@@ -49,16 +49,17 @@ export function ApprovalDraftModal({
   const [reviewerId, setReviewerId] = useState(dl.find((l) => l.role === '검토')?.approver_id ?? '')
   const [ccIds, setCcIds] = useState<string[]>(dl.filter((l) => l.role === '참조').map((l) => l.approver_id as string).filter(Boolean))
   const [files, setFiles] = useState<File[]>([])
+  const [agreeId, setAgreeId] = useState(dl.find((l) => l.role === '합의')?.approver_id ?? '')
   const [approverId, setApproverId] = useState(dl.find((l) => l.role === '승인')?.approver_id ?? '')
   // 저장된 결재선 (자주 쓰는 검토·승인·참조 묶음)
-  interface Preset { id: string; name: string; reviewer_id: string | null; approver_id: string | null; cc_ids: string[] }
+  interface Preset { id: string; name: string; reviewer_id: string | null; agree_id?: string | null; approver_id: string | null; cc_ids: string[] }
   const [presets, setPresets] = useState<Preset[]>([])
   const [presetName, setPresetName] = useState<string | null>(null) // null=입력 닫힘
   const [presetMsg, setPresetMsg] = useState<string | null>(null)
   const loadPresets = () =>
     supabase
       .from('approval_line_presets')
-      .select('id,name,reviewer_id,approver_id,cc_ids')
+      .select('*')
       .order('created_at', { ascending: true })
       .then(({ data }) => setPresets((data ?? []) as Preset[]))
   useEffect(() => {
@@ -191,10 +192,11 @@ export function ApprovalDraftModal({
       approval_id: string
       seq: number
       approver_id: string | null
-      role: '기안' | '검토' | '승인' | '회계접수' | '참조'
+      role: '기안' | '검토' | '합의' | '승인' | '회계접수' | '참조'
       decided: string
     }[] = [{ approval_id: apprId, seq: 1, approver_id: me?.id ?? null, role: '기안', decided: '승인' }]
     if (reviewerId) lines.push({ approval_id: apprId, seq: lines.length + 1, approver_id: reviewerId, role: '검토', decided: '대기' })
+    if (agreeId) lines.push({ approval_id: apprId, seq: lines.length + 1, approver_id: agreeId, role: '합의', decided: '대기' })
     if (approverId) lines.push({ approval_id: apprId, seq: lines.length + 1, approver_id: approverId, role: '승인', decided: '대기' })
     if (needsAcct) lines.push({ approval_id: apprId, seq: lines.length + 1, approver_id: me?.id ?? null, role: '회계접수', decided: '대기' })
     lines.push(...ccLines(apprId, lines.length + 1, ccIds))
@@ -215,6 +217,7 @@ export function ApprovalDraftModal({
     if (!p) return
     const ok = (v: string | null) => (v && admins.some((a) => a.id === v) ? v : '')
     setReviewerId(ok(p.reviewer_id))
+    setAgreeId(ok(p.agree_id ?? null))
     setApproverId(ok(p.approver_id))
     setCcIds((p.cc_ids ?? []).filter((c) => admins.some((a) => a.id === c)))
   }
@@ -226,6 +229,7 @@ export function ApprovalDraftModal({
       owner_id: me?.id,
       name,
       reviewer_id: reviewerId || null,
+      ...(agreeId ? { agree_id: agreeId } : {}),
       approver_id: approverId || null,
       cc_ids: ccIds,
     })
@@ -531,6 +535,14 @@ export function ApprovalDraftModal({
                   </option>
                 ))}
               </select>
+              <select className="ctl" value={agreeId} onChange={(e) => setAgreeId(e.target.value)} style={{ flex: 1 }} title="다른 부서 확인이 필요할 때 (선택)">
+                <option value="">합의(협조)</option>
+                {admins.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {approverLabel(e)}
+                  </option>
+                ))}
+              </select>
               <select className="ctl" value={approverId} onChange={(e) => setApproverId(e.target.value)} style={{ flex: 1 }}>
                 <option value="">승인</option>
                 {admins.map((e) => (
@@ -546,6 +558,12 @@ export function ApprovalDraftModal({
                 <>
                   <span style={{ color: 'var(--muted)' }}>›</span>
                   <span className="badge">검토 {admins.find((a) => a.id === reviewerId)?.name ?? ''}</span>
+                </>
+              )}
+              {agreeId && (
+                <>
+                  <span style={{ color: 'var(--muted)' }}>›</span>
+                  <span className="badge">합의 {admins.find((a) => a.id === agreeId)?.name ?? ''}</span>
                 </>
               )}
               {approverId && (

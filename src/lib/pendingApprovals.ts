@@ -21,7 +21,7 @@ export function usePendingApprovals(): number {
       .select('approval_id')
       .eq('approver_id', myId)
       .eq('decided', '대기')
-      .in('role', ['검토', '승인', '회계접수'])
+      .in('role', ['검토', '합의', '승인', '회계접수'])
     const ids = [...new Set((mine ?? []).map((l) => l.approval_id as string))]
     if (!ids.length) return setCount(0)
     const [{ data: appr }, { data: lines }] = await Promise.all([

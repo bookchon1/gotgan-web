@@ -194,8 +194,9 @@ export default function Documents() {
           const { data, error } = await supabase.from('documents')
             .insert({ title, share_scope: '전사', folder_id: fid, owner_id: me.id, updated_at: new Date().toISOString() }).select('id').single()
           if (error || !data) throw error ?? new Error('등록 실패')
-          const safe = it.name.replace(/[^\w.\-가-힣]/g, '_')
-          const path = `${data.id}/${Date.now()}_${safe}`
+          // 저장소 경로는 영문·숫자만(한글·특수문자 키 거부 방지). 원본 이름은 file_name 에 보관
+          const ext = (it.name.match(/\.([A-Za-z0-9]{1,8})$/)?.[1] ?? 'bin').toLowerCase()
+          const path = `${data.id}/${Date.now()}_${done}.${ext}`
           const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, it.file, { upsert: true, contentType: it.file.type || undefined })
           if (upErr) { await supabase.from('documents').delete().eq('id', data.id); throw upErr }
           const { error: pErr } = await supabase.from('documents').update({ file_path: path, file_name: it.name, file_size: it.file.size }).eq('id', data.id)

@@ -1,3 +1,4 @@
+import { parseFormMemo, type ParsedForm } from '../lib/apprForms'
 import { useEffect, useState } from 'react'
 import { won } from '../lib/format'
 import { supabase } from '../lib/supabase'
@@ -51,6 +52,37 @@ export function parseOrder(memo: string): { reason: string; rows: Row[]; total: 
   }
   return rows.length ? { reason: reason.join('\n'), rows, total } : null
 }
+/** 양식(품의서·휴가원·출장신청서 등)으로 작성된 본문 */
+function FormView({ f }: { f: ParsedForm }) {
+  return (
+    <>
+      {f.kv.length > 0 && (
+        <dl className="ad-meta" style={{ marginTop: 10 }}>
+          {f.kv.map((k, i) => (
+            <div key={i}>
+              <dt>{k.label}</dt>
+              <dd>{k.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {f.sections.map((sec, i) => {
+        const tbl = parseOrder(sec.body)
+        return (
+          <div key={i}>
+            <div className="ad-sec">{sec.label}</div>
+            {tbl ? (
+              <OrderTable o={tbl} />
+            ) : (
+              <div className="ad-body">{sec.body ? <Linkified text={sec.body} /> : <span style={{ color: 'var(--muted)' }}>—</span>}</div>
+            )}
+          </div>
+        )
+      })}
+    </>
+  )
+}
+
 export interface SiteRow { name: string; days: string; dates: string; amount: string }
 /** 현장 정산 본문("1. 이름 · 근무 2일 (11/06, 11/20) · 660,000원 … 식대 N원 / 합계 N원")을 인원별 표로 분해 */
 export function parseSite(memo: string): { title: string; rows: SiteRow[]; meal: string; total: string } | null {
@@ -337,10 +369,11 @@ export function ApprDetail({ a, lines, empName }: { a: Approval; lines: Approval
   }
 
   const body = a.memo && a.memo !== a.title ? a.memo : ''
-  const order = body ? parseOrder(body) : null
-  const site = body && !order ? parseSite(body) : null
-  const fees = body && !order && !site ? parseFees(body) : null
-  const pay = body && !order && !site && !fees ? parsePay(body) : null
+  const formDoc = body ? parseFormMemo(body) : null
+  const order = body && !formDoc ? parseOrder(body) : null
+  const site = body && !order && !formDoc ? parseSite(body) : null
+  const fees = body && !order && !site && !formDoc ? parseFees(body) : null
+  const pay = body && !order && !site && !fees && !formDoc ? parsePay(body) : null
   const isExp = a.kind === '지출결의서'
   const target = [projName, a.budget_item].filter(Boolean).join(' · ')
   const meta: [string, string][] = [
@@ -350,46 +383,8 @@ export function ApprDetail({ a, lines, empName }: { a: Approval; lines: Approval
   ]
   if (a.biz_code) meta.push(['사업자', bizShort(a.biz_code)])
   if (a.dept_key) meta.push(['부서', deptLabel(a.dept_key)])
-  return (
-    <div className="ad">
-      <div className="ad-head">
-        <span className="ad-kind">{KIND_LABEL[a.kind] ?? a.kind}</span>
-        <h4>{a.title || '(제목 없음)'}</h4>
-        <span className="ad-amt tnum">{a.amount ? won(a.amount) + '원' : ''}</span>
-      </div>
-      <dl className="ad-meta">
-        {meta.map(([k, v]) => (
-          <div key={k}>
-            <dt>{k}</dt>
-            <dd>{v}</dd>
-          </div>
-        ))}
-      </dl>
-      {order ? (
-        <>
-          <div className="ad-sec">구매 내역</div>
-          <OrderTable o={order} />
-        </>
-      ) : site ? (
-        <>
-          <div className="ad-sec">현장 정산 내역 (인원별)</div>
-          {site.title && <div className="t-sub" style={{ margin: '0 0 6px' }}>{site.title}</div>}
-          <SiteTable f={site} />
-        </>
-      ) : pay ? (
-        <>
-          <div className="ad-sec">급여 지급 내역 (직원별)</div>
-          <PayTable p={pay} />
-        </>
-      ) : fees ? (
-        <>
-          <div className="ad-sec">자문비 지급 대상자별 내역</div>
-          <FeeTable f={fees} />
-        </>
-      ) : (
-        <>
-          {isExp && (
-            <>
+  const expBlock = isExp ? (
+<>
               <div className="ad-sec">지출 내역</div>
               <table className="rowtbl sp-ord">
                 <colgroup>
@@ -416,7 +411,52 @@ export function ApprDetail({ a, lines, empName }: { a: Approval; lines: Approval
                 </tbody>
               </table>
             </>
-          )}
+  ) : null
+
+  return (
+    <div className="ad">
+      <div className="ad-head">
+        <span className="ad-kind">{KIND_LABEL[a.kind] ?? a.kind}</span>
+        <h4>{a.title || '(제목 없음)'}</h4>
+        <span className="ad-amt tnum">{a.amount ? won(a.amount) + '원' : ''}</span>
+      </div>
+      <dl className="ad-meta">
+        {meta.map(([k, v]) => (
+          <div key={k}>
+            <dt>{k}</dt>
+            <dd>{v}</dd>
+          </div>
+        ))}
+      </dl>
+      {formDoc ? (
+        <>
+          {expBlock}
+          <FormView f={formDoc} />
+        </>
+      ) : order ? (
+        <>
+          <div className="ad-sec">구매 내역</div>
+          <OrderTable o={order} />
+        </>
+      ) : site ? (
+        <>
+          <div className="ad-sec">현장 정산 내역 (인원별)</div>
+          {site.title && <div className="t-sub" style={{ margin: '0 0 6px' }}>{site.title}</div>}
+          <SiteTable f={site} />
+        </>
+      ) : pay ? (
+        <>
+          <div className="ad-sec">급여 지급 내역 (직원별)</div>
+          <PayTable p={pay} />
+        </>
+      ) : fees ? (
+        <>
+          <div className="ad-sec">자문비 지급 대상자별 내역</div>
+          <FeeTable f={fees} />
+        </>
+      ) : (
+        <>
+          {expBlock}
           {(body || !isExp) && (
             <>
               <div className="ad-sec">{isExp ? '비고' : '내용'}</div>

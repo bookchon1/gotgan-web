@@ -191,7 +191,8 @@ export function InboxView({ onPosted }: { onPosted: () => void }) {
     [],
   )
   const empName = useMemo(() => Object.fromEntries((empQ.data ?? []).map((e) => [e.id, e.name])), [empQ.data])
-  const list = apprQ.data ?? []
+  // 금액 없는 양식 품의서는 회계 처리 대상이 아니다
+  const list = (apprQ.data ?? []).filter((a) => !(a.kind === '품의' && (a.memo ?? '').startsWith('[양식:품의서]') && !a.amount))
   const [openId, setOpenId] = useState<string | null>(null)
   const linesQ = useQuery<ApprovalLine[]>(
     async () => await supabase.from('approval_lines').select('*').order('seq', { ascending: true }),

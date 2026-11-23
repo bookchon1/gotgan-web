@@ -1,12 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { CcPicker, ccLines } from '../components/CcPicker'
 import { AttachPicker, uploadAttachments } from '../components/AttachPicker'
 import { supabase } from '../lib/supabase'
 import { won, approverLabel, sortApprovers } from '../lib/format'
 import { useAuth } from '../lib/auth'
+import { FORMS, formById, formOfApproval, itemsTotal, restoreForm, serializeForm, leaveDays, type FormField, type ItemRow } from '../lib/apprForms'
+import { notifyApprovalsChanged } from '../lib/pendingApprovals'
 import type { ArtProject, ArtBudget, Employee, Approval, ApprovalLine } from '../types/db'
 
-/** 전자결재 기안 작성 — 지출결의서/품의/일반. 지출결의서+미술이면 사업·예산 연동. */
+const DEPTS = ['management', 'art', 'product', 'promotion', 'experience', 'education']
+const today = () => new Date().toISOString().slice(0, 10)
+
+/** 전자결재 기안 작성 — 양식함(품의서·지출결의서·휴가원·출장신청서·일반 기안). 미술 지출결의서는 사업·예산 연동. */
 export function ApprovalDraftModal({
   onClose,
   onCreated,
@@ -24,11 +29,19 @@ export function ApprovalDraftModal({
 }) {
   const { me } = useAuth()
   const dl = draftLines ?? []
-  const [kind, setKind] = useState<'지출결의서' | '품의' | '일반'>((draft?.kind as '지출결의서' | '품의' | '일반') ?? '지출결의서')
+  const initDef = draft ? formOfApproval(draft) : formById('poom')
+  const restored = useMemo(
+    () => (draft ? restoreForm(initDef, draft.memo && draft.memo !== draft.title ? draft.memo : '') : { values: {}, items: {} }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  )
+  const [formId, setFormId] = useState(initDef.id)
+  const def = formById(formId)
+  const [values, setValues] = useState<Record<string, string>>(restored.values)
+  const [itemsMap, setItemsMap] = useState<Record<string, ItemRow[]>>(restored.items)
   const [title, setTitle] = useState(draft?.title ?? '')
-  const [memo, setMemo] = useState(draft?.memo && draft.memo !== draft.title ? draft.memo : '')
   const [biz, setBiz] = useState(draft?.biz_code ?? '법인')
-  const [dept, setDept] = useState(draft?.dept_key ?? 'management')
+  const [dept, setDept] = useState(draft?.dept_key ?? (DEPTS.includes(me?.dept_key ?? '') ? (me?.dept_key as string) : 'management'))
   const [account, setAccount] = useState(draft?.account ?? '')
   const [amount, setAmount] = useState(draft?.amount ?? 0)
   const [projectId, setProjectId] = useState(draft?.project_id ?? '')
@@ -40,9 +53,12 @@ export function ApprovalDraftModal({
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
-  const isArt = kind === '지출결의서' && dept === 'art'
+  const itemsField = def.fields.find((f) => f.type === 'items')
+  const itemsSum = itemsField ? itemsTotal(itemsMap[itemsField.key] ?? []) : 0
+  const isArt = !!def.expense && dept === 'art'
+  const needsAcct = !!def.expense || (def.id === 'poom' && itemsSum > 0)
 
-  // 승인자 후보 (관리자, 본인 제외)
+  // 승인자 후보 (본인 제외, 전 직원)
   const [admins, setAdmins] = useState<Pick<Employee, 'id' | 'name' | 'title'>[]>([])
   const [projects, setProjects] = useState<Pick<ArtProject, 'id' | 'name'>[]>([])
   const [budgets, setBudgets] = useState<ArtBudget[]>([])
@@ -73,36 +89,65 @@ export function ApprovalDraftModal({
       .then(({ data }) => setBudgets(data ?? []))
   }, [projectId])
 
-  /** asDraft=true: 임시보관(결재선에 알림 없이 본인만 보임) / false: 상신 */
+  const val = (f: FormField) => values[f.key] ?? (f.type === 'select' ? f.options?.[0] ?? '' : f.type === 'daterange' ? `${today()} ~ ${today()}` : '')
+  const setVal = (k: string, v: string) => setValues((p) => ({ ...p, [k]: v }))
+
+  /** asDraft=true: 임시보관(본인에게만 보임) / false: 상신 */
   async function persist(asDraft: boolean) {
     if (!title.trim()) {
       setErr('제목을 입력하세요.')
       return
     }
+    // 기본값 채우기(선택·기간)
+    const filled: Record<string, string> = { ...values }
+    for (const f of def.fields) if (f.type === 'select' || f.type === 'daterange') filled[f.key] = val(f)
     if (!asDraft) {
+      for (const f of def.fields) {
+        if (f.required && !(filled[f.key] ?? '').trim()) {
+          setErr(`${f.key}을(를) 입력하세요.`)
+          return
+        }
+      }
+      if (def.id === 'leave' || def.id === 'trip') {
+        const m = (filled['기간'] ?? '').match(/^(\d{4}-\d{2}-\d{2})\s~\s(\d{4}-\d{2}-\d{2})$/)
+        if (!m || m[2] < m[1]) {
+          setErr('기간의 종료일이 시작일보다 빠릅니다.')
+          return
+        }
+        if (def.id === 'leave' && (filled['휴가 종류'] ?? '').startsWith('반차') && m[1] !== m[2]) {
+          setErr('반차는 하루만 선택하세요. (시작일과 종료일을 같게)')
+          return
+        }
+        if (def.id === 'leave' && leaveDays(filled['휴가 종류'], filled['기간']) <= 0) {
+          setErr('선택한 기간에 평일이 없습니다.')
+          return
+        }
+      }
       if (!approverId) {
         setErr('승인할 사람을 선택하세요.')
         return
       }
-      if (kind === '지출결의서' && amount <= 0) {
-        setErr('금액을 입력하세요.')
-        return
-      }
+    }
+    const total = def.expense ? itemsSum || amount : itemsSum
+    if (!asDraft && def.expense && total <= 0) {
+      setErr('금액을 입력하세요.')
+      return
     }
     setBusy(true)
     setErr(null)
+    const memoStr = serializeForm(def, filled, itemsMap)
     const row = {
-      kind,
+      kind: def.kind,
       drafter_id: me?.id ?? null,
-      biz_code: biz,
-      dept_key: dept,
+      biz_code: def.expense ? biz : '법인',
+      dept_key: def.expense ? dept : DEPTS.includes(me?.dept_key ?? '') ? me?.dept_key : 'management',
       title: title.trim(),
-      memo: memo.trim() || null,
-      amount: kind === '지출결의서' ? amount : null,
-      account: account || null,
+      memo: memoStr,
+      amount: total > 0 ? total : null,
+      account: def.expense ? account || null : null,
       project_id: isArt && projectId ? projectId : null,
       budget_item: isArt && budgetItem ? budgetItem : null,
-      req_date: new Date().toISOString().slice(0, 10),
+      req_date: today(),
       status: asDraft ? '기안' : '진행',
     }
     let apprId = draft?.id ?? ''
@@ -124,7 +169,7 @@ export function ApprovalDraftModal({
       }
       apprId = appr.id
     }
-    // 결재선: 기안(본인 승인됨) → 검토(지정) → 승인(지정) → 회계접수(지출결의서만)
+    // 결재선: 기안(본인 승인됨) → 검토(지정) → 승인(지정) → 회계접수(지출·금액 있는 품의) → 참조
     const lines: {
       approval_id: string
       seq: number
@@ -134,8 +179,7 @@ export function ApprovalDraftModal({
     }[] = [{ approval_id: apprId, seq: 1, approver_id: me?.id ?? null, role: '기안', decided: '승인' }]
     if (reviewerId) lines.push({ approval_id: apprId, seq: lines.length + 1, approver_id: reviewerId, role: '검토', decided: '대기' })
     if (approverId) lines.push({ approval_id: apprId, seq: lines.length + 1, approver_id: approverId, role: '승인', decided: '대기' })
-    if (kind === '지출결의서')
-      lines.push({ approval_id: apprId, seq: lines.length + 1, approver_id: me?.id ?? null, role: '회계접수', decided: '대기' })
+    if (needsAcct) lines.push({ approval_id: apprId, seq: lines.length + 1, approver_id: me?.id ?? null, role: '회계접수', decided: '대기' })
     lines.push(...ccLines(apprId, lines.length + 1, ccIds))
     await supabase.from('approval_lines').insert(lines)
     if (files.length) {
@@ -144,111 +188,245 @@ export function ApprovalDraftModal({
     }
 
     setBusy(false)
+    notifyApprovalsChanged()
     onCreated()
   }
   const submit = () => persist(false)
 
+  const itemsEditor = (f: FormField) => {
+    const rows = itemsMap[f.key] ?? []
+    const set = (next: ItemRow[]) => setItemsMap((p) => ({ ...p, [f.key]: next }))
+    return (
+      <div className="mfield" key={f.key}>
+        <label>
+          {f.key} <span style={{ fontWeight: 400, color: 'var(--muted)' }}>(선택 · 합계가 금액이 됩니다)</span>
+        </label>
+        {rows.length > 0 && (
+          <table className="rowtbl" style={{ fontSize: 12, marginBottom: 6 }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: 'left' }}>항목</th>
+                <th style={{ width: 70 }}>수량</th>
+                <th style={{ width: 110 }}>단가(원)</th>
+                <th style={{ width: 100 }}>금액</th>
+                <th style={{ width: 28 }} />
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={i}>
+                  <td>
+                    <input className="ctl" value={r.name} onChange={(e) => set(rows.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} placeholder="항목명" />
+                  </td>
+                  <td>
+                    <input
+                      className="ctl"
+                      style={{ textAlign: 'right' }}
+                      inputMode="numeric"
+                      value={r.qty || ''}
+                      onChange={(e) => set(rows.map((x, j) => (j === i ? { ...x, qty: parseInt(e.target.value.replace(/[^0-9]/g, ''), 10) || 0 } : x)))}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      className="ctl"
+                      style={{ textAlign: 'right' }}
+                      inputMode="numeric"
+                      value={r.price ? won(r.price) : ''}
+                      onChange={(e) => set(rows.map((x, j) => (j === i ? { ...x, price: parseInt(e.target.value.replace(/[^0-9]/g, ''), 10) || 0 } : x)))}
+                    />
+                  </td>
+                  <td className="tnum" style={{ textAlign: 'right' }}>{won((Number(r.qty) || 0) * (Number(r.price) || 0))}</td>
+                  <td>
+                    <button type="button" className="sp-btn b2" title="삭제" onClick={() => set(rows.filter((_, j) => j !== i))}>
+                      −
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              <tr style={{ fontWeight: 800 }}>
+                <td colSpan={3}>합계</td>
+                <td className="tnum" style={{ textAlign: 'right' }}>{won(itemsTotal(rows))}원</td>
+                <td />
+              </tr>
+            </tbody>
+          </table>
+        )}
+        <button type="button" className="sp-btn b1" onClick={() => set([...rows, { name: '', qty: 1, price: 0 }])}>
+          + 항목 추가
+        </button>
+      </div>
+    )
+  }
+
+  const renderField = (f: FormField) => {
+    if (f.type === 'items') return itemsEditor(f)
+    const label = (
+      <label>
+        {f.key}
+        {f.required && <span style={{ color: 'var(--danger)' }}> *</span>}
+      </label>
+    )
+    if (f.type === 'textarea')
+      return (
+        <div className="mfield" key={f.key}>
+          {label}
+          <textarea className="ctl" rows={f.rows ?? 4} value={values[f.key] ?? ''} onChange={(e) => setVal(f.key, e.target.value)} placeholder={f.placeholder} />
+        </div>
+      )
+    if (f.type === 'select')
+      return (
+        <div className="mfield" key={f.key}>
+          {label}
+          <select className="ctl" value={val(f)} onChange={(e) => setVal(f.key, e.target.value)}>
+            {f.options?.map((o) => (
+              <option key={o} value={o}>
+                {o}
+              </option>
+            ))}
+          </select>
+        </div>
+      )
+    if (f.type === 'date')
+      return (
+        <div className="mfield" key={f.key} style={{ maxWidth: 220 }}>
+          {label}
+          <input className="ctl" type="date" value={values[f.key] ?? ''} onChange={(e) => setVal(f.key, e.target.value)} />
+        </div>
+      )
+    if (f.type === 'daterange') {
+      const [s, e] = val(f).split(' ~ ')
+      const days = def.id === 'leave' ? leaveDays(values['휴가 종류'] ?? '연차', val(f)) : 0
+      return (
+        <div className="mfield" key={f.key}>
+          {label}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <input className="ctl" style={{ width: 170 }} type="date" value={s} onChange={(ev) => setVal(f.key, `${ev.target.value} ~ ${e}`)} />
+            <span>~</span>
+            <input className="ctl" style={{ width: 170 }} type="date" value={e} onChange={(ev) => setVal(f.key, `${s} ~ ${ev.target.value}`)} />
+            {def.id === 'leave' && days > 0 && <b className="tnum">{days}일</b>}
+          </div>
+        </div>
+      )
+    }
+    return (
+      <div className="mfield" key={f.key}>
+        {label}
+        <input className="ctl" value={values[f.key] ?? ''} onChange={(e) => setVal(f.key, e.target.value)} placeholder={f.placeholder} />
+      </div>
+    )
+  }
+
   return (
     <div className="modal-bg" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 680 }}>
         <div className="mh">
           <div>
             <div className="eyebrow">{reuse ? '재기안' : draft ? '임시보관 문서' : '기안 작성'}</div>
-            <h3>전자결재</h3>
+            <h3>{def.name}</h3>
           </div>
           <button className="x" onClick={onClose}>
             ✕
           </button>
         </div>
         <div className="mb">
-          <div style={{ display: 'flex', gap: 10 }}>
-            <div className="mfield" style={{ width: 130 }}>
-              <label>종류</label>
-              <select className="ctl" value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
-                <option value="지출결의서">지출결의서</option>
-                <option value="품의">품의서</option>
-                <option value="일반">일반</option>
-              </select>
+          {/* 양식함 */}
+          <div className="mfield">
+            <label>양식</label>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {FORMS.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  className={`btn ${formId === f.id ? 'pri' : 'sec'}`}
+                  style={{ padding: '6px 12px' }}
+                  title={f.desc}
+                  onClick={() => setFormId(f.id)}
+                >
+                  {f.name}
+                </button>
+              ))}
             </div>
-            <div className="mfield" style={{ flex: 1 }}>
-              <label>제목</label>
-              <input className="ctl" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="예: 삼국유사 목판 외주비 지출결의" autoFocus />
-            </div>
+            <div className="t-sub" style={{ fontSize: 11.5, marginTop: 5 }}>{def.desc}</div>
           </div>
 
           <div className="mfield">
-            <label>내용</label>
-            <textarea className="ctl" rows={4} value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="사유·상세 내용 (선택)" />
+            <label>
+              제목 <span style={{ color: 'var(--danger)' }}>*</span>
+            </label>
+            <input className="ctl" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={def.titleHint} autoFocus />
           </div>
 
-          <div style={{ display: 'flex', gap: 10 }}>
-            <div className="mfield" style={{ flex: 1 }}>
-              <label>사업자</label>
-              <select className="ctl" value={biz} onChange={(e) => setBiz(e.target.value)}>
-                <option value="법인">법인</option>
-                <option value="개인">개인(도래헌)</option>
-                <option value="더북촌">더북촌</option>
-              </select>
-            </div>
-            <div className="mfield" style={{ flex: 1 }}>
-              <label>부서</label>
-              <select className="ctl" value={dept} onChange={(e) => setDept(e.target.value)}>
-                <option value="management">경영</option>
-                <option value="art">미술</option>
-                <option value="product">상품</option>
-                <option value="promotion">홍보</option>
-                <option value="experience">체험</option>
-                <option value="education">교육</option>
-              </select>
-            </div>
-          </div>
-
-          {kind === '지출결의서' && (
-            <div style={{ display: 'flex', gap: 10 }}>
-              <div className="mfield" style={{ flex: 1 }}>
-                <label>계정과목</label>
-                <input className="ctl" value={account} onChange={(e) => setAccount(e.target.value)} placeholder="예: 외주용역비" />
+          {def.expense && (
+            <>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <div className="mfield" style={{ flex: 1 }}>
+                  <label>사업자</label>
+                  <select className="ctl" value={biz} onChange={(e) => setBiz(e.target.value)}>
+                    <option value="법인">법인</option>
+                    <option value="개인">개인(도래헌)</option>
+                    <option value="더북촌">더북촌</option>
+                  </select>
+                </div>
+                <div className="mfield" style={{ flex: 1 }}>
+                  <label>부서</label>
+                  <select className="ctl" value={dept} onChange={(e) => setDept(e.target.value)}>
+                    <option value="management">경영</option>
+                    <option value="art">미술</option>
+                    <option value="product">상품</option>
+                    <option value="promotion">홍보</option>
+                    <option value="experience">체험</option>
+                    <option value="education">교육</option>
+                  </select>
+                </div>
               </div>
-              <div className="mfield" style={{ flex: 1 }}>
-                <label>금액</label>
-                <input
-                  className="ctl"
-                  type="text"
-                  value={amount ? won(amount) : ''}
-                  onChange={(e) => setAmount(parseInt(e.target.value.replace(/[^0-9]/g, ''), 10) || 0)}
-                  placeholder="0"
-                />
+              <div style={{ display: 'flex', gap: 10 }}>
+                <div className="mfield" style={{ flex: 1 }}>
+                  <label>계정과목</label>
+                  <input className="ctl" value={account} onChange={(e) => setAccount(e.target.value)} placeholder="예: 외주용역비" />
+                </div>
+                <div className="mfield" style={{ flex: 1 }}>
+                  <label>금액 {itemsSum > 0 && <span style={{ fontWeight: 400, color: 'var(--muted)' }}>(내역 합계)</span>}</label>
+                  <input
+                    className="ctl"
+                    type="text"
+                    disabled={itemsSum > 0}
+                    value={itemsSum > 0 ? won(itemsSum) : amount ? won(amount) : ''}
+                    onChange={(e) => setAmount(parseInt(e.target.value.replace(/[^0-9]/g, ''), 10) || 0)}
+                    placeholder="0"
+                  />
+                </div>
               </div>
-            </div>
+              {isArt && (
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <div className="mfield" style={{ flex: 1 }}>
+                    <label>사업</label>
+                    <select className="ctl" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+                      <option value="">선택</option>
+                      {projects.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="mfield" style={{ flex: 1 }}>
+                    <label>예산 항목</label>
+                    <select className="ctl" value={budgetItem} onChange={(e) => setBudgetItem(e.target.value)} disabled={!projectId}>
+                      <option value="">선택</option>
+                      {budgets.map((b) => (
+                        <option key={b.id} value={b.item}>
+                          {b.item}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
-          {/* 미술 지출결의서 → 사업·예산 연동 */}
-          {isArt && (
-            <div style={{ display: 'flex', gap: 10 }}>
-              <div className="mfield" style={{ flex: 1 }}>
-                <label>사업</label>
-                <select className="ctl" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
-                  <option value="">선택</option>
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="mfield" style={{ flex: 1 }}>
-                <label>예산 항목</label>
-                <select className="ctl" value={budgetItem} onChange={(e) => setBudgetItem(e.target.value)} disabled={!projectId}>
-                  <option value="">선택</option>
-                  {budgets.map((b) => (
-                    <option key={b.id} value={b.item}>
-                      {b.item}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          )}
+          {def.fields.map(renderField)}
 
           {/* 결재선 */}
           <div className="mfield">
@@ -285,7 +463,7 @@ export function ApprovalDraftModal({
                   <span className="badge">승인 {admins.find((a) => a.id === approverId)?.name ?? ''}</span>
                 </>
               )}
-              {kind === '지출결의서' && (
+              {needsAcct && (
                 <>
                   <span style={{ color: 'var(--muted)' }}>›</span>
                   <span className="badge green">회계접수 담당</span>

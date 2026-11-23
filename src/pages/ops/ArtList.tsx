@@ -121,7 +121,7 @@ function basisYear(p: ArtProject, basis: 'done' | 'start'): number | null {
 
 export default function ArtList() {
   const navigate = useNavigate()
-  const [stFilter, setStFilter] = useState<'all' | 'prog' | 'done'>('all')
+  const [stFilter, setStFilter] = useState<'all' | 'prog' | 'done'>('prog')
   const [yearFilter, setYearFilter] = useState('all') // 'all' | '2026' ...
   const [yearBasis, setYearBasis] = useState<'' | 'done' | 'start'>('') // '' = 구분 없음(착공·준공 어느 쪽이든)
   const [addOpen, setAddOpen] = useState(false)
@@ -178,7 +178,7 @@ export default function ArtList() {
   const list = useMemo(
     () =>
       all
-        .filter((p) => (stFilter === 'all' ? true : stFilter === 'done' ? p.status === '완료' : p.status !== '완료'))
+        .filter((p) => (stFilter === 'all' ? true : stFilter === 'done' ? p.status === '완료' : p.status === '진행'))
         .filter((p) => {
           if (yearFilter === 'all') return true
           const yy = Number(yearFilter)

@@ -762,7 +762,7 @@ function WorkersTab({
           + 작업자 추가
         </button>
       </div>
-      {rowErr && <div className="err" style={{ margin: '0 0 8px' }}>{rowErr}</div>}
+      {rowErr && <div style={{ margin: '0 0 8px', padding: '8px 12px', borderRadius: 8, fontSize: 12.5, background: 'var(--danger-soft)', color: 'var(--danger)' }}>{rowErr}</div>}
       <div className="tbl-wrap">
         <table>
           <thead>

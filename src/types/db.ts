@@ -293,6 +293,7 @@ export interface Approval {
   budget_item: string | null
   req_date: string | null
   status: ApprovalStatus
+  urgent?: boolean
 }
 
 export interface ApprovalLine {

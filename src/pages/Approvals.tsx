@@ -119,7 +119,7 @@ export default function Approvals() {
     if (fromD && d < fromD) return false
     if (toD && d > toD) return false
     return true
-  })
+  }).sort((a, b) => Number(!!b.urgent) - Number(!!a.urgent)) // 긴급 문서 먼저
   const title =
     folder === 'pending'
       ? '결재대기'
@@ -378,7 +378,7 @@ export default function Approvals() {
                     <Fragment key={a.id}>
                     <tr style={{ cursor: 'pointer' }} className={on ? 'pf-row on' : undefined} onClick={() => setOpenId(on ? null : a.id)}>
                       <td>
-                        <div className="t-title">{a.title || a.memo}{a.status === '회수' && <span className="badge" style={{ marginLeft: 6 }}>회수</span>}</div>
+                        <div className="t-title">{a.urgent && <span className="badge" style={{ marginRight: 6, background: 'var(--danger-soft)', color: 'var(--danger)', fontWeight: 800 }}>긴급</span>}{a.title || a.memo}{a.status === '회수' && <span className="badge" style={{ marginLeft: 6 }}>회수</span>}</div>
                         <div className="t-sub">{a.doc_no} · {on ? '내용 접기 ▴' : '내용 보기 ▾'}</div>
                       </td>
                       <td>{a.drafter_id ? empName[a.drafter_id] ?? '—' : '—'}</td>

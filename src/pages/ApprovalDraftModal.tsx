@@ -246,8 +246,6 @@ export function ApprovalDraftModal({
   const numOf = (s: string) => parseInt(s.replace(/[^0-9]/g, ''), 10) || 0
   const [mgr, setMgr] = useState(false)
   const agreeOpen = showAgree || !!agreeId
-  const nameOf = (id: string) => admins.find((a) => a.id === id)
-  const ccNames = ccIds.map((id) => nameOf(id)?.name).filter(Boolean) as string[]
 
   const personSel = (value: string, set: (v: string) => void, ph: string) => (
     <select className="ctl" value={value} onChange={(e) => set(e.target.value)}>
@@ -353,38 +351,38 @@ export function ApprovalDraftModal({
       <div className="modal adm" onClick={(e) => e.stopPropagation()}>
         <header className="adm-head">
           <div className="adm-top">
-            <span className="adm-kicker">{reuse ? '재기안' : draft ? '임시보관 문서' : '새 기안'}</span>
+            <h3>{reuse ? '재기안' : draft ? '임시보관 문서' : '새 기안'}</h3>
             <button className="adm-x" onClick={onClose} title="닫기">
               ✕
             </button>
           </div>
-          <div className="adm-seg" role="tablist">
-            {FORMS.map((f) => (
-              <button key={f.id} type="button" role="tab" aria-selected={formId === f.id} className={formId === f.id ? 'on' : ''} onClick={() => setFormId(f.id)}>
-                {f.name}
-              </button>
-            ))}
+          <div className="adm-tabrow">
+            <div className="adm-tabs" role="tablist">
+              {FORMS.map((f) => (
+                <button key={f.id} type="button" role="tab" aria-selected={formId === f.id} className={formId === f.id ? 'on' : ''} onClick={() => setFormId(f.id)}>
+                  {f.name}
+                </button>
+              ))}
+            </div>
+            <span className="adm-desc">{def.desc}</span>
           </div>
-          <p className="adm-desc">{def.desc}</p>
         </header>
 
         <div className="adm-body">
           <div className="adm-main">
-            <div className="gov-head">
-              <dl className="gov-meta">
-                <dt>문서번호</dt>
-                <dd style={{ color: 'var(--muted)', fontWeight: 500 }}>상신하면 자동으로 부여됩니다</dd>
-                <dt>시행일자</dt>
-                <dd>{today()}</dd>
-                <dt>수 신</dt>
-                <dd>내부결재</dd>
-                {ccNames.length > 0 && (
-                  <>
-                    <dt>참 조</dt>
-                    <dd>{ccNames.join(', ')}</dd>
-                  </>
-                )}
-              </dl>
+            <div className="adm-info">
+              <div>
+                <small>문서번호</small>
+                <span className="mu">상신 시 자동 부여</span>
+              </div>
+              <div>
+                <small>시행일자</small>
+                <span>{today()}</span>
+              </div>
+              <div>
+                <small>수 신</small>
+                <span>내부결재</span>
+              </div>
             </div>
             <div className="adm-f">
               <div className="adm-l">
